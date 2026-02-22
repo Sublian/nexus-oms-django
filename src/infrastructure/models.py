@@ -1,10 +1,9 @@
 from django.db import models
-from src.domain.models import Organization
 from .multitenancy.managers import TenantManager
 
 class TenantModel(models.Model):
     organization = models.ForeignKey(
-        Organization, 
+        'domain.Organization', 
         on_delete=models.CASCADE,
         related_name="%(class)s_items"
     )
