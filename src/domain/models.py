@@ -35,3 +35,22 @@ class Product(TenantModel):
 
     def __str__(self):
         return f"{self.name} - {self.sku}"    
+    
+class Warehouse(TenantModel):
+    name = models.CharField(max_length=100)
+    address = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.organization.name})"
+
+class Stock(TenantModel):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stocks')
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.CASCADE, related_name='stocks')
+    quantity = models.IntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('product', 'warehouse') # Un registro por producto en cada bodega
+
+    def __str__(self):
+        return f"{self.product.name} @ {self.warehouse.name}: {self.quantity}"
