@@ -1,0 +1,29 @@
+# --- Framework Base ---
+Django>=5.2
+django-environ              # Gestión de variables de entorno (.env)
+psycopg[binary]             # Driver robusto para PostgreSQL
+
+# --- API & Serialización ---
+djangorestframework
+django-filter
+drf-spectacular             # Documentación OpenAPI/Swagger de alta calidad
+
+# --- Arquitectura & Lógica ---
+django-fsm                  # Máquina de Estados Finita para los pedidos
+pydantic                    # Validación de esquemas de datos en la capa de dominio
+
+# --- Asincronía y Networking ---
+httpx                       # El estándar moderno para peticiones HTTP async
+celery[redis]               # Procesamiento de tareas en segundo plano
+redis                       # Cliente de Redis para cache y broker
+
+# --- Frontend (HTMX Friendly) ---
+django-htmx                 # Extensiones de Django para facilitar el uso de HTMX
+django-compressor           # Para manejar Tailwind/CSS de forma eficiente
+django-widget-tweaks        # Manipulación de formularios para HTMX
+
+# --- Calidad y Desarrollo ---
+pytest-django
+pytest-cov
+black                       # Formateador de código
+flake8                      # Linter

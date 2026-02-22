@@ -51,16 +51,31 @@ El proyecto implementa **Clean Architecture** para garantizar que el sistema sea
 ## 📂 Estructura del Repositorio
 
 ```text
-src/
-├── apps/
-│   ├── core/           # Middleware multi-tenant y utilidades globales
-│   ├── tenants/        # Gestión de organizaciones y suscripciones
-│   └── orders/         # Módulo Complejo (OMS)
-│       ├── domain/     # Entidades y lógica de negocio pura
-│       ├── application/# Casos de Uso (PlaceOrder, CancelOrder, etc.)
-│       ├── infra/      # Implementación de Repositorios y Modelos Django
-│       └── api/        # Endpoints y Serializers
-├── tests/              # Suite de pruebas organizada por capas
-└── config/             # Configuración de settings de Django
+/nexus_project
+│
+├── src/
+│   ├── domain/              # Reglas de negocio (Python Puro)
+│   ├── application/         # Casos de uso (PlaceOrder, etc)
+│   ├── infrastructure/      # Adaptadores (Postgres, HTTPX Clients, Celery Tasks)
+│   └── interfaces/          # Web (HTMX Views), API (DRF), Templates
+│
+├── templates/               # Fragmentos de HTML para HTMX
+├── static/                  # Tailwind CSS
+├── docker-compose.yml       # Django, Postgres, Redis, Celery Worker, Mailhog
+└── Makefile                 # Comandos: make test, make build, make logs
 ```
 
+## 📍 Roadmap de Desarrollo
+Para ver el detalle de los hitos y el progreso técnico, consulta nuestro [Roadmap Detallado](./docs/ROADMAP.md).
+
+- **M1: Core & Multi-tenancy** 🚧 (En desarrollo)
+- **M2: OMS & DDD Logic** ⏳
+- **M3: HTMX & Celery Async** ⏳
+
+## 📖 Documentación Detallada
+
+Para comprender a fondo las decisiones técnicas y el plan de ejecución, revisa los documentos en la carpeta [`docs/`](./docs/):
+
+* [**Architecture & Design**](./docs/ARCHITECTURE.md): Diagramas de capas, flujo asíncrono y máquina de estados.
+* [**Modern Stack Strategy**](./docs/STACK.md): Justificación del uso de HTMX, HTTPX y arquitectura basada en eventos.
+* [**Roadmap & Milestones**](./docs/ROADMAP.md): Seguimiento detallado del progreso y objetivos técnicos.

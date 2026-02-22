@@ -7,6 +7,25 @@ Este documento detalla las decisiones arquitectónicas, patrones de diseño y la
 ## 1. Visión General del Proyecto
 **Nexus** no es solo un carrito de compras; es un **Order Management System (OMS)** diseñado para alta disponibilidad y escalabilidad. Su propósito es permitir que múltiples empresas (Tenants) gestionen catálogos y pedidos complejos desde una infraestructura única, manteniendo un aislamiento total de datos y lógica de negocio extensible.
 
+### Diagrama de Flujo: HTMX + Django + Celery
+
+```mermaid
+    participant U as Usuario (HTMX)
+    participant D as Django View
+    participant C as Celery Worker
+    participant R as Redis (State)
+
+    U->>D: POST /orders/1/pay (hx-post)
+    D->>C: Delay Task: ProcessPaymentTask
+    D-->>U: Return HTML Snippet (Status: Processing...)
+    
+    loop Polling with hx-get
+        U->>D: GET /orders/1/status
+        D->>R: Check Task Status
+        R-->>D: Task Completed
+        D-->>U: Return HTML Snippet (Status: Paid ✅)
+    end
+```
 ---
 
 ## 2. Estructura de Capas (Clean Architecture)
@@ -65,7 +84,27 @@ Se ha implementado una estrategia de **Shared Database con Discriminador**.
 * **Mecanismo:** Un Middleware identifica al `tenant` mediante el subdominio o el header `X-Tenant-ID`.
 * **Seguridad:** Se utiliza un `Global Tenant Manager` en los modelos de Django que añade automáticamente un filtro `WHERE tenant_id = X` a todas las consultas, previniendo la fuga de datos (Data Leakage) entre clientes.
 
+### Diagrama de Aislamiento Multi-tenant (Middleware)
+Este es crucial para explicar el pilar "invisible". Muestra cómo el sistema decide qué datos mostrar dependiendo de quién pregunta.
+
+```mermaid
+graph LR
+    UserA[Client Store A] -->|Subdomain: store-a.nexus.com| MW[Tenant Middleware]
+    UserB[Client Store B] -->|Subdomain: store-b.nexus.com| MW
+    
+    subgraph "Request Lifecycle"
+        MW --> Context[Set TenantContext]
+        Context --> Manager[Global Tenant Manager]
+    end
+    
+    subgraph "Database (Shared)"
+        Manager --> QueryA[(Query: WHERE tenant_id = 'A')]
+        Manager --> QueryB[(Query: WHERE tenant_id = 'B')]
+    end
+```
+
 ### B. Arquitectura Orientada a Eventos (EDA)
+
 El sistema utiliza un bus de mensajes (RabbitMQ/Redis) para desacoplar procesos pesados.
 * **Flujo:** Al completar un pedido, el dominio emite un evento `OrderConfirmed`.
 * **Consumidores:** Workers de **Celery** capturan este evento para:
@@ -157,3 +196,69 @@ stateDiagram-v2
 
 
 ---
+
+## 7. Modelado de Datos.
+
+### 7.1. Diagrama de Relación de Entidades (ERD) - Enfoque OMS
+Este diagrama muestra cómo se estructuran los datos para soportar el módulo complejo (OMS) y el Multi-tenancy.
+
+```mermaid
+erDiagram
+    TENANT ||--o{ PRODUCT : owns
+    TENANT ||--o{ ORDER : manages
+    PRODUCT ||--o{ ORDER_ITEM : included_in
+    ORDER ||--|{ ORDER_ITEM : contains
+    ORDER ||--o{ ORDER_STATUS_HISTORY : tracks
+    CUSTOMER ||--o{ ORDER : places
+
+    ORDER {
+        uuid id
+        string status
+        decimal total_amount
+        datetime created_at
+    }
+    PRODUCT {
+        uuid id
+        string sku
+        jsonb attributes
+        decimal price
+    }
+    ORDER_STATUS_HISTORY {
+        string from_status
+        string to_status
+        string comment
+        datetime changed_at
+    }
+```
+
+---
+
+## 8. Despliegue y DevOps.
+
+### Diagrama de Infraestructura (Docker Compose)
+Este diagrama ayuda a visualizar cómo interactúan todos los servicios del stack tecnológico. Es el mapa de tu docker-compose.yml.
+
+```mermaid
+graph TD
+    subgraph "Public Network"
+        NGINX[Nginx Reverse Proxy]
+    end
+
+    subgraph "Application Tier"
+        Django[Django API / Gunicorn]
+        Worker[Celery Worker: Emails/Payments]
+        Beat[Celery Beat: Cron Jobs]
+    end
+
+    subgraph "Data Tier"
+        DB[(PostgreSQL)]
+        Redis[(Redis: Cache/Broker)]
+    end
+
+    NGINX --> Django
+    Django --> DB
+    Django --> Redis
+    Worker --> Redis
+    Worker --> DB
+    Beat --> Redis
+```
