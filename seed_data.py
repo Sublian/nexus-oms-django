@@ -7,7 +7,9 @@ django.setup()
 
 from src.domain.models import Organization, Product, Category
 from src.infrastructure.multitenancy.thread_local import set_current_organization, clear_current_organization
+from src.domain.models import Organization, Product, Category, Warehouse, Stock
 
+    
 def run_seed():
     print("🚀 Iniciando carga de datos de prueba...")
 
@@ -18,18 +20,20 @@ def run_seed():
 
     def seed_org_catalog(org, categories_data):
         set_current_organization(org.id)
-        print(f"📦 Procesando catálogo para: {org.name}")
+        print(f"📦 Procesando catálogo e inventario para: {org.name}")
+        
+        # 1. Crear Bodega principal para la organización
+        warehouse, _ = Warehouse.objects.get_or_create(
+            name=f"Bodega Central {org.name}",
+            organization=org
+        )
         
         for cat_name, products in categories_data.items():
-            # Crear Categoría
-            category, _ = Category.objects.get_or_create(
-                name=cat_name, 
-                organization=org
-            )
+            category, _ = Category.objects.get_or_create(name=cat_name, organization=org)
             
-            # Crear Productos
             for p_data in products:
-                Product.objects.update_or_create(
+                # 2. Crear/Actualizar Producto
+                product, _ = Product.objects.update_or_create(
                     sku=p_data['sku'],
                     defaults={
                         'name': p_data['name'],
@@ -38,7 +42,18 @@ def run_seed():
                         'organization': org
                     }
                 )
+                
+                # 3. Asignar Stock (ejemplo: 50 unidades de cada uno)
+                Stock.objects.update_or_create(
+                    product=product,
+                    warehouse=warehouse,
+                    defaults={
+                        'quantity': 50,
+                        'organization': org
+                    }
+                )
         clear_current_organization()
+
 
     # 2. Definir Estructura
     nike_catalog = {
