@@ -1,5 +1,5 @@
 from django.shortcuts import get_object_or_404
-from .thread_local import set_current_organization
+from .thread_local import set_current_organization, clear_current_organization
 
 class OrganizationMiddleware:
     def __init__(self, get_response):
@@ -14,4 +14,6 @@ class OrganizationMiddleware:
             set_current_organization(org_id)
         
         response = self.get_response(request)
+        # ¡IMPORTANTE! Limpiar al terminar la petición
+        clear_current_organization()
         return response

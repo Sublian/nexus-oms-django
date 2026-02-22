@@ -53,6 +53,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_htmx.middleware.HtmxMiddleware', # Añadir HTMX
+    'src.infrastructure.multitenancy.middleware.OrganizationMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
