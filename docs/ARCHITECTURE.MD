@@ -10,6 +10,7 @@ Este documento detalla las decisiones arquitectónicas, patrones de diseño y la
 ### Diagrama de Flujo: HTMX + Django + Celery
 
 ```mermaid
+sequenceDiagram
     participant U as Usuario (HTMX)
     participant D as Django View
     participant C as Celery Worker
@@ -26,6 +27,7 @@ Este documento detalla las decisiones arquitectónicas, patrones de diseño y la
         D-->>U: Return HTML Snippet (Status: Paid ✅)
     end
 ```
+
 ---
 
 ## 2. Estructura de Capas (Clean Architecture)
