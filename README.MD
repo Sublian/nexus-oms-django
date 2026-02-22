@@ -13,7 +13,7 @@ Nexus es una plataforma de **Order Management System (OMS)** de alto rendimiento
 - **Multi-tenancy Riguroso:** Aislamiento de datos por esquema/ID mediante Middleware personalizado.
 - **Core de Pedidos (OMS):** Motor de estados complejo (FSM) para la gestión del ciclo de vida de las órdenes.
 - **Motor de Promociones:** Basado en el patrón *Strategy* para aplicar descuentos dinámicos.
-- **Arquitectura Orientada a Eventos (EDA):** Procesamiento de pagos y notificaciones vía Celery + RabbitMQ.
+- **Arquitectura Orientada a Eventos (EDA):** Procesamiento de pagos y notificaciones vía Celery.
 - **Observabilidad:** Logs estructurados y trazabilidad completa de cambios de estado (Audit Logs).
 
 ---
@@ -42,7 +42,7 @@ El proyecto implementa **Clean Architecture** para garantizar que el sistema sea
 | :--- | :--- |
 | **Backend** | Python 3.12+, Django 5.x, DRF |
 | **Base de Datos** | PostgreSQL (JSONB support) |
-| **Task Queue** | Celery + RabbitMQ / Redis |
+| **Task Queue** | Celery + Redis |
 | **Testing** | Pytest (Unit, Integration, E2E) |
 | **DevOps** | Docker, Docker Compose, GitHub Actions |
 

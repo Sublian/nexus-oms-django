@@ -105,7 +105,7 @@ graph LR
 
 ### B. Arquitectura Orientada a Eventos (EDA)
 
-El sistema utiliza un bus de mensajes (RabbitMQ/Redis) para desacoplar procesos pesados.
+El sistema utiliza un bus de mensajes (Celery/Redis) para desacoplar procesos pesados.
 * **Flujo:** Al completar un pedido, el dominio emite un evento `OrderConfirmed`.
 * **Consumidores:** Workers de **Celery** capturan este evento para:
     1.  Generar la factura legal (PDF).
@@ -121,7 +121,7 @@ sequenceDiagram
     participant C as Client
     participant API as Django API
     participant DB as PostgreSQL
-    participant B as Message Broker (RabbitMQ)
+    participant B as Message Broker (Celery)
     participant W as Celery Workers
 
     C->>API: POST /orders/ (Place Order)
