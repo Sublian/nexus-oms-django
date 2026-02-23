@@ -54,3 +54,32 @@ class Stock(TenantModel):
 
     def __str__(self):
         return f"{self.product.name} @ {self.warehouse.name}: {self.quantity}"
+    
+
+class Order(TenantModel):
+    STATUS_CHOICES = [
+        ('PENDING', 'Pendiente'),
+        ('PAID', 'Pagado'),
+        ('SHIPPED', 'Enviado'),
+        ('DELIVERED', 'Entregado'),
+        ('CANCELLED', 'Cancelado'),
+    ]
+
+    customer_name = models.CharField(max_length=255)
+    customer_email = models.EmailField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Pedido {self.id} - {self.customer_name} ({self.organization.name})"
+
+class OrderItem(TenantModel):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT) # No borrar producto si hay pedidos
+    quantity = models.PositiveIntegerField()
+    price_at_order = models.DecimalField(max_digits=10, decimal_places=2) # Histórico del precio
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name}"
+
