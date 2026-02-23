@@ -5,34 +5,90 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
-from src.domain.models import Organization, Product, Category
+from src.domain.models import Organization, Product, Category, Warehouse, Stock, TaxConfiguration
 from src.infrastructure.multitenancy.thread_local import set_current_organization, clear_current_organization
-from src.domain.models import Organization, Product, Category, Warehouse, Stock
 
-    
 def run_seed():
-    print("🚀 Iniciando carga de datos de prueba...")
+    print("🚀 Iniciando carga maestra de datos (Nexus OMS)...")
 
-    # 1. Obtener organizaciones
-    main_shop, _ = Organization.objects.get_or_create(name="Tienda Principal", defaults={'slug': 'main'})
-    nike, _ = Organization.objects.get_or_create(name="Nike", defaults={'slug': 'nike'})
-    adidas, _ = Organization.objects.get_or_create(name="Adidas", defaults={'slug': 'adidas'})
+    # 2. Configuración Maestra de Organizaciones e Impuestos
+    org_configs = [
+        {'name': 'Tienda Principal', 'slug': 'main', 'tax': 18.00},
+        {'name': 'Nike', 'slug': 'nike', 'tax': 15.00},
+        {'name': 'Adidas', 'slug': 'adidas', 'tax': 15.00},
+        {'name': 'Tienda Minorista', 'slug': 'minorista', 'tax': 12.00},
+    ]
 
-    def seed_org_catalog(org, categories_data):
-        set_current_organization(org.id)
-        print(f"📦 Procesando catálogo e inventario para: {org.name}")
+    # 3. Catálogos específicos
+    catalogs = {
+        'Nike': {
+            'Calzado': [
+                {'name': 'Air Max 90', 'sku': 'NIKE-AM90', 'price': 120.00},
+                {'name': 'Jordan Retro', 'sku': 'NIKE-JR1', 'price': 180.00},
+            ],
+            'Ropa': [
+                {'name': 'Camiseta Dri-FIT', 'sku': 'NIKE-DFT-01', 'price': 35.00},
+            ]
+        },
+        'Adidas': {
+            'Running': [
+                {'name': 'Ultraboost 22', 'sku': 'ADI-UB22', 'price': 150.00},
+            ],
+            'Casual': [
+                {'name': 'Stan Smith', 'sku': 'ADI-SS', 'price': 85.00},
+            ]
+        },
+        'Tienda Minorista': {
+            'Accesorios': [
+                {'name': 'Gorra Genérica', 'sku': 'MIN-GOR-01', 'price': 15.00},
+                {'name': 'Mochila Urbana', 'sku': 'MIN-MOCH-02', 'price': 45.00},
+            ]
+        },
+        'Tienda Principal': {
+            'Accesorios': [
+                {'name': 'Gorra Nice', 'sku': 'NIC-GOR-01', 'price': 45.00},
+                {'name': 'Mochila Nice', 'sku': 'NIC-MOCH-02', 'price': 85.00},
+            ],
+            'Casual': [
+                {'name': 'Stan Smith', 'sku': 'ADI-SSP', 'price': 95.00},
+            ],
+            'Ropa': [
+                {'name': 'Camiseta Dri-FIT', 'sku': 'NIKE-DFT-01P', 'price': 45.00},
+            ]
+        }
+    }
+
+    for config in org_configs:
+        # A. Crear u Obtener Organización
+        org, _ = Organization.objects.get_or_create(
+            name=config['name'], 
+            defaults={'slug': config['slug']}
+        )
         
-        # 1. Crear Bodega principal para la organización
+        # B. Establecer contexto para esta organización
+        set_current_organization(org.id)
+        print(f"🏢 Procesando: {org.name}")
+
+        # C. Configurar Impuestos
+        TaxConfiguration.objects.update_or_create(
+            organization=org,
+            is_default=True,
+            defaults={'name': f'Impuesto {org.name}', 'rate': config['tax']}
+        )
+
+        # D. Crear Bodega
         warehouse, _ = Warehouse.objects.get_or_create(
             name=f"Bodega Central {org.name}",
             organization=org
         )
-        
-        for cat_name, products in categories_data.items():
+
+        # E. Cargar Catálogo si existe en nuestra definición
+        org_catalog = catalogs.get(org.name, {})
+        for cat_name, products in org_catalog.items():
             category, _ = Category.objects.get_or_create(name=cat_name, organization=org)
             
             for p_data in products:
-                # 2. Crear/Actualizar Producto
+                # Crear/Actualizar Producto
                 product, _ = Product.objects.update_or_create(
                     sku=p_data['sku'],
                     defaults={
@@ -43,43 +99,18 @@ def run_seed():
                     }
                 )
                 
-                # 3. Asignar Stock (ejemplo: 50 unidades de cada uno)
+                # Asignar Stock inicial (50 unidades)
                 Stock.objects.update_or_create(
                     product=product,
                     warehouse=warehouse,
-                    defaults={
-                        'quantity': 50,
-                        'organization': org
-                    }
+                    organization=org,
+                    defaults={'quantity': 50}
                 )
+
+        # Limpiar contexto antes de la siguiente organización
         clear_current_organization()
 
-
-    # 2. Definir Estructura
-    nike_catalog = {
-        'Calzado': [
-            {'name': 'Air Max 90', 'sku': 'NIKE-AM90', 'price': 120.00},
-            {'name': 'Jordan Retro', 'sku': 'NIKE-JR1', 'price': 180.00},
-        ],
-        'Ropa': [
-            {'name': 'Camiseta Dri-FIT', 'sku': 'NIKE-DFT-01', 'price': 35.00},
-        ]
-    }
-
-    adidas_catalog = {
-        'Running': [
-            {'name': 'Ultraboost 22', 'sku': 'ADI-UB22', 'price': 150.00},
-        ],
-        'Casual': [
-            {'name': 'Stan Smith', 'sku': 'ADI-SS', 'price': 85.00},
-        ]
-    }
-
-    # Ejecutar
-    seed_org_catalog(nike, nike_catalog)
-    seed_org_catalog(adidas, adidas_catalog)
-
-    print("✅ Catálogo con categorías actualizado.")
+    print("\n✅ Proceso de seeding finalizado con éxito.")
 
 if __name__ == '__main__':
     run_seed()
