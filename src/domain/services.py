@@ -1,6 +1,6 @@
 
 from django.db import transaction
-from .models import Order, OrderItem, Stock, Product
+from .models import Order, OrderItem, Stock, Product, TaxConfiguration
 
 
 class CatalogService:
@@ -31,13 +31,16 @@ class OrderService:
         items_data: [{'product': p_obj, 'quantity': 2}, ...]
         """
         # 1. Crear el objeto Pedido
+        tax_config = TaxConfiguration.objects.filter(organization=organization, is_default=True).first()
+        tax_rate = tax_config.rate if tax_config else 0
+
         order = Order.objects.create(
             organization=organization,
             customer_name=customer_data['name'],
             customer_email=customer_data['email']
         )
 
-        total = 0
+        subtotal = 0
         for item in items_data:
             product = item['product']
             qty = item['quantity']
@@ -60,9 +63,11 @@ class OrderService:
                 quantity=qty,
                 price_at_order=product.price
             )
-            total += product.price * qty
+            subtotal += product.price * qty
 
         # 5. Actualizar total del pedido
-        order.total_amount = total
+        order.subtotal = subtotal
+        order.tax_amount = (subtotal * tax_rate) / 100
+        order.total_amount = order.subtotal + order.tax_amount
         order.save()
         return order
