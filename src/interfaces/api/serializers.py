@@ -20,3 +20,16 @@ class ProductSerializer(serializers.ModelSerializer):
         # Sumamos el stock de todas las bodegas de este producto
         return obj.stocks.aggregate(total=Sum('quantity'))['total'] or 0
     
+class OrderItemCreateSerializer(serializers.Serializer):
+    product_id = serializers.UUIDField()
+    quantity = serializers.IntegerField(min_value=1)
+
+class OrderCreateSerializer(serializers.Serializer):
+    customer_name = serializers.CharField(max_length=255)
+    customer_email = serializers.EmailField()
+    items = OrderItemCreateSerializer(many=True)
+
+    def validate_items(self, value):
+        if not value:
+            raise serializers.ValidationError("Un pedido debe tener al menos un producto.")
+        return value
