@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from src.domain.models import Product, Category
+from src.domain.models import Product, Category, SalesReport
 from django.db.models import Sum
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -33,3 +33,9 @@ class OrderCreateSerializer(serializers.Serializer):
         if not value:
             raise serializers.ValidationError("Un pedido debe tener al menos un producto.")
         return value
+    
+class SalesReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SalesReport
+        fields = ['id', 'generated_at', 'total_sales', 'order_count', 'data']
+

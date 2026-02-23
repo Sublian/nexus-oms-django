@@ -1,11 +1,12 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
+from rest_framework.decorators import action
 
-from src.domain.models import Order, Product, Organization
+from src.domain.models import Order, Product, Organization,SalesReport
 from src.domain.services import OrderService
-from .serializers import OrderCreateSerializer, ProductSerializer
+from .serializers import OrderCreateSerializer, ProductSerializer, SalesReportSerializer
 from src.infrastructure.multitenancy.thread_local import get_current_organization
-
+from src.domain.tasks import generate_sales_report_task
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -66,3 +67,18 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({"error": "Uno de los productos no existe en tu organización"}, status=status.HTTP_400_BAD_REQUEST)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+class ReportViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = SalesReport.objects.all()
+    serializer_class = SalesReportSerializer 
+    
+    @action(detail=False, methods=['post'])
+    def trigger_report(self, request):
+        org_id = get_current_organization()
+        # Disparamos la tarea en Celery
+        task = generate_sales_report_task.delay(org_id)
+        return Response({
+            "message": "Generación de reporte iniciada",
+            "task_id": task.id
+        })

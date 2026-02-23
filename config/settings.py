@@ -1,6 +1,7 @@
 import environ
 import os
 from pathlib import Path
+from celery.schedules import crontab
 
 env = environ.Env(
     DEBUG=(bool, False)
@@ -24,6 +25,12 @@ DATABASES = {
 # Configuración de Celery / Redis
 CELERY_BROKER_URL = env('REDIS_URL', default='redis://redis:6379/0')
 CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://redis:6379/0')
+CELERY_BEAT_SCHEDULE = {
+    'generate-weekly-reports': {
+        'task': 'src.domain.tasks.generate_weekly_all_orgs',
+        'schedule': crontab(minute=0, hour=0, day_of_week='monday'),
+    },
+}
 
 # Application definition
 

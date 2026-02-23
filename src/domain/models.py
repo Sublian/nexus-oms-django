@@ -92,3 +92,12 @@ class OrderItem(TenantModel):
     def __str__(self):
         return f"{self.quantity} x {self.product.name}"
 
+
+class SalesReport(TenantModel):
+    generated_at = models.DateTimeField(auto_now_add=True)
+    total_sales = models.DecimalField(max_digits=15, decimal_places=2)
+    order_count = models.IntegerField()
+    data = models.JSONField() # Guardaremos el desglose aquí
+
+    def __str__(self):
+        return f"Reporte {self.generated_at} - {self.organization.name}"
