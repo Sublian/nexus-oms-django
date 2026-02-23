@@ -3,6 +3,11 @@
 Este documento detalla las decisiones arquitectónicas, patrones de diseño y la estructura técnica de **Nexus**, una plataforma SaaS de E-commerce Multi-tenant.
 
 ---
+> ⚠️ Nota para reviewers  
+> Este documento describe la **arquitectura objetivo** de Nexus OMS.  
+> Algunas secciones están ya implementadas en código y otras en fase de diseño.  
+> Cuando una sección esté parcialmente implementada, lo indicamos explícitamente.
+---
 
 ## 1. Visión General del Proyecto
 **Nexus** no es solo un carrito de compras; es un **Order Management System (OMS)** diseñado para alta disponibilidad y escalabilidad. Su propósito es permitir que múltiples empresas (Tenants) gestionen catálogos y pedidos complejos desde una infraestructura única, manteniendo un aislamiento total de datos y lógica de negocio extensible.
