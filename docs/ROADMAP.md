@@ -19,7 +19,7 @@ Este documento detalla los hitos de desarrollo y objetivos técnicos del proyect
 ## Hito 3: Gestión de Pedidos (Orders)
 - [x] Modelos de Order y OrderItem.
 - [x] Servicio de Dominio para cálculo de totales e impuestos.
-- [ ] Endpoints de creación de pedidos (POST).
+- [X] Endpoints de creación de pedidos (POST).
 - [ ] Validación de reglas de negocio (No mezclar productos de distintas tiendas).
 
 ## Hito 4: Reactividad con HTMX y Async (HTMX & Celery) ⚡

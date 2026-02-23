@@ -1,6 +1,7 @@
 
 from django.db import transaction
 from .models import Order, OrderItem, Stock, Product, TaxConfiguration
+from .tasks import process_order_notifications
 
 
 class CatalogService:
@@ -70,4 +71,9 @@ class OrderService:
         order.tax_amount = (subtotal * tax_rate) / 100
         order.total_amount = order.subtotal + order.tax_amount
         order.save()
+
+        # Disparamos la tarea de Celery (fuera del hilo principal)
+        # .delay() la envía a Redis y el worker la toma cuando puede
+        process_order_notifications.delay(order.id)
         return order
+    
