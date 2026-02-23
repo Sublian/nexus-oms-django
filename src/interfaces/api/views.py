@@ -70,8 +70,16 @@ class OrderViewSet(viewsets.ModelViewSet):
         
 
 class ReportViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = SalesReport.objects.all()
     serializer_class = SalesReportSerializer 
+    
+    def get_queryset(self):
+        """
+        Este método asegura que un Tenant SOLO vea sus propios reportes.
+        """
+        from src.infrastructure.multitenancy.thread_local import get_current_organization
+        
+        org_id = get_current_organization()
+        return SalesReport.objects.filter(organization_id=org_id)
     
     @action(detail=False, methods=['post'])
     def trigger_report(self, request):
