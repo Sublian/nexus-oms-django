@@ -101,3 +101,34 @@ class SalesReport(TenantModel):
 
     def __str__(self):
         return f"Reporte {self.generated_at} - {self.organization.name}"
+    
+
+class OrderReturn(TenantModel):
+    class Reason(models.TextChoices):
+        DAMAGED = 'DAMAGED', 'Producto Dañado'
+        MISTAKE = 'MISTAKE', 'Error en Envío'
+        DISSATISFIED = 'DISSATISFIED', 'Cliente Insatisfecho'
+        EXPIRED = 'EXPIRED', 'Producto Vencido'
+        OTHERS = 'OTHERS', 'Otros'
+
+    order = models.ForeignKey(
+        Order, 
+        on_delete=models.PROTECT, # Protegemos para no borrar registros contables
+        related_name='returns'
+    )
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField()
+    reason = models.CharField(
+        max_length=20, 
+        choices=Reason.choices, 
+        default=Reason.DISSATISFIED
+    )
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Devolución"
+        verbose_name_plural = "Devoluciones"
+
+    def __str__(self):
+        return f"Retorno #{self.id} - Pedido #{self.order.id}"

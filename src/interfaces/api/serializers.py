@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from src.domain.models import Product, Category, SalesReport
+from src.domain.models import OrderReturn, Product, Category, SalesReport
 from django.db.models import Sum
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -39,3 +39,9 @@ class SalesReportSerializer(serializers.ModelSerializer):
         model = SalesReport
         fields = ['id', 'generated_at', 'total_sales', 'order_count', 'data']
 
+
+class OrderReturnSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderReturn
+        fields = ['id', 'order', 'product', 'quantity', 'reason', 'notes', 'created_at']
+        read_only_fields = ['id', 'created_at']

@@ -1,6 +1,6 @@
 
 from django.db import transaction
-from .models import Order, OrderItem, Stock, Product, TaxConfiguration
+from .models import Order, OrderItem, Stock, Product, TaxConfiguration, OrderReturn
 from .tasks import process_order_notifications
 
 
@@ -77,3 +77,32 @@ class OrderService:
         process_order_notifications.delay(order.id)
         return order
     
+
+    @staticmethod
+    @transaction.atomic
+    def process_return(organization, order_id, product_id, quantity, reason, notes=""):
+        # 1. Obtener y validar el pedido (asegurando que pertenezca a la organización)
+        order = Order.objects.get(id=order_id, organization=organization)
+        product = Product.objects.get(id=product_id, organization=organization)
+
+        # 2. Crear el registro de devolución
+        order_return = OrderReturn.objects.create(
+            organization=organization,
+            order=order,
+            product=product,
+            quantity=quantity,
+            reason=reason,
+            notes=notes
+        )
+
+        # 3. ACTUALIZACIÓN DE INVENTARIO
+        # Devolvemos las unidades al producto
+        product.stock += quantity
+        product.save()
+
+        # 4. Actualizar estado del pedido si es necesario
+        # Podríamos marcarlo como 'RETURNED' o manejar estados por ítem
+        # Por ahora, dejemos un log o comentario de que se procesó
+        print(f"Stock recuperado: {product.name} (+{quantity})")
+
+        return order_return

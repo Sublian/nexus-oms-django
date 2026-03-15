@@ -2,9 +2,9 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
-from src.domain.models import Order, Product, Organization,SalesReport
+from src.domain.models import Order, Product, Organization,SalesReport, OrderReturn
 from src.domain.services import OrderService
-from .serializers import OrderCreateSerializer, ProductSerializer, SalesReportSerializer
+from .serializers import OrderCreateSerializer, ProductSerializer, SalesReportSerializer, OrderReturnSerializer
 from src.infrastructure.multitenancy.thread_local import get_current_organization
 from src.domain.tasks import generate_sales_report_task
 
@@ -76,7 +76,6 @@ class ReportViewSet(viewsets.ReadOnlyModelViewSet):
         """
         Este método asegura que un Tenant SOLO vea sus propios reportes.
         """
-        from src.infrastructure.multitenancy.thread_local import get_current_organization
         
         org_id = get_current_organization()
         return SalesReport.objects.filter(organization_id=org_id)
@@ -90,3 +89,34 @@ class ReportViewSet(viewsets.ReadOnlyModelViewSet):
             "message": "Generación de reporte iniciada",
             "task_id": task.id
         })
+
+
+class OrderReturnViewSet(viewsets.ModelViewSet):
+    serializer_class = OrderReturnSerializer
+    
+    def get_queryset(self):
+        org_id = get_current_organization()
+        return OrderReturn.objects.filter(organization_id=org_id)
+    
+    def create(self, request, *args, **kwargs):
+        org_id = get_current_organization()
+        # En una implementación real, aquí obtendrías el objeto Organization completo
+        
+        organization = Organization.objects.get(id=org_id)
+
+        try:
+            # Ejecutamos la lógica a través del servicio de dominio
+            order_return = OrderService.process_return(
+                organization=organization,
+                order_id=request.data.get('order'),
+                product_id=request.data.get('product'),
+                quantity=int(request.data.get('quantity')),
+                reason=request.data.get('reason'),
+                notes=request.data.get('notes', "")
+            )
+            
+            serializer = self.get_serializer(order_return)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
