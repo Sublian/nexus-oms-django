@@ -7,8 +7,9 @@ django-fsm
 pydantic
 httpx
 celery[redis]
-redis
 django-htmx
+django-redis>=5.4.0
+redis>=5.0.0
 django-widget-tweaks
 pytest-django
 gunicorn

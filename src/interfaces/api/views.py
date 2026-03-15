@@ -1,5 +1,5 @@
 from drf_spectacular.utils import extend_schema
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, serializers as drf_serializers # Importa DRF como drf_serializers para evitar confusiones con el serializers de tu app
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -8,9 +8,11 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 
 from src.domain.models import Order, Product, Organization,SalesReport, OrderReturn
 from src.domain.services import OrderService
-from .serializers import OrderCreateSerializer, ProductSerializer, SalesReportSerializer, OrderReturnSerializer
+from .serializers import OrderCreateSerializer, ProductSerializer, ReportTriggerSerializer, SalesReportSerializer, OrderReturnSerializer
 from src.infrastructure.multitenancy.thread_local import get_current_organization
 from src.domain.tasks import generate_sales_report_task
+
+from src.interfaces.api import serializers
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -84,13 +86,20 @@ class ReportViewSet(viewsets.ReadOnlyModelViewSet):
         org_id = get_current_organization()
         return SalesReport.objects.filter(organization_id=org_id)
     
+    @extend_schema(
+        request=serializers.ReportTriggerSerializer,
+        responses={200: drf_serializers.DictField()}, 
+        description="Dispara la generación asíncrona de un reporte de ventas."
+    )
     @action(detail=False, methods=['post'])
     def trigger_report(self, request):
         org_id = get_current_organization()
-        start_date = request.data.get('start_date')
-        end_date = request.data.get('end_date')
+        serializer = ReportTriggerSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        start_date = serializer.validated_data.get('start_date')
+        end_date = serializer.validated_data.get('end_date')
 
-        # Lanzamos la tarea con los parámetros
         task = generate_sales_report_task.delay(org_id, start_date, end_date)
         
         return Response({

@@ -1,5 +1,7 @@
 from celery import shared_task
 import time
+from datetime import datetime
+from django.core.cache import cache
 from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Sum, Count, F
@@ -19,65 +21,61 @@ def process_order_notifications(order_id):
     print(f"✅ Notificación enviada exitosamente para el Pedido #{order_id}")
     return True
 
+def calculate_growth(current, previous):
+    if previous == 0:
+        return 100.0 if current > 0 else 0.0
+    return round(((current - previous) / previous) * 100, 2)
+
 @shared_task
 def generate_sales_report_task(organization_id, start_date=None, end_date=None):
     org = Organization.objects.get(id=organization_id)
 
     # Manejo de fechas por defecto (Hoy)
-    if not end_date:
-        end_date = timezone.now()
-    if not start_date:
-        start_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    if not end_date: end_date = timezone.now()
+    if not start_date: start_date = end_date - timedelta(days=1)
 
-    orders = Order.objects.filter(
-        organization=org,
-        created_at__range=(start_date, end_date)
-    )
-    returns = OrderReturn.objects.filter(
-        organization=org,
-        created_at__range=(start_date, end_date)
-    )
+    # 2. Definir Periodo Anterior (para comparación)
+    duration = end_date - start_date
+    prev_start = start_date - duration
+    prev_end = start_date
 
-    # 1. Cálculo de Ingresos Brutos
-    stats = orders.aggregate(
-        gross_revenue=Sum('total_amount'),
-        order_count=Count('id')
-    )
+    # 3. Obtener métricas de ambos periodos
+    def get_metrics(start, end):
+        orders = Order.objects.filter(organization=org, created_at__range=(start, end))
+        returns = OrderReturn.objects.filter(organization=org, created_at__range=(start, end))
+        
+        gross = orders.aggregate(total=Sum('total_amount'))['total'] or 0
+        ret_val = returns.aggregate(total=Sum(F('quantity') * F('product__price')))['total'] or 0
+        
+        return {
+            'revenue': float(gross) - float(ret_val),
+            'count': orders.count()
+        }
 
-    # 2. Cálculo de Pérdidas por Devoluciones
-    # Multiplicamos la cantidad devuelta por el precio actual del producto
-    # (En una fase avanzada, usaríamos el precio histórico del OrderItem)
-    total_returned_value = returns.aggregate(
-        total=Sum(F('quantity') * F('product__price'))
-    )['total'] or 0
+    current_stats = get_metrics(start_date, end_date)
+    previous_stats = get_metrics(prev_start, prev_end)
 
-    gross_revenue = float(stats['gross_revenue'] or 0)
-    net_revenue = gross_revenue - float(total_returned_value)
+    # 4. Calcular Crecimiento (%)
+    growth_pct = calculate_growth(current_stats['revenue'], previous_stats['revenue'])
 
     report_data = {
-        'gross_revenue': gross_revenue,
-        'net_revenue': net_revenue,
-        'total_returned_value': float(total_returned_value),
-        'total_orders': stats['order_count'],
-        'total_returns': returns.count(),
-        'status_breakdown': list(orders.values('status').annotate(total=Count('status'))),
-        'return_reasons': list(returns.values('reason').annotate(count=Count('reason')))
+        'period': {'start': start_date.isoformat(), 'end': end_date.isoformat()},
+        'metrics': current_stats,
+        'comparison': {
+            'previous_revenue': previous_stats['revenue'],
+            'growth_percentage': growth_pct,
+            'status': 'UP' if growth_pct >= 0 else 'DOWN'
+        }
     }
 
-    # Guardamos el reporte con el valor NETO
     report = SalesReport.objects.create(
         organization=org,
-        total_sales=net_revenue,
-        order_count=stats['order_count'],
-        # Guardamos el rango en el JSON para auditoría
-        data={
-            **report_data,
-            'period_start': start_date.isoformat(),
-            'period_end': end_date.isoformat(),
-        }
+        total_sales=current_stats['revenue'],
+        order_count=current_stats['count'],
+        data=report_data
     )
     
-    return f"Reporte de Salud Financiera #{report.id} generado para {org.name}"
+    return f"Reporte #{report.id} generado. Crecimiento: {growth_pct}%"
 
 @shared_task
 def trigger_periodic_reports(frequency='daily'):
@@ -97,6 +95,67 @@ def trigger_periodic_reports(frequency='daily'):
 def generate_weekly_all_orgs():
     for org in Organization.objects.all():
         generate_sales_report_task.delay(org.id)
+
+@shared_task
+def generate_monthly_report_task(organization_id, month=None, year=None):
+    # 1. Definir el rango del mes
+    now = timezone.now()
+    month = month or now.month
+    year = year or now.year
+    
+    # Crear llave única para Redis: e.g., "report_nike_03_2026"
+    org = Organization.objects.get(id=organization_id)
+    cache_key = f"report_{org.name.lower()}_{month:02d}_{year}"
+    
+    # Intentar obtener de caché primero
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        return f"Reporte obtenido de CACHÉ para {org.name}"
+
+    # 2. Definir fechas inicio y fin de mes
+    start_date = datetime(year, month, 1)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1)
+    else:
+        end_date = datetime(year, month + 1, 1)
+
+    # 3. Cálculos (Usa la lógica de Ingreso Neto que definimos antes)
+    orders = Order.objects.filter(organization=org, created_at__range=(start_date, end_date))
+    returns = OrderReturn.objects.filter(organization=org, created_at__range=(start_date, end_date))
+    
+    def get_metrics(start, end):
+        orders = Order.objects.filter(organization=org, created_at__range=(start, end))
+        returns = OrderReturn.objects.filter(organization=org, created_at__range=(start, end))
+        
+        gross = orders.aggregate(total=Sum('total_amount'))['total'] or 0
+        ret_val = returns.aggregate(total=Sum(F('quantity') * F('product__price')))['total'] or 0
+        
+        return {
+            'revenue': float(gross) - float(ret_val),
+            'count': orders.count()
+        }
+    
+    current_stats = get_metrics(start_date, end_date)
+    
+    report_data = {
+        "month": month,
+        "year": year,
+        "revenue": current_stats['revenue'],
+        "total_orders": current_stats['count'],
+        "generated_at": timezone.now().isoformat()
+    }
+
+    # 4. Guardar en DB y en CACHÉ (por 24 horas)
+    SalesReport.objects.create(
+        organization=org,
+        total_sales=current_stats['revenue'],
+        order_count=current_stats['count'],
+        data=report_data
+    )
+    
+    cache.set(cache_key, report_data, timeout=86400) # 86400 segundos = 1 día
+    
+    return f"Reporte MENSUAL generado y cacheado para {org.name} ({month}/{year})"        
 
 @shared_task
 def alert_unusual_return_task(return_id):

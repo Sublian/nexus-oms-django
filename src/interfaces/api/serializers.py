@@ -39,7 +39,16 @@ class SalesReportSerializer(serializers.ModelSerializer):
         model = SalesReport
         fields = ['id', 'generated_at', 'total_sales', 'order_count', 'data']
 
+class ReportTriggerSerializer(serializers.Serializer):
+    start_date = serializers.DateTimeField(required=False, help_text="Fecha inicio (ISO 8601)")
+    end_date = serializers.DateTimeField(required=False, help_text="Fecha fin (ISO 8601)")
+    notes = serializers.CharField(max_length=255, required=False, help_text="Notas adicionales para el reporte")
+    
+    # Esto limpia los datos de ejemplo en Swagger
+    class Meta:
+        ref_name = "ReportTrigger"
 
+        
 class OrderReturnSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderReturn
