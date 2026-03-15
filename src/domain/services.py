@@ -1,7 +1,7 @@
 
 from django.db import transaction
 from .models import Order, OrderItem, Stock, Product, TaxConfiguration, OrderReturn
-from .tasks import process_order_notifications
+from .tasks import alert_unusual_return_task, process_order_notifications
 
 
 class CatalogService:
@@ -104,5 +104,8 @@ class OrderService:
         # Podríamos marcarlo como 'RETURNED' o manejar estados por ítem
         # Por ahora, dejemos un log o comentario de que se procesó
         print(f"Stock recuperado: {product.name} (+{quantity})")
+
+        if reason == 'OTHERS':
+            alert_unusual_return_task.delay(order_return.id)
 
         return order_return

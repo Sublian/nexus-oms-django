@@ -1,15 +1,18 @@
+# config/urls.py
+
 from django.contrib import admin
 from django.urls import path, include
 
 from rest_framework.routers import DefaultRouter
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from src.interfaces.api.views import ProductViewSet, OrderViewSet, ReportViewSet
+from src.interfaces.api.views import ProductViewSet, OrderViewSet, ReportViewSet, OrderReturnViewSet
 
 router = DefaultRouter()
 router.register(r'products', ProductViewSet, basename='product')
 router.register(r'orders', OrderViewSet, basename='order')
 router.register(r'reports', ReportViewSet, basename='report')
+router.register(r'order_returns', OrderReturnViewSet, basename='order_returns')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

@@ -2,7 +2,7 @@ from celery import shared_task
 import time
 from django.db.models import Sum, Count
 
-from .models import Order, SalesReport, Organization
+from .models import Order, OrderReturn, SalesReport, Organization
 
 @shared_task
 def process_order_notifications(order_id):
@@ -49,3 +49,11 @@ def generate_sales_report_task(organization_id):
 def generate_weekly_all_orgs():
     for org in Organization.objects.all():
         generate_sales_report_task.delay(org.id)
+
+@shared_task
+def alert_unusual_return_task(return_id):
+    ret = OrderReturn.objects.get(id=return_id)
+    # Aquí simularíamos un envío de correo al gerente
+    print(f"⚠️ ALERTA DE BODEGA: Devolución inusual registrada (ID: {return_id}). Motivo: OTHERS. Notas: {ret.notes}")
+    return True
+
