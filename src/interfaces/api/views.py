@@ -87,11 +87,16 @@ class ReportViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['post'])
     def trigger_report(self, request):
         org_id = get_current_organization()
-        # Disparamos la tarea en Celery
-        task = generate_sales_report_task.delay(org_id)
+        start_date = request.data.get('start_date')
+        end_date = request.data.get('end_date')
+
+        # Lanzamos la tarea con los parámetros
+        task = generate_sales_report_task.delay(org_id, start_date, end_date)
+        
         return Response({
             "message": "Generación de reporte iniciada",
-            "task_id": task.id
+            "task_id": task.id,
+            "period": f"{start_date} a {end_date}" if start_date else "Hoy (Default)"
         })
 
 

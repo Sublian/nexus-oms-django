@@ -1,6 +1,8 @@
 from celery import shared_task
 import time
-from django.db.models import Sum, Count
+from django.utils import timezone
+from datetime import timedelta
+from django.db.models import Sum, Count, F
 
 from .models import Order, OrderReturn, SalesReport, Organization
 
@@ -18,32 +20,78 @@ def process_order_notifications(order_id):
     return True
 
 @shared_task
-def generate_sales_report_task(organization_id):
+def generate_sales_report_task(organization_id, start_date=None, end_date=None):
     org = Organization.objects.get(id=organization_id)
-    
-    # El filtrado es automático si usamos el manager de la organización 
-    # o manual si estamos en un proceso de fondo sin middleware
-    orders = Order.objects.filter(organization=org)
-    
-    stats = orders.aggregate(
-        total_revenue=Sum('total_amount'),
-        count=Count('id')
+
+    # Manejo de fechas por defecto (Hoy)
+    if not end_date:
+        end_date = timezone.now()
+    if not start_date:
+        start_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    orders = Order.objects.filter(
+        organization=org,
+        created_at__range=(start_date, end_date)
     )
+    returns = OrderReturn.objects.filter(
+        organization=org,
+        created_at__range=(start_date, end_date)
+    )
+
+    # 1. Cálculo de Ingresos Brutos
+    stats = orders.aggregate(
+        gross_revenue=Sum('total_amount'),
+        order_count=Count('id')
+    )
+
+    # 2. Cálculo de Pérdidas por Devoluciones
+    # Multiplicamos la cantidad devuelta por el precio actual del producto
+    # (En una fase avanzada, usaríamos el precio histórico del OrderItem)
+    total_returned_value = returns.aggregate(
+        total=Sum(F('quantity') * F('product__price'))
+    )['total'] or 0
+
+    gross_revenue = float(stats['gross_revenue'] or 0)
+    net_revenue = gross_revenue - float(total_returned_value)
 
     report_data = {
-        'revenue': float(stats['total_revenue'] or 0),
-        'total_orders': stats['count'],
-        'status_breakdown': list(orders.values('status').annotate(total=Count('status')))
+        'gross_revenue': gross_revenue,
+        'net_revenue': net_revenue,
+        'total_returned_value': float(total_returned_value),
+        'total_orders': stats['order_count'],
+        'total_returns': returns.count(),
+        'status_breakdown': list(orders.values('status').annotate(total=Count('status'))),
+        'return_reasons': list(returns.values('reason').annotate(count=Count('reason')))
     }
 
+    # Guardamos el reporte con el valor NETO
     report = SalesReport.objects.create(
         organization=org,
-        total_sales=report_data['revenue'],
-        order_count=report_data['total_orders'],
-        data=report_data
+        total_sales=net_revenue,
+        order_count=stats['order_count'],
+        # Guardamos el rango en el JSON para auditoría
+        data={
+            **report_data,
+            'period_start': start_date.isoformat(),
+            'period_end': end_date.isoformat(),
+        }
     )
     
-    return f"Reporte #{report.id} generado para {org.name}"
+    return f"Reporte de Salud Financiera #{report.id} generado para {org.name}"
+
+@shared_task
+def trigger_periodic_reports(frequency='daily'):
+    end_date = timezone.now()
+    
+    if frequency == 'weekly':
+        start_date = end_date - timedelta(days=7)
+    elif frequency == 'monthly':
+        start_date = end_date - timedelta(days=30)
+    else: # daily
+        start_date = end_date - timedelta(days=1)
+
+    for org in Organization.objects.all():
+        generate_sales_report_task.delay(org.id, start_date, end_date)
 
 @shared_task
 def generate_weekly_all_orgs():
