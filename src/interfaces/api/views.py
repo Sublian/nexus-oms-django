@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -98,6 +99,10 @@ class OrderReturnViewSet(viewsets.ModelViewSet):
         org_id = get_current_organization()
         return OrderReturn.objects.filter(organization_id=org_id)
     
+    @extend_schema(
+        summary="Registrar devolución y recuperar stock",
+        description="Crea un registro de devolución y automáticamente aumenta el stock del producto afectado."
+    )
     def create(self, request, *args, **kwargs):
         org_id = get_current_organization()
         # En una implementación real, aquí obtendrías el objeto Organization completo

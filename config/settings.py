@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_htmx',
     'widget_tweaks',
+    'drf_spectacular',
 
     # Locales (Usaremos el path src.interfaces.tu_app)
     'src.domain',
@@ -79,6 +80,29 @@ TEMPLATES = [
         },
     },
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Nexus OMS API',
+    'DESCRIPTION': 'Sistema de Gestión de Órdenes Multitenant',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    # Esto permite que Swagger reconozca nuestro header de organización
+    'APPEND_COMPONENTS': {
+        "securitySchemes": {
+            "OrgIdAuth": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "X-Org-ID",
+                "description": "ID de la Organización para el aislamiento de datos"
+            }
+        }
+    },
+    'SECURITY': [{"OrgIdAuth": []}],
+}
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
