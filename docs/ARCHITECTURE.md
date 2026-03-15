@@ -3,6 +3,29 @@
 Este documento detalla las decisiones arquitectónicas, patrones de diseño y la estructura técnica de **Nexus**, una plataforma SaaS de E-commerce Multi-tenant.
 
 ---
+> ⚠️ Nota para reviewers  
+> Este documento describe la **arquitectura objetivo** de Nexus OMS.  
+> Algunas secciones están ya implementadas en código y otras en fase de diseño.  
+> Cuando una sección esté parcialmente implementada, lo indicamos explícitamente.
+---
+
+## 🧩 Resumen ejecutivo
+
+- **Estilo arquitectónico**: Clean / Hexagonal + DDD ligero.[page:6]
+- **Capas principales**:
+  - Domain: entidades, value objects, reglas de negocio, domain events.
+  - Application: casos de uso, orquestación, puertos de entrada/salida.
+  - Infrastructure: repositorios concretos (Django ORM), adaptadores externos.
+  - Interfaces: API REST (DRF), futuros paneles web y Webhooks.[page:6]
+- **Multi-tenant**:
+  - Tenant como bounded context transversal.
+  - Aislamiento por `tenant_id` en repositorios.
+  - Middleware para resolución de tenant por subdominio/headers (diseñado).[page:6]
+- **Procesos asincrónicos**:
+  - Domain events publicados desde el dominio.
+  - Handlers en Application/Infrastructure disparando tareas Celery.[page:6]
+
+---
 
 ## 1. Visión General del Proyecto
 **Nexus** no es solo un carrito de compras; es un **Order Management System (OMS)** diseñado para alta disponibilidad y escalabilidad. Su propósito es permitir que múltiples empresas (Tenants) gestionen catálogos y pedidos complejos desde una infraestructura única, manteniendo un aislamiento total de datos y lógica de negocio extensible.
@@ -76,6 +99,55 @@ graph TD
 * **Aplicación (Application):** Define los **Casos de Uso** (ej. `PlaceOrderWorkflow`). Orquestan la interacción entre el dominio y los servicios externos.
 * **Infraestructura (Infrastructure):** Implementaciones concretas. Aquí reside el **Django ORM**, los clientes de Stripe/PayPal, y el sistema de archivos.
 * **Interfaz (Interface/API):** El punto de contacto externo. Incluye los **ViewSets** de Django Rest Framework, Serializers y documentación Swagger.
+
+### Domain Layer
+
+- No conoce nada de Django, DRF ni de la base de datos.
+- Contiene:
+  - Entidades como `Order`, `OrderItem`, `Product`, `Customer`.
+  - Value Objects como `OrderId`, `Money`, `Quantity`.
+  - Servicios de dominio para reglas complejas (por ejemplo, validación de inventario).
+  - Eventos de dominio como `OrderPlaced`, `OrderCancelled`, `StockAdjusted`.
+
+> Implementación actual  
+> - [ ] Entidades y eventos definidos como módulos Python puros.  
+> - [ ] Aún no se han conectado todos a la capa de aplicación.[page:6]
+
+### Application Layer
+
+- Define **casos de uso** (use cases) como servicios de aplicación:
+  - `PlaceOrderService`
+  - `CancelOrderService`
+  - `ShipOrderService`.
+- Usa **puertos** (interfaces) para hablar con:
+  - Repositorios de órdenes/productos.
+  - Servicios externos (pagos, notificaciones, etc.).
+
+Relación con Django:
+- Las views de DRF llaman a estos servicios, no directamente al ORM.
+- La lógica de validación compleja se concentra aquí o en el dominio, no en serializers.
+
+### Infrastructure Layer
+
+- Implementa los puertos definidos en Application:
+  - `DjangoOrderRepository` (usa models y queryset).
+  - `PostgresTenantRepository`.
+  - Adaptadores para Celery, correo, colas, etc.[page:6]
+- Aquí sí aparece Django ORM, settings, logging y detalles de la base de datos.
+
+> Implementación actual  
+> - [ ] Primeros repositorios esbozados.  
+> - [ ] Pendiente consolidar todas las dependencias de Django en esta capa.
+
+### Interface Layer (API / UI)
+
+- API REST (DRF) como punto de entrada principal.
+- Panel web (Django templates o SPA externa) como consumidor secundario.
+- Webhooks para integración con plataformas externas (Shopify, etc.).
+
+Principio clave:
+> Las views/controladores son **adaptadores** muy delgados: validan input, construyen DTOs y delegan a la Application Layer.
+
 
 ---
 

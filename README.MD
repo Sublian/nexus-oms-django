@@ -6,7 +6,11 @@
 
 Nexus es una plataforma de **Order Management System (OMS)** de alto rendimiento diseñada bajo un modelo **SaaS Multi-tenant**. A diferencia de los e-commerce convencionales, Nexus separa estrictamente la lógica de negocio de la infraestructura, permitiendo gestionar múltiples tiendas independientes con reglas de negocio complejas y flujos de trabajo asíncronos.
 
+---
 
+## 🧱 ¿Qué problema resuelve?
+
+Nexus OMS es un **Order Management System multi-tenant** pensado para e‑commerce y SaaS B2B, donde cada cliente (tenant) puede gestionar sus órdenes, inventario y operaciones sin mezclar datos con otros tenants.
 
 ## 🚀 Características Principales (High-Level)
 
@@ -65,12 +69,17 @@ El proyecto implementa **Clean Architecture** para garantizar que el sistema sea
 └── Makefile                 # Comandos: make test, make build, make logs
 ```
 
-## 📍 Roadmap de Desarrollo
-Para ver el detalle de los hitos y el progreso técnico, consulta nuestro [Roadmap Detallado](./docs/ROADMAP.md).
+## 📌 Estado actual del proyecto
 
-- **M1: Core & Multi-tenancy** 🚧 (En desarrollo)
-- **M2: OMS & DDD Logic** ⏳
-- **M3: HTMX & Celery Async** ⏳
+Este repositorio está en construcción activa. A día de hoy:
+
+- [x] Definido el **modelo de capas** (Domain, Application, Infrastructure, Interfaces).
+- [x] Documentada la **estrategia multi-tenant** a nivel de middleware y repositorios.
+- [ ] Implementación completa de agregados de dominio (Order, Product, Inventory).
+- [ ] API REST para órdenes, productos y clientes.
+- [ ] Integración con Celery para procesos asincrónicos (events/handlers).
+- [ ] Batería de tests (unitarios, integración, contratos) alineada con DDD.
+
 
 ## 📖 Documentación Detallada
 
