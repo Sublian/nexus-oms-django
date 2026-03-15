@@ -4,6 +4,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
+from django.core.exceptions import ValidationError as DjangoValidationError
+
 from src.domain.models import Order, Product, Organization,SalesReport, OrderReturn
 from src.domain.services import OrderService
 from .serializers import OrderCreateSerializer, ProductSerializer, SalesReportSerializer, OrderReturnSerializer
@@ -124,5 +126,7 @@ class OrderReturnViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(order_return)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
             
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (DjangoValidationError, ValueError) as e:
+            # Si es un error de validación de negocio, devolvemos 400
+            message = e.message if hasattr(e, 'message') else str(e)
+            return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)

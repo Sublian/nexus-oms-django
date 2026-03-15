@@ -1,5 +1,9 @@
+from itertools import product
 
+from django.db.models import Sum
 from django.db import transaction
+from django.core.exceptions import ValidationError
+
 from .models import Order, OrderItem, Stock, Product, TaxConfiguration, OrderReturn, Warehouse
 from .tasks import alert_unusual_return_task, process_order_notifications
 
@@ -81,6 +85,10 @@ class OrderService:
     @staticmethod
     @transaction.atomic
     def process_return(organization, order_id, product_id, quantity, reason, notes=""):
+
+        if quantity <= 0:
+            raise ValidationError("La cantidad a devolver debe ser mayor a cero.")
+        
         # 1. Obtener y validar el pedido (asegurando que pertenezca a la organización)
         try:
             order = Order.objects.get(id=order_id, organization=organization)
@@ -91,8 +99,31 @@ class OrderService:
             product = Product.objects.get(id=product_id, organization=organization)
         except Product.DoesNotExist:
             raise ValueError(f"El Producto #{product_id} no existe o no pertenece a esta organización.")
+        
+        # 2 VALIDACIÓN DE CANTIDAD ORIGINAL
+        # Buscamos cuánto se compró de este producto en el pedido original
+        order_item = order.items.filter(product=product).first()
 
-        # 2. Crear el registro de devolución
+        if not order_item:
+            raise ValidationError(f"El producto {product.name} no forma parte del pedido #{order.id}.")
+        
+        # 3. CONTROL DE DEVOLUCIONES PREVIAS
+        # Sumamos lo que ya se devolvió de este producto para este pedido
+        already_returned = OrderReturn.objects.filter(
+            order=order, 
+            product=product
+        ).aggregate(total=Sum('quantity'))['total'] or 0
+
+        max_allowed = order_item.quantity - already_returned
+
+        if quantity > max_allowed:
+            raise ValidationError(
+                f"Operación no permitida. Cantidad comprada: {order_item.quantity}. "
+                f"Ya devuelto anteriormente: {already_returned}. "
+                f"Máximo disponible para devolver: {max_allowed}."
+            )
+
+        # 4. Si pasa la validación, procedemos con el registro
         order_return = OrderReturn.objects.create(
             organization=organization,
             order=order,
@@ -102,30 +133,13 @@ class OrderService:
             notes=notes
         )
 
-        # 3. ACTUALIZACIÓN DE INVENTARIO
-        # Devolvemos las unidades al producto
-        stock_record = Stock.objects.filter(
-            product=product, 
-            organization=organization
-        ).first()
-        
+        # 5. Actualización de Stock (en la bodega correspondiente)
+        stock_record = Stock.objects.filter(product=product, organization=organization).first()
         if stock_record:
             stock_record.quantity += quantity
             stock_record.save()
-        else:
-            # Si no existe registro de stock, lo creamos en una bodega por defecto
-            warehouse = Warehouse.objects.filter(organization=organization).first()
-            if not warehouse:
-                raise ValueError("No hay bodegas configuradas para esta organización.")
-                
-            Stock.objects.create(
-                product=product,
-                warehouse=warehouse,
-                organization=organization,
-                quantity=quantity
-            )
 
-        # 4. Disparar alerta si es OTHERS
+        # 6. Alerta asíncrona
         if reason == 'OTHERS':
             from .tasks import alert_unusual_return_task
             alert_unusual_return_task.delay(order_return.id)
