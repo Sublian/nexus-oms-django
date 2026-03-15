@@ -1,5 +1,6 @@
 from drf_spectacular.utils import extend_schema
 from rest_framework import viewsets, status
+from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
@@ -107,7 +108,7 @@ class OrderReturnViewSet(viewsets.ModelViewSet):
         org_id = get_current_organization()
         # En una implementación real, aquí obtendrías el objeto Organization completo
         
-        organization = Organization.objects.get(id=org_id)
+        organization = get_object_or_404(Organization, id=org_id)
 
         try:
             # Ejecutamos la lógica a través del servicio de dominio

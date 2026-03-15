@@ -1,6 +1,6 @@
 
 from django.db import transaction
-from .models import Order, OrderItem, Stock, Product, TaxConfiguration, OrderReturn
+from .models import Order, OrderItem, Stock, Product, TaxConfiguration, OrderReturn, Warehouse
 from .tasks import alert_unusual_return_task, process_order_notifications
 
 
@@ -82,8 +82,15 @@ class OrderService:
     @transaction.atomic
     def process_return(organization, order_id, product_id, quantity, reason, notes=""):
         # 1. Obtener y validar el pedido (asegurando que pertenezca a la organización)
-        order = Order.objects.get(id=order_id, organization=organization)
-        product = Product.objects.get(id=product_id, organization=organization)
+        try:
+            order = Order.objects.get(id=order_id, organization=organization)
+        except Order.DoesNotExist:
+            raise ValueError(f"La Orden #{order_id} no existe o no pertenece a esta organización.")
+
+        try:
+            product = Product.objects.get(id=product_id, organization=organization)
+        except Product.DoesNotExist:
+            raise ValueError(f"El Producto #{product_id} no existe o no pertenece a esta organización.")
 
         # 2. Crear el registro de devolución
         order_return = OrderReturn.objects.create(
@@ -97,15 +104,30 @@ class OrderService:
 
         # 3. ACTUALIZACIÓN DE INVENTARIO
         # Devolvemos las unidades al producto
-        product.stock += quantity
-        product.save()
+        stock_record = Stock.objects.filter(
+            product=product, 
+            organization=organization
+        ).first()
+        
+        if stock_record:
+            stock_record.quantity += quantity
+            stock_record.save()
+        else:
+            # Si no existe registro de stock, lo creamos en una bodega por defecto
+            warehouse = Warehouse.objects.filter(organization=organization).first()
+            if not warehouse:
+                raise ValueError("No hay bodegas configuradas para esta organización.")
+                
+            Stock.objects.create(
+                product=product,
+                warehouse=warehouse,
+                organization=organization,
+                quantity=quantity
+            )
 
-        # 4. Actualizar estado del pedido si es necesario
-        # Podríamos marcarlo como 'RETURNED' o manejar estados por ítem
-        # Por ahora, dejemos un log o comentario de que se procesó
-        print(f"Stock recuperado: {product.name} (+{quantity})")
-
+        # 4. Disparar alerta si es OTHERS
         if reason == 'OTHERS':
+            from .tasks import alert_unusual_return_task
             alert_unusual_return_task.delay(order_return.id)
 
         return order_return
