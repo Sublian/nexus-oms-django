@@ -22,7 +22,13 @@ class TestOrderReturn:
 
     def test_return_fails_if_exceeds_original_quantity(self, organization, product):
         order = Order.objects.create(organization=organization, customer_name="Luis")
-        OrderItem.objects.create(order=order, product=product, quantity=5)
+        OrderItem.objects.create(
+            order=order, 
+            product=product, 
+            quantity=5, 
+            price_at_order=product.price, # <--- Solución al error
+            organization=organization      # <--- Mantener el multitenancy
+        )
         
         with pytest.raises(ValidationError) as excinfo:
             OrderService.process_return(
@@ -39,7 +45,13 @@ class TestOrderReturn:
         mock_task = mocker.patch('src.domain.tasks.alert_unusual_return_task.delay')
         
         order = Order.objects.create(organization=organization, customer_name="Luis")
-        OrderItem.objects.create(order=order, product=product, quantity=5)
+        OrderItem.objects.create(
+            order=order, 
+            product=product, 
+            quantity=5, 
+            price_at_order=product.price,
+            organization=organization
+        )
         
         # Ejecutamos el servicio
         result = OrderService.process_return(
@@ -53,3 +65,27 @@ class TestOrderReturn:
         assert result.quantity == 2
         # Verificamos que el Mock de la tarea fue llamado
         mock_task.assert_called_once_with(result.id)
+
+    
+    def test_return_atomic_transaction_on_error(self, organization, product, mocker):
+        """
+        Si algo falla al crear el retorno, la base de datos no debe quedar inconsistente.
+        """
+        order = Order.objects.create(organization=organization, customer_name="Luis")
+        OrderItem.objects.create(order=order, product=product, quantity=5, price_at_order=100, organization=organization)
+
+        # Simulamos que el método .create de OrderReturn lanza un error de base de datos
+        mocker.patch(
+            'src.domain.models.OrderReturn.objects.create', 
+            side_effect=Exception("Database Connection Lost")
+        )
+
+        with pytest.raises(Exception) as excinfo:
+            OrderService.process_return(
+                organization=organization,
+                order_id=order.id,
+                product_id=product.id,
+                quantity=1,
+                reason="OTHERS"
+            )
+        assert "Database Connection Lost" in str(excinfo.value)
