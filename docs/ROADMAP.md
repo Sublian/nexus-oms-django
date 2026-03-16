@@ -25,64 +25,80 @@ El proyecto se puede levantar en local con Docker y ya existe un mecanismo bási
 
 ---
 
-## Hito 2: Core de Catálogo e Inventario 📦 (EN PROGRESO – ~80%)
+## Hito 2: Core de Catálogo e Inventario 📦 (EN PROGRESO – ~85%)
 
 **Objetivo**: Modelar el núcleo de productos e inventario, con lógica de impuestos por organización y base para el OMS.
 
 - [x] Modelos de Producto, Categoría, Bodega y Stock.
 - [x] Lógica de impuestos configurable por Organización/Tenant.
-- [ ] Endpoints de API para Catálogo e Inventario (lectura/escritura).
-- [ ] Pruebas de validación de stock vía API (unitarias + integración).
-- [ ] Validación de que todas las consultas respeten el contexto de tenant.
+- [x] Endpoints de API para Catálogo e Inventario (crud funcional).
+- [x] Pruebas de validación de stock vía API (unitarias + integración). El sistema descuenta y repone stock correctamente.
+- [x] Validación de que todas las consultas respeten el contexto de tenant.
+- [ ] Testing Suite (Pytest): Implementar pruebas unitarias para Producto y Categoría usando fixtures para Organization.
+- [ ] Stock Logic Tests: Pruebas unitarias para movimientos de bodega usando mock para servicios de terceros si aplica.
 
 **Resultado esperado**:  
 Cada tenant puede gestionar su propio catálogo e inventario, con impuestos específicos, a través de endpoints REST básicos.
 
 ---
 
-## Hito 3: Gestión de Pedidos (Orders) 🧾
+## Hito 3: Gestión de Pedidos y Logística Inversa 🧾 (EN PROGRESO – ~80%)
 
 **Objetivo**: Implementar el flujo principal de órdenes (Order Management System).
 
-- [x] Modelos de Order y OrderItem.
+- [x] Modelos de Order, OrderItem y OrderReturn.
 - [x] Servicio de dominio para cálculo de totales, descuentos e impuestos.
 - [x] Endpoints de creación de pedidos (POST).
-- [ ] Validación de reglas de negocio clave (p. ej. no mezclar productos de distintas tiendas/bodegas).
-- [ ] Endpoints de consulta de pedidos (por estado, por cliente, por rango de fechas).
-- [ ] Pruebas de reglas de negocio (dominio) y de API para la creación y consulta de órdenes.
+- [x] Blindaje de Devoluciones: Validación de techo de devolución, bloqueo de cantidades negativas y ceros.
+- [x] Pruebas de integración de flujo completo (Venta -> Retorno -> Reposición de Stock).
+- [ ] Domain Unit Tests: Pruebas con pytest para OrderService.process_return usando side_effect para simular fallos de base de datos o stock insuficiente.
+- [ ] Fixture Factory: Creación de fábricas de pedidos para escenarios de prueba (parcialmente devueltos, cancelados).
 
 **Resultado esperado**:  
 Es posible crear y consultar pedidos respetando las reglas de negocio principales del OMS.
 
 ---
 
-## Hito 4: Reactividad y Procesos Asíncronos (HTMX & Celery) ⚡
+## Hito 4: Reactividad y Procesos Asíncronos - HTMX & Celery ⚡ (EN PROGRESO – ~50%)
 
 **Objetivo**: Mejorar la experiencia de usuario y soportar procesos de larga duración mediante tareas en background.
 
-- [ ] Dashboard administrativo con **HTMX** (actualización parcial de vistas).
-- [ ] Integración de **HTTPX** para comunicación con servicios externos.
-- [ ] Integración de **Celery + Redis** para tareas de background (simulación de pagos, actualizaciones de estado).
-- [ ] Uso de HTTPX (async) para verificar stock en servicios externos o consultar divisas.
-- [ ] Workers de **Celery** para procesos pesados (recalcular reportes, sincronizar datos).
+- [x] Capa de Caché con Redis: Optimización de reportes mensuales para evitar hits innecesarios a Postgres.
+- [x] Integración de **Celery + Redis** para tareas de background (simulación de pagos, actualizaciones de estado).
+- [x] Workers de **Celery** para procesos pesados (recalcular reportes, sincronizar datos).
+- [ ] Async Testing: Pruebas unitarias para tareas de Celery usando mock para evitar ejecución real de Redis en tests unitarios.
+- [ ] Uso de HTTPX (**async**) para verificar stock externo o divisas.
+- [ ] Dashboard administrativo con **HTMX**
 
 **Resultado esperado**:  
 El sistema puede ejecutar procesos lentos fuera del request/response, y el panel administrativo muestra cambios sin recargar toda la página.
 
 ---
 
-## Hito 5: El Toque Senior (Observabilidad, Calidad y API) 🐱‍💻
+## Hito 5: El Toque Senior (Observabilidad, Calidad y API) 🐱‍💻 (EN PROGRESO)
 
 **Objetivo**: Llevar el proyecto a un estándar más cercano a producción: observabilidad, calidad y experiencia de integración.
 
+- [x] Documentación interactiva de la API con **Swagger / drf-spectacular**.
 - [ ] Implementación de **Audit Logs**: historial de movimientos y cambios por pedido/entidad relevante.
-- [ ] Documentación interactiva de la API con **Swagger / drf-spectacular**.
 - [ ] Setup de **CI/CD (GitHub Actions)** para ejecutar tests y checks automáticos en cada push/PR.
+- [ ] Hardening de Seguridad (PRÓXIMO PASO): Rate limiting por Org-ID, Circuit Breaker, bloqueo por IP.
+- [ ] Mailing System: Notificaciones de reportes y alertas de bodega (Hito inmediato).
 - [ ] Métricas básicas de rendimiento y salud (endpoints de health check, tiempos de respuesta, etc.).
 - [ ] Hardening de seguridad (rate limiting, permisos finos, validación extra de inputs).
 
 **Resultado esperado**:  
 El proyecto se comporta como una base creíble para un servicio SaaS: auditable, observable y con una API bien documentada.
+
+---
+
+## Notas de la versión actual (v0.25 - "Analytics & Resilience")
+
+- BI Avanzado: Consolidación de lógica de reportes con cálculo de crecimiento neto/bruto.
+
+- Protección de Datos: Auto-corrección y blindaje contra inconsistencias en el flujo de retornos.
+
+- Cache Layer: Redis operando como capa de optimización de lectura para analítica.
 
 ---
 

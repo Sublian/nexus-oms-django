@@ -13,3 +13,5 @@ redis>=5.0.0
 django-widget-tweaks
 pytest-django
 gunicorn
+pytest-django
+pytest-mock
