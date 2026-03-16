@@ -21,6 +21,7 @@ class TestOrderReturn:
         assert "mayor a cero" in str(excinfo.value)
 
     def test_return_fails_if_exceeds_original_quantity(self, organization, product):
+        # Creamos una orden mínima
         order = Order.objects.create(organization=organization, customer_name="Luis")
         OrderItem.objects.create(
             order=order, 
@@ -44,6 +45,7 @@ class TestOrderReturn:
         # Mockeamos la tarea de Celery para que no se ejecute realmente en el test unitario
         mock_task = mocker.patch('src.domain.tasks.alert_unusual_return_task.delay')
         
+        # Creamos una orden mínima
         order = Order.objects.create(organization=organization, customer_name="Luis")
         OrderItem.objects.create(
             order=order, 
