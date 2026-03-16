@@ -1,8 +1,11 @@
 # Pruebas de Tareas de Celery (Mocks & Logic)
 
+from datetime import date, timedelta
+from django.utils import timezone
+
 import pytest
 from src.domain.tasks import generate_sales_report_task
-from src.domain.models import SalesReport
+from src.domain.models import SalesReport, Order
 
 @pytest.mark.django_db
 def test_generate_sales_report_task_creates_record(organization, product, mocker):
@@ -17,3 +20,23 @@ def test_generate_sales_report_task_creates_record(organization, product, mocker
     assert SalesReport.objects.filter(organization=organization).exists()
     report = SalesReport.objects.first()
     assert report.organization == organization
+
+
+
+def test_generate_sales_report_task_success(organization):
+    # 1. Crear data para el reporte
+    Order.objects.create(
+        organization=organization, 
+        customer_name="Luis Test", 
+        total_amount=150
+    )
+
+    # 2. Pasar objetos date en lugar de strings
+    end = timezone.now()
+    start = end - timedelta(days=30)
+    
+    # 3. Ejecutar tarea
+    result = generate_sales_report_task(organization.id, start, end)
+    
+    # 4. Validar resultado (ajustado a tu mensaje real)
+    assert "generado" in result.lower()

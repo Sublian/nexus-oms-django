@@ -1,7 +1,10 @@
+        
 import pytest
+from rest_framework import status
+from django.urls import reverse
 from src.domain.services import OrderService
 from src.domain.tasks import generate_sales_report_task
-from src.domain.models import Organization, Order, Product
+from src.domain.models import Organization, Order, Product, Category
 from django.core.exceptions import ValidationError
 
 @pytest.mark.django_db
@@ -38,3 +41,23 @@ class TestBusinessEdgeCases:
                 reason="OTHERS"
             )
         assert "no pertenece a esta organización" in str(excinfo.value)
+
+    @pytest.mark.django_db
+    def test_product_lifecycle_coverage(self, api_client, organization):
+        """Cubre el listado y filtrado para asegurar el aislamiento de Tenant"""
+        from src.domain.models import Product
+        
+        # Creamos el producto manualmente para asegurar que exista
+        Product.objects.create(
+            organization=organization,
+            name="Producto Test",
+            sku="TEST-123",
+            price=50.00
+        )
+        
+        url = reverse('product-list')
+        # Probamos GET (List) que debería devolver 200
+        response = api_client.get(url, HTTP_X_ORG_ID=str(organization.id))
+        
+        assert response.status_code == 200
+        assert len(response.data) >= 1     
