@@ -38,6 +38,12 @@ class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderCreateSerializer # Por ahora para el POST
 
+    def get_queryset(self):
+        from src.infrastructure.multitenancy.thread_local import get_current_organization
+        org_id = get_current_organization()
+        # Si el manager no filtra automáticamente, debemos hacerlo aquí
+        return Order.objects.filter(organization_id=org_id)
+
     def create(self, request, *args, **kwargs):
         serializer = OrderCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

@@ -7,8 +7,18 @@ def api_client():
     return APIClient()
 
 @pytest.fixture
-def organization(db):
-    return Organization.objects.create(name="Test Org")
+def org_factory(db):
+    """Factory para crear múltiples organizaciones sin choque de slugs."""
+    def _make_org(name):
+        return Organization.objects.create(
+            name=name, 
+            slug=name.lower().replace(" ", "-") # Aseguramos slug único
+        )
+    return _make_org
+
+@pytest.fixture
+def organization(org_factory):
+    return org_factory("Main Tenant")
 
 @pytest.fixture
 def product(db, organization):

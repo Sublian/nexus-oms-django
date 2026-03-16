@@ -91,3 +91,15 @@ class TestOrderReturn:
                 reason="OTHERS"
             )
         assert "Database Connection Lost" in str(excinfo.value)
+
+    def test_process_return_fails_on_non_existent_order(self, organization, product):
+        from uuid import uuid4
+        with pytest.raises(Exception): # O la excepción específica que lances
+            OrderService.process_return(
+                organization=organization,
+                order_id=uuid4(), # ID aleatorio que no existe
+                product_id=product.id,
+                quantity=1,
+                reason="DEFECTIVE"
+            )
+        
