@@ -1,6 +1,7 @@
 from drf_spectacular.utils import extend_schema
 from rest_framework import viewsets, status, serializers as drf_serializers # Importa DRF como drf_serializers para evitar confusiones con el serializers de tu app
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
+from django.http import Http404, HttpResponse
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
@@ -9,10 +10,37 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from src.domain.models import Order, Product, Organization,SalesReport, OrderReturn
 from src.domain.services import OrderService
 from .serializers import OrderCreateSerializer, ProductSerializer, ReportTriggerSerializer, SalesReportSerializer, OrderReturnSerializer
-from src.infrastructure.multitenancy.thread_local import get_current_organization
+from src.infrastructure.multitenancy.thread_local import get_current_organization, set_current_organization
 from src.domain.tasks import generate_sales_report_task
 
 from src.interfaces.api import serializers
+
+def organization_settings_view(request, org_slug):
+    org = get_object_or_404(Organization, slug=org_slug)
+
+    # Sincronizamos el thread_local para que cualquier servicio llamado 
+    # después sepa en qué tenant estamos.
+    set_current_organization(org.id)
+
+    if request.method == "POST":
+        # HTMX envía los datos del checkbox. Si no está marcado, no viene en el POST.
+        org.telegram_enabled = 'telegram_enabled' in request.POST
+        org.whatsapp_enabled = 'whatsapp_enabled' in request.POST
+        org.admin_email = request.POST.get('admin_email', org.admin_email)
+        org.save()
+        
+        # IMPORTANTE: Pasamos el org_slug de vuelta al template para que el 
+        # formulario HTMX sepa a qué URL disparar el siguiente post
+        return render(request, 'organizations/settings.html', {
+            'org': org, 
+            'org_slug': org_slug,
+            'message': '✅ Configuración guardada correctamente'
+        })
+
+    return render(request, 'organizations/settings.html', {
+        'org': org,
+        'org_slug': org_slug
+    })
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     """

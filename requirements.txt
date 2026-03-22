@@ -1,18 +1,27 @@
+# Core
 Django>=5.2
+djangorestframework
 drf-spectacular
 django-environ
 psycopg[binary]
-djangorestframework
+
+# Logic & Async
 django-fsm
 pydantic
-httpx
 celery[redis]
-django-htmx
 django-redis>=5.4.0
 redis>=5.0.0
+
+# Frontend & DX
+django-htmx
 django-widget-tweaks
-pytest-django
+httpx
+requests
+
+# Server & Tools
 gunicorn
+
+# Testing (Opcional: mover a requirements-dev.txt)
 pytest-django
 pytest-mock
 pytest-cov

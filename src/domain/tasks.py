@@ -6,6 +6,8 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Sum, Count, F
 
+from src.domain.notifications.service import NotificationService
+
 from .models import Order, OrderReturn, SalesReport, Organization
 
 @shared_task
@@ -73,6 +75,15 @@ def generate_sales_report_task(organization_id, start_date=None, end_date=None):
         total_sales=current_stats['revenue'],
         order_count=current_stats['count'],
         data=report_data
+    )
+
+    NotificationService.notify_report_ready(
+        organization_config={
+            'telegram_enabled': org.telegram_enabled,
+            'whatsapp_enabled': org.whatsapp_enabled
+        },
+        user_email=org.admin_email,
+        report_name="Ventas Mensuales"
     )
     
     return f"Reporte #{report.id} generado. Crecimiento: {growth_pct}%"
