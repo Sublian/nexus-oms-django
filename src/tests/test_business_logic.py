@@ -13,9 +13,15 @@ class TestBusinessEdgeCases:
     def test_task_fails_if_org_not_found(self):
         """Cubre el bloque 'except Organization.DoesNotExist' en tasks.py"""
         import uuid
-        # Ahora sí, atrapamos la excepción específica que lanza Django
-        with pytest.raises(Organization.DoesNotExist):
-            generate_sales_report_task(uuid.uuid4())
+        from src.domain.tasks import generate_sales_report_task
+        
+        random_uuid = uuid.uuid4()
+        
+        # 1. Llamamos a la tarea (la excepción es capturada internamente)
+        result = generate_sales_report_task(random_uuid)
+        
+        # 2. Verificamos que el retorno sea el mensaje de error que definimos
+        assert f"Error: Organización {random_uuid} no encontrada." in result
 
     def test_return_logic_with_invalid_product(self, organization, org_factory):
         """Cubre el bloque 'except Product.DoesNotExist' en services.py"""
