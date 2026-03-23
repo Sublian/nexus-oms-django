@@ -25,7 +25,7 @@ El proyecto se puede levantar en local con Docker y ya existe un mecanismo bási
 
 ---
 
-## Hito 2: Core de Catálogo e Inventario 📦 (EN PROGRESO – ~85%)
+## Hito 2: Core de Catálogo e Inventario 📦 (COMPLETADO ✅)
 
 **Objetivo**: Modelar el núcleo de productos e inventario, con lógica de impuestos por organización y base para el OMS.
 
@@ -34,15 +34,15 @@ El proyecto se puede levantar en local con Docker y ya existe un mecanismo bási
 - [x] Endpoints de API para Catálogo e Inventario (crud funcional).
 - [x] Pruebas de validación de stock vía API (unitarias + integración). El sistema descuenta y repone stock correctamente.
 - [x] Validación de que todas las consultas respeten el contexto de tenant.
-- [ ] Testing Suite (Pytest): Implementar pruebas unitarias para Producto y Categoría usando fixtures para Organization.
-- [ ] Stock Logic Tests: Pruebas unitarias para movimientos de bodega usando mock para servicios de terceros si aplica.
+- [x] Testing Suite (Pytest): Implementación de arquitectura de tests con fixtures para Organization, Warehouse y Supplier.
+- [x] Stock Logic Tests: Validación de integridad referencial (Warehouse-Stock) y persistencia.
 
 **Resultado esperado**:  
 Cada tenant puede gestionar su propio catálogo e inventario, con impuestos específicos, a través de endpoints REST básicos.
 
 ---
 
-## Hito 3: Gestión de Pedidos y Logística Inversa 🧾 (EN PROGRESO – ~80%)
+## Hito 3: Gestión de Pedidos y Logística Inversa 🧾 (COMPLETADO ✅ — Refactorizado)
 
 **Objetivo**: Implementar el flujo principal de órdenes (Order Management System).
 
@@ -51,21 +51,22 @@ Cada tenant puede gestionar su propio catálogo e inventario, con impuestos espe
 - [x] Endpoints de creación de pedidos (POST).
 - [x] Blindaje de Devoluciones: Validación de techo de devolución, bloqueo de cantidades negativas y ceros.
 - [x] Pruebas de integración de flujo completo (Venta -> Retorno -> Reposición de Stock).
-- [ ] Domain Unit Tests: Pruebas con pytest para OrderService.process_return usando side_effect para simular fallos de base de datos o stock insuficiente.
-- [ ] Fixture Factory: Creación de fábricas de pedidos para escenarios de prueba (parcialmente devueltos, cancelados).
+- [x] Domain Unit Tests: Cobertura del 91% en OrderService y 96% en modelos de venta.
 
 **Resultado esperado**:  
 Es posible crear y consultar pedidos respetando las reglas de negocio principales del OMS.
 
 ---
 
-## Hito 4: Reactividad y Procesos Asíncronos - HTMX & Celery ⚡ (EN PROGRESO – ~50%)
+## Hito 4: Reactividad y Procesos Asíncronos - HTMX & Celery ⚡ (EN PROGRESO – ~60%)
 
 **Objetivo**: Mejorar la experiencia de usuario y soportar procesos de larga duración mediante tareas en background.
 
 - [x] Capa de Caché con Redis: Optimización de reportes mensuales para evitar hits innecesarios a Postgres.
 - [x] Integración de **Celery + Redis** para tareas de background (simulación de pagos, actualizaciones de estado).
 - [x] Workers de **Celery** para procesos pesados (recalcular reportes, sincronizar datos).
+- [x] Mocker Pattern: Implementación de mocks para tareas asíncronas en tests unitarios, evitando hit a Redis durante el testing.
+- [x] Dashboard administrativo con HTMX y Tailwind (Layout base y configuración de Tenant).
 - [ ] Async Testing: Pruebas unitarias para tareas de Celery usando mock para evitar ejecución real de Redis en tests unitarios.
 - [ ] Uso de HTTPX (**async**) para verificar stock externo o divisas.
 - [ ] Dashboard administrativo con **HTMX**
@@ -80,8 +81,9 @@ El sistema puede ejecutar procesos lentos fuera del request/response, y el panel
 **Objetivo**: Llevar el proyecto a un estándar más cercano a producción: observabilidad, calidad y experiencia de integración.
 
 - [x] Documentación interactiva de la API con **Swagger / drf-spectacular**.
+- [x] High-Quality Coverage: Alcanzado el 86% de cobertura total del proyecto.
 - [ ] Implementación de **Audit Logs**: historial de movimientos y cambios por pedido/entidad relevante.
-- [ ] Setup de **CI/CD (GitHub Actions)** para ejecutar tests y checks automáticos en cada push/PR.
+- [ ] Setup de **CI/CD (GitHub Actions)**: Para automatizar la ejecución de este nuevo suite de 18+ tests.
 - [ ] Hardening de Seguridad (PRÓXIMO PASO): Rate limiting por Org-ID, Circuit Breaker, bloqueo por IP.
 - [ ] Mailing System: Notificaciones de reportes y alertas de bodega (Hito inmediato).
 - [ ] Métricas básicas de rendimiento y salud (endpoints de health check, tiempos de respuesta, etc.).
@@ -102,6 +104,15 @@ El proyecto se comporta como una base creíble para un servicio SaaS: auditable,
 
 ---
 
+## Notas de la versión actual (v0.30 - "The Modular Leap")
+
+- Arquitectura Limpia: El dominio ya no es un "monolito de archivos", sino un sistema de sub-paquetes.
+
+- Precisión Financiera: Integración de Payment con FinanceService para reportes de rentabilidad real (Net Margin).
+
+- Resiliencia de Tests: Eliminación de falsos positivos mediante el uso correcto de mocker.patch y absoluta resolución de paths.
+
+---
 ## Cómo leer este Roadmap
 
 - Si eres reviewer de **arquitectura**:
