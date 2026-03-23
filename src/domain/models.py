@@ -135,3 +135,24 @@ class OrderReturn(TenantModel):
 
     def __str__(self):
         return f"Retorno #{self.id} - Pedido #{self.order.id}"
+    
+
+class StockMovement(TenantModel):
+    class MovementType(models.TextChoices):
+        INPUT = 'INPUT', 'Ingreso (Compra/Ajuste)'
+        OUTPUT = 'OUTPUT', 'Egreso (Venta/Ajuste)'
+        RETURN = 'RETURN', 'Devolución'
+
+    stock = models.ForeignKey(Stock, on_delete=models.CASCADE, related_name='movements')
+    quantity = models.IntegerField()  # Siempre positivo, el tipo define el signo
+    movement_type = models.CharField(max_length=10, choices=MovementType.choices)
+    reason = models.CharField(max_length=255)  # Ej: "Venta Pedido #102", "Carga Inicial"
+    
+    # Relación opcional para saber qué orden generó este movimiento
+    order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.movement_type} - {self.stock.product.name} ({self.quantity})"
+
