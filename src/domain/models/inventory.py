@@ -2,7 +2,6 @@
 from django.db import models
 
 from src.infrastructure.models import TenantModel
-from src.domain.models import Order
 
  
 class Category(TenantModel):
@@ -69,7 +68,7 @@ class StockMovement(TenantModel):
     reason = models.CharField(max_length=255)  # Ej: "Venta Pedido #102", "Carga Inicial"
     
     # Relación opcional para saber qué orden generó este movimiento
-    order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, blank=True)
+    order = models.ForeignKey("domain.Order", on_delete=models.SET_NULL, null=True, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -149,11 +149,9 @@ def trigger_periodic_reports(frequency='daily'):
     for org in Organization.objects.all().iterator():
         generate_sales_report_task.delay(org.id, start_date, end_date)
 
-
 @shared_task
 def generate_weekly_all_orgs():
     """Restaurada: Dispara reportes para todas las orgs cada semana"""
     for org in Organization.objects.all().iterator():
         generate_sales_report_task.delay(org.id)
 
-        

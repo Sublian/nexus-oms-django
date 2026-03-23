@@ -4,8 +4,7 @@ from django.db.models import Sum
 from django.db import transaction
 from django.core.exceptions import ValidationError
 
-from src.domain.models.sales import Payment, OrderItem, OrderReturn, PurchaseOrderItem
-
+from ..models import Payment, OrderItem, OrderReturn, PurchaseOrderItem
 
 
 def calculate_expected_cash(organization, start_date, end_date):

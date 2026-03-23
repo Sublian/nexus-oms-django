@@ -3,7 +3,6 @@
 from django.db import models
 
 from src.infrastructure.models import TenantModel
-from src.domain.models import Product, Category, Warehouse, Supplier
 
 
 class Order(TenantModel):
@@ -28,7 +27,7 @@ class Order(TenantModel):
 
 class OrderItem(TenantModel):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
-    product = models.ForeignKey(Product, on_delete=models.PROTECT) # No borrar producto si hay pedidos
+    product = models.ForeignKey('domain.Product', on_delete=models.PROTECT) # No borrar producto si hay pedidos
     quantity = models.PositiveIntegerField()
     price_at_order = models.DecimalField(max_digits=10, decimal_places=2) # Histórico del precio
 
@@ -49,7 +48,7 @@ class OrderReturn(TenantModel):
         on_delete=models.PROTECT, # Protegemos para no borrar registros contables
         related_name='returns'
     )
-    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    product = models.ForeignKey('domain.Product', on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField()
     reason = models.CharField(
         max_length=20, 

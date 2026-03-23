@@ -1,10 +1,11 @@
 from .base import Organization
-from .inventory import Product, Warehouse, Stock, Supplier, PurchaseOrder, PurchaseOrderItem
 from .sales import Order, OrderItem, OrderReturn, Payment
-from .config import TaxConfiguration, SalesReport
+from .inventory import Product, Warehouse, Stock, Supplier, PurchaseOrder, PurchaseOrderItem, Category, StockMovement
+from .config import TaxConfiguration, SalesReport, CashReconciliation
 
 __all__ = [
     'Organization', 'Product', 'Warehouse', 'Stock', 'Supplier', 
-    'PurchaseOrder', 'PurchaseOrderItem', 'Order', 'OrderItem', 
-    'OrderReturn', 'Payment', 'TaxConfiguration', 'SalesReport'
+    'PurchaseOrder', 'PurchaseOrderItem', 'Category', 'StockMovement', 'Order', 'OrderItem', 
+    'OrderReturn', 'Payment', 'TaxConfiguration', 'SalesReport',
+    'CashReconciliation'
 ]

@@ -5,7 +5,7 @@ from django.db.models import Sum
 from django.db import transaction
 from django.core.exceptions import ValidationError
 
-from .models import Order, OrderItem, Stock, Product, TaxConfiguration, OrderReturn, Warehouse, Payment, PurchaseOrderItem
+from ..models import Order, OrderItem, Stock, Product, TaxConfiguration, OrderReturn, Warehouse, Payment, PurchaseOrderItem
 
 class CatalogService:
     @staticmethod
