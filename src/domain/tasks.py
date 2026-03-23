@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import time
 
 from src.domain.notifications.service import NotificationService
-from src.domain.services import get_net_margin_report
+
 from .models import Order, OrderReturn, SalesReport, Organization
 
 # --- HELPERS ---
@@ -22,6 +22,7 @@ def _get_org_metrics(org, start, end):
     Ahora delegamos la responsabilidad al servicio financiero.
     """
     # Usamos la función que moviste a services.py
+    from .services import get_net_margin_report
     financial_data = get_net_margin_report(org, start, end)
     
     # Contamos las órdenes para mantener la compatibilidad con el reporte actual

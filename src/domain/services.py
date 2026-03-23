@@ -6,8 +6,6 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 
 from .models import Order, OrderItem, Stock, Product, TaxConfiguration, OrderReturn, Warehouse, Payment, PurchaseOrderItem
-from .tasks import alert_unusual_return_task, process_order_notifications
-
 
 class CatalogService:
     @staticmethod
@@ -30,13 +28,21 @@ class CatalogService:
         return product
     
 class OrderService:
+
+    @staticmethod
+    def process_order(order_id):
+        from .tasks import process_order_notifications
+        process_order_notifications.delay(order_id)
+        return True
+
+    @staticmethod
+    def handle_return(return_id):
+        from .tasks import alert_unusual_return_task
+        alert_unusual_return_task.delay(return_id)
+        
     @staticmethod
     @transaction.atomic
     def create_order(organization, customer_data, items_data):
-        """
-        items_data: [{'product': p_obj, 'quantity': 2}, ...]
-        """
-        # 1. Crear el objeto Pedido
         tax_config = TaxConfiguration.objects.filter(organization=organization, is_default=True).first()
         tax_rate = tax_config.rate if tax_config else 0
 
@@ -51,17 +57,14 @@ class OrderService:
             product = item['product']
             qty = item['quantity']
 
-            # 2. Validar Stock (Simplificado por ahora)
-            # Buscamos en cualquier bodega de la organización
-            stock_record = Stock.objects.filter(product=product).first()
+            stock_record = Stock.objects.filter(product=product, organization=organization).first()
             if not stock_record or stock_record.quantity < qty:
                 raise ValueError(f"Stock insuficiente para {product.name}")
 
-            # 3. Descontar Stock
+            # Descontar stock (Esto sí se queda aquí porque no tenemos signal de "venta")
             stock_record.quantity -= qty
             stock_record.save()
 
-            # 4. Crear línea de pedido
             OrderItem.objects.create(
                 organization=organization,
                 order=order,
@@ -71,60 +74,40 @@ class OrderService:
             )
             subtotal += product.price * qty
 
-        # 5. Actualizar total del pedido
         order.subtotal = subtotal
         order.tax_amount = (subtotal * tax_rate) / 100
         order.total_amount = order.subtotal + order.tax_amount
         order.save()
 
-        # Disparamos la tarea de Celery (fuera del hilo principal)
-        # .delay() la envía a Redis y el worker la toma cuando puede
-        process_order_notifications.delay(order.id)
+        # FIX: Llamada correcta al método estático
+        OrderService.process_order(order.id)
         return order
-    
 
     @staticmethod
     @transaction.atomic
     def process_return(organization, order_id, product_id, quantity, reason, notes=""):
-
         if quantity <= 0:
             raise ValidationError("La cantidad a devolver debe ser mayor a cero.")
         
-        # 1. Obtener y validar el pedido (asegurando que pertenezca a la organización)
         try:
             order = Order.objects.get(id=order_id, organization=organization)
-        except Order.DoesNotExist:
-            raise ValueError(f"La Orden #{order_id} no existe o no pertenece a esta organización.")
-
-        try:
             product = Product.objects.get(id=product_id, organization=organization)
-        except Product.DoesNotExist:
-            raise ValueError(f"El Producto #{product_id} no existe o no pertenece a esta organización.")
-        
-        # 2 VALIDACIÓN DE CANTIDAD ORIGINAL
-        # Buscamos cuánto se compró de este producto en el pedido original
-        order_item = order.items.filter(product=product).first()
+        except (Order.DoesNotExist, Product.DoesNotExist):
+            raise ValueError("Orden o Producto no encontrado en esta organización.")
 
+        order_item = order.items.filter(product=product).first()
         if not order_item:
-            raise ValidationError(f"El producto {product.name} no forma parte del pedido #{order.id}.")
+            raise ValidationError(f"El producto {product.name} no pertenece al pedido.")
         
-        # 3. CONTROL DE DEVOLUCIONES PREVIAS
-        # Sumamos lo que ya se devolvió de este producto para este pedido
         already_returned = OrderReturn.objects.filter(
-            order=order, 
-            product=product
+            order=order, product=product
         ).aggregate(total=Sum('quantity'))['total'] or 0
 
         max_allowed = order_item.quantity - already_returned
-
         if quantity > max_allowed:
-            raise ValidationError(
-                f"Operación no permitida. Cantidad comprada: {order_item.quantity}. "
-                f"Ya devuelto anteriormente: {already_returned}. "
-                f"Máximo disponible para devolver: {max_allowed}."
-            )
+            raise ValidationError(f"Máximo disponible para devolver: {max_allowed}.")
 
-        # 4. Si pasa la validación, procedemos con el registro
+        # 4. Registro (La SIGNAL en signals.py se encargará del Stock y Kárdex)
         order_return = OrderReturn.objects.create(
             organization=organization,
             order=order,
@@ -134,19 +117,12 @@ class OrderService:
             notes=notes
         )
 
-        # 5. Actualización de Stock (en la bodega correspondiente)
-        stock_record = Stock.objects.filter(product=product, organization=organization).first()
-        if stock_record:
-            stock_record.quantity += quantity
-            stock_record.save()
-
-        # 6. Alerta asíncrona
+        # 5. Alerta asíncrona
         if reason == 'OTHERS':
-            from .tasks import alert_unusual_return_task
-            alert_unusual_return_task.delay(order_return.id)
+            OrderService.handle_return(order_return.id)
 
         return order_return
-    
+
 
 def calculate_expected_cash(organization, start_date, end_date):
     # 1. Sumar todos los pagos recibidos
