@@ -1,0 +1,15 @@
+[run]
+omit =
+    # Omitir migraciones (código generado)
+    */migrations/*
+    # Omitir archivos de entrada de apps y configuración
+    src/domain/apps.py
+    src/domain/admin.py
+    src/manage.py
+    # Omitir carpetas de infraestructura pura si no tienen lógica compleja
+    src/infrastructure/__init__.py
+    */__init__.py
+
+[report]
+show_missing = True
+skip_covered = True
