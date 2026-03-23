@@ -4,7 +4,7 @@ from django.db.models import Sum
 from django.db import transaction
 from django.core.exceptions import ValidationError
 
-from .models import Order, OrderItem, Stock, Product, TaxConfiguration, OrderReturn, Warehouse
+from .models import Order, OrderItem, Stock, Product, TaxConfiguration, OrderReturn, Warehouse, Payment
 from .tasks import alert_unusual_return_task, process_order_notifications
 
 
@@ -145,3 +145,19 @@ class OrderService:
             alert_unusual_return_task.delay(order_return.id)
 
         return order_return
+    
+
+def calculate_expected_cash(organization, start_date, end_date):
+    # 1. Sumar todos los pagos recibidos
+    total_payments = Payment.objects.filter(
+        organization=organization,
+        payment_date__range=(start_date, end_date)
+    ).aggregate(total=Sum('amount'))['total'] or 0
+    
+    # 2. Restar las devoluciones que implicaron reembolso
+    total_refunds = OrderReturn.objects.filter(
+        organization=organization,
+        created_at__range=(start_date, end_date)
+    ).aggregate(total=Sum('refund_amount'))['total'] or 0
+    
+    return total_payments - total_refunds
