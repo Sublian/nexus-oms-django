@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import time
 
 from src.domain.notifications.service import NotificationService
+from src.domain.services import get_net_margin_report
 from .models import Order, OrderReturn, SalesReport, Organization
 
 # --- HELPERS ---
@@ -18,18 +19,21 @@ def calculate_growth(current, previous):
 
 def _get_org_metrics(org, start, end):
     """
-    Helper centralizado para métricas. 
-    Uso de float() para evitar errores de serialización JSON con Decimals.
+    Ahora delegamos la responsabilidad al servicio financiero.
     """
-    orders = Order.objects.filter(organization=org, created_at__range=(start, end))
-    returns = OrderReturn.objects.filter(organization=org, created_at__range=(start, end))
+    # Usamos la función que moviste a services.py
+    financial_data = get_net_margin_report(org, start, end)
     
-    gross = orders.aggregate(total=Sum('total_amount'))['total'] or 0
-    ret_val = returns.aggregate(total=Sum(F('quantity') * F('product__price')))['total'] or 0
+    # Contamos las órdenes para mantener la compatibilidad con el reporte actual
+    order_count = Order.objects.filter(organization=org, created_at__range=(start, end)).count()
     
     return {
-        'revenue': float(gross) - float(ret_val),
-        'count': orders.count()
+        'revenue': float(financial_data['revenue']),
+        'net_profit': float(financial_data['net_profit']),
+        'cogs': float(financial_data['cogs']),
+        'fees': float(financial_data['fees']),
+        'margin_pct': float(financial_data['margin_percentage']),
+        'count': order_count
     }
 
 # --- TASKS ---
@@ -48,9 +52,10 @@ def generate_sales_report_task(organization_id, start_date=None, end_date=None):
 
         growth_pct = calculate_growth(current_stats['revenue'], previous_stats['revenue'])
 
+        # Ahora el JSONField (data) será mucho más rico en información
         report_data = {
             'period': {'start': start_date.isoformat(), 'end': end_date.isoformat()},
-            'metrics': current_stats,
+            'metrics': current_stats, # Aquí ya viajan net_profit, cogs, etc.
             'comparison': {
                 'previous_revenue': previous_stats['revenue'],
                 'growth_percentage': growth_pct,
