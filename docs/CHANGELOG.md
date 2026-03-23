@@ -9,18 +9,33 @@
 
 ---
 
-## 📅 Ajustes del 22 de Marzo, 2026
+### [1.2.0] - 2026-03-22
+**📅 Hitos de Estabilización y Arquitectura**
+- Modularización del Dominio (DDD): Fractura de la capa `domain` en sub-paquetes especializados (`models/`, `services/`, `tasks/`), eliminando dependencias circulares y mejorando la cohesión (SRP).
+
+- Capa de Finanzas: Implementación de `FinanceService` para cálculos centralizados de margen neto y rentabilidad, integrando pagos y órdenes de compra.
+
+- Robustez de Tests: Resolución de errores críticos de integridad de datos (`NotNullViolation` en `Stock`) y esquemas de modelos (`Payment` fields).
+
+- Optimización de Mocks: Actualización de rutas de parcheo para tareas de Celery, garantizando tests unitarios verdaderamente aislados.
+
 ### Added
-- New `FinanceService` for centralized net margin and profitability calculations.
-- Integrated `Payment` and `PurchaseOrder` logic into financial reporting.
-- Added missing test fixtures for `warehouse` and `supplier` in `conftest.py`.
+- `FinanceService` : Lógica para cálculo de profit margin y net income.
+
+- Fixtures globales en `conftest.py` para `warehouse` y `supplier`.
+
+- Soporte para métodos de pago (`CARD`, etc.) en la creación de transacciones.
 
 ### Changed
-- **Major Architecture Refactor**: Modularized `domain` layer into sub-packages (`models/`, `services/`, `tasks/`).
-- Resolved circular dependency between `OrderService` and `tasks` by implementing absolute imports and lazy loading.
-- Improved `OrderService.create_order` to strictly validate stock levels before processing.
+- Refactorización Mayor: Migración de lógica plana en `domain/` a estructura de paquetes.
+
+- Mejora en `OrderService.create_order`: Validación estricta de existencias antes de la creación de la orden.
+
+- Actualización de `mocker.patch` en todos los tests para reflejar la nueva ubicación de las tareas.
 
 ### Fixed
-- Fixed `ModuleNotFoundError` in task execution post-refactor.
-- Corrected `Payment` instantiation in tests by using the correct schema (`method='CARD'`).
-- Resolved `IntegrityError` in stock testing by ensuring `warehouse_id` is always present.
+- `ModuleNotFoundError` tras la reestructuración de carpetas.
+
+- `IntegrityError` en el modelo `Stock` al faltar la referencia obligatoria a `Warehouse`.
+
+- `TypeError` en instanciación de `Payment` por argumentos inesperados.

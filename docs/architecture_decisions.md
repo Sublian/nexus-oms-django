@@ -16,20 +16,21 @@ Este documento registra las justificaciones técnicas y aprendizajes clave duran
 
 3. Adopción de Patrones de Diseño (SOLID)
 
-- Decisión: Uso estricto de Singleton, Strategy (en notificaciones) y Factory (en tests).
+- Decisión: Uso estricto de Singleton, Strategy y **Service Layer Pattern**.
 
-- Justificacion: 
-
-- Strategy: Permite que el sistema de reportes sea agnóstico al canal de salida (Email, Slack, PDF).
-- Singleton: Garantiza la consistencia en el manejo de configuraciones globales del sistema.
-- Open/Closed Principle: El sistema debe ser capaz de enviar notificaciones por diversos canales (Email, Slack) sin que el código que genera el reporte tenga que ser modificado.
+- Justificación: 
+    - **Strategy**: Permite que el sistema de reportes sea agnóstico al canal (Email, Slack, PDF).
+    - **Service Layer (SRP)**: Al extraer la lógica de `models.py` hacia `services/`, evitamos los "Fat Models" y facilitamos el testing de flujos complejos como la creación de órdenes y cálculos financieros.
+    - **Open/Closed**: El sistema extiende funcionalidades (como nuevos métodos de pago o canales de notificación) sin modificar el núcleo del dominio.
 
 4. Estrategia de Testing (80% Code Coverage)
-- Decisión: Establecer un umbral mínimo de cobertura del 80% usando Pytest y cobertura de integración.
 
-- Justificacion: Se priorizaron los tests de Capa de Negocio (Domain) y Casos de Borde (Edge Cases). Alcanzar el 80% garantiza que cualquier refactorización futura (como una migración de versión de Django u Odoo) sea segura y predecible.
+- Decisión: Mantener un coverage alto (>80%) con enfoque en integración y lógica de negocio.
+
+- Justificación: Alcanzar el **86%** actual garantiza que cualquier refactorización (como la reciente modularización del dominio) sea segura. Se priorizaron los "Happy Paths" financieros y la validación de integridad de stock.
 
 5. Stack Tecnológico Moderno
+
 - Decisión: Uso de Docker, PostgreSQL 17 y Python 3.12.
 
 - Justificacion: Para garantizar la paridad entre los entornos de desarrollo, staging y producción, minimizando los errores de "funciona en mi máquina".
@@ -62,22 +63,18 @@ Calidad de Código: Adhesión estricta a principios SOLID y diseño orientado al
 
 
 ---
-# ADR 003: Modularization of the Domain Layer
 
-## Status
-Accepted
+## 🔄 Resolución de Dependencias Circulares y Modularización (ADR 003)
 
-## Context
-As the ERP/CRM system grew, the `domain` folder became a "God Folder" with too many responsibilities in single files, leading to circular imports between services and Celery tasks.
+**Contexto:** El crecimiento del ERP generó archivos "God" en `domain/`, causando errores de importación circular entre la lógica de negocio y las tareas de Celery.
 
-## Decision
-We decided to split the `domain` layer into three specialized sub-packages:
-1. `models/`: Pure data structures and persistence logic.
-2. `services/`: Complex business logic and cross-model orchestrations.
-3. `tasks/`: Asynchronous operations (Celery).
+**Decisión:**
+- Se fracturó la capa de dominio en tres sub-paquetes: `models/` (Persistencia), `services/` (Orquestación/Lógica) y `tasks/` (Asíncrono).
+- Se implementaron **Absolute Imports** y **Lazy Loading** dentro de los métodos de servicio para asegurar que los modelos estén cargados antes que las tareas.
 
-We also enforced the use of absolute imports (e.g., `from src.domain.tasks import ...`) to avoid ambiguity during package resolution.
+**Aprendizaje:** En Python/Django, la estructura de carpetas dicta la salud de los imports. Separar las tareas asíncronas de los servicios permite testear la lógica de negocio mockeando Celery de forma limpia, sin cargar todo el stack de infraestructura.
 
-## Consequences
-- **Positive**: Better testability, elimination of circular dependencies, and clearer separation of concerns (SOLID).
-- **Negative**: Requires more care with import paths and updated mocker paths in existing tests.
+## 📈 Estado de Calidad del Proyecto
+- **Code Coverage:** 86% 🚀
+- **Arquitectura:** Domain-Driven Design (DDD) modular.
+- **Estándar de Código:** PEP8 y principios SOLID.
