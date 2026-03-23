@@ -179,3 +179,43 @@ class Payment(TenantModel):
     @property
     def net_amount(self):
         return self.amount - self.fee_amount
+
+
+class Supplier(TenantModel):
+    name = models.CharField(max_length=255)
+    ruc = models.CharField(max_length=20, blank=True, null=True) # Registro Tributario
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=20, blank=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.organization.name})"
+
+class PurchaseOrder(TenantModel):
+    class POStatus(models.TextChoices):
+        PENDING = 'PENDING', 'Pendiente'
+        RECEIVED = 'RECEIVED', 'Recibido'
+        CANCELLED = 'CANCELLED', 'Cancelado'
+
+    supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE, related_name='purchase_orders')
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.CASCADE)
+    status = models.CharField(max_length=20, choices=POStatus.choices, default=POStatus.PENDING)
+    total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"OC #{self.id} - {self.supplier.name}"
+
+class PurchaseOrderItem(TenantModel):
+    purchase_order = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+    unit_cost = models.DecimalField(max_digits=10, decimal_places=2) # ¿A cuánto lo compramos?
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name} (Costo: {self.unit_cost})"
+
+
+
+
+
+
