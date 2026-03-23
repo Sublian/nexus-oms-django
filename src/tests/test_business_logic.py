@@ -46,7 +46,7 @@ class TestBusinessEdgeCases:
                 quantity=1,
                 reason="OTHERS"
             )
-        assert "no pertenece a esta organización" in str(excinfo.value)
+        assert "no encontrado en esta organización" in str(excinfo.value)
 
     @pytest.mark.django_db
     def test_product_lifecycle_coverage(self, api_client, organization):

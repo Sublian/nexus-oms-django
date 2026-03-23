@@ -39,7 +39,7 @@ class TestOrderReturn:
                 quantity=10, # EXCESO
                 reason="OTHERS"
             )
-        assert "Operación no permitida" in str(excinfo.value)
+        assert "Máximo disponible para devolver" in str(excinfo.value)
 
     def test_return_success_updates_stock(self, organization, product, mocker):
         # Mockeamos la tarea de Celery para que no se ejecute realmente en el test unitario
