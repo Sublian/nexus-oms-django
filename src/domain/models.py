@@ -1,8 +1,27 @@
 import uuid
 
 from django.db import models
+from django.db.models import Sum
 
 from src.infrastructure.models import TenantModel
+
+# helpers
+def calculate_expected_cash(organization, start_date, end_date):
+    # 1. Sumar todos los pagos recibidos
+    total_payments = Payment.objects.filter(
+        organization=organization,
+        payment_date__range=(start_date, end_date)
+    ).aggregate(total=Sum('amount'))['total'] or 0
+    
+    # 2. Restar las devoluciones que implicaron reembolso
+    total_refunds = OrderReturn.objects.filter(
+        organization=organization,
+        created_at__range=(start_date, end_date)
+    ).aggregate(total=Sum('refund_amount'))['total'] or 0
+    
+    return total_payments - total_refunds
+# fin helpers
+
 
 class Organization(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -217,7 +236,27 @@ class PurchaseOrderItem(TenantModel):
         return f"{self.quantity} x {self.product.name} (Costo: {self.unit_cost})"
 
 
+class CashReconciliation(TenantModel):
+    opened_at = models.DateTimeField()
+    closed_at = models.DateTimeField(auto_now_add=True)
+    
+    # Lo que el sistema calculó
+    expected_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    # Lo que el cajero contó físicamente
+    actual_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    
+    # Calculado: actual - expected
+    difference = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
+    
+    notes = models.TextField(blank=True, null=True)
 
+    def save(self, *args, **kwargs):
+        # Lógica de negocio: Calcular diferencia antes de guardar
+        self.difference = self.actual_amount - self.expected_amount
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Arqueo {self.organization.name} - {self.closed_at.date()}"
 
 
 
