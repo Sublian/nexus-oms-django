@@ -108,7 +108,7 @@ class SalesReport(TenantModel):
 
 class OrderReturn(TenantModel):
     class Reason(models.TextChoices):
-        DAMAGED = 'DAMAGED', 'Producto Dañado'
+        DAMAGED = 'DAMAGED', 'Producto Dañado (No reingresa)'
         MISTAKE = 'MISTAKE', 'Error en Envío'
         DISSATISFIED = 'DISSATISFIED', 'Cliente Insatisfecho'
         EXPIRED = 'EXPIRED', 'Producto Vencido'
@@ -127,6 +127,8 @@ class OrderReturn(TenantModel):
         default=Reason.DISSATISFIED
     )
     notes = models.TextField(blank=True, null=True)
+    refund_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    reentered_to_stock = models.BooleanField(default=True) # ¿Volvió a la estantería?
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -134,7 +136,7 @@ class OrderReturn(TenantModel):
         verbose_name_plural = "Devoluciones"
 
     def __str__(self):
-        return f"Retorno #{self.id} - Pedido #{self.order.id}"
+        return f"Retorno #{self.id} - Pedido #{self.order.id} ({self.product.sku})"
     
 
 class StockMovement(TenantModel):

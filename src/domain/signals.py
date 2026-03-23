@@ -1,6 +1,6 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import OrderItem, Stock, StockMovement, PurchaseOrder
+from .models import OrderItem, Stock, StockMovement, PurchaseOrder, OrderReturn
 
 @receiver(post_save, sender=OrderItem)
 def adjust_stock_on_sale(sender, instance, created, **kwargs):
@@ -53,3 +53,26 @@ def update_stock_on_received_po(sender, instance, **kwargs):
                 # Aquí no hay order de venta vinculada
             )
 
+@receiver(post_save, sender=OrderReturn)
+def handle_stock_on_return(sender, instance, created, **kwargs):
+    if created and instance.reentered_to_stock:
+        # Buscamos el stock en la misma bodega donde se vendió (o la principal)
+        stock = Stock.objects.filter(
+            product=instance.product,
+            organization=instance.organization
+        ).first()
+
+        if stock:
+            # 1. Reingresar cantidad al Stock
+            stock.quantity += instance.quantity
+            stock.save()
+
+            # 2. Registrar el movimiento en el Kárdex como RETURN
+            StockMovement.objects.create(
+                organization=instance.organization,
+                stock=stock,
+                quantity=instance.quantity,
+                movement_type=StockMovement.MovementType.RETURN,
+                reason=f"Devolución: Ticket #{instance.id} - Pedido #{instance.order.id}",
+                order=instance.order
+            )
