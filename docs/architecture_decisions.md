@@ -60,3 +60,24 @@ Code Coverage: 80% (Umbral mínimo de producción).
 
 Calidad de Código: Adhesión estricta a principios SOLID y diseño orientado al dominio (DDD).
 
+
+---
+# ADR 003: Modularization of the Domain Layer
+
+## Status
+Accepted
+
+## Context
+As the ERP/CRM system grew, the `domain` folder became a "God Folder" with too many responsibilities in single files, leading to circular imports between services and Celery tasks.
+
+## Decision
+We decided to split the `domain` layer into three specialized sub-packages:
+1. `models/`: Pure data structures and persistence logic.
+2. `services/`: Complex business logic and cross-model orchestrations.
+3. `tasks/`: Asynchronous operations (Celery).
+
+We also enforced the use of absolute imports (e.g., `from src.domain.tasks import ...`) to avoid ambiguity during package resolution.
+
+## Consequences
+- **Positive**: Better testability, elimination of circular dependencies, and clearer separation of concerns (SOLID).
+- **Negative**: Requires more care with import paths and updated mocker paths in existing tests.

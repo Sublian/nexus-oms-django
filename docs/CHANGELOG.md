@@ -7,3 +7,20 @@
 
 **Estado de Cobertura:** 80% Total (Pytest-cov).
 
+---
+
+## 📅 Ajustes del 22 de Marzo, 2026
+### Added
+- New `FinanceService` for centralized net margin and profitability calculations.
+- Integrated `Payment` and `PurchaseOrder` logic into financial reporting.
+- Added missing test fixtures for `warehouse` and `supplier` in `conftest.py`.
+
+### Changed
+- **Major Architecture Refactor**: Modularized `domain` layer into sub-packages (`models/`, `services/`, `tasks/`).
+- Resolved circular dependency between `OrderService` and `tasks` by implementing absolute imports and lazy loading.
+- Improved `OrderService.create_order` to strictly validate stock levels before processing.
+
+### Fixed
+- Fixed `ModuleNotFoundError` in task execution post-refactor.
+- Corrected `Payment` instantiation in tests by using the correct schema (`method='CARD'`).
+- Resolved `IntegrityError` in stock testing by ensuring `warehouse_id` is always present.

@@ -31,7 +31,7 @@ class TestOrderAPI:
     def test_trigger_report_endpoint(self, api_client, organization, mocker):
         """Sube cobertura en views.py disparando la acción trigger_report"""
         # Mock de la tarea de Celery
-        mock_task = mocker.patch('src.domain.tasks.generate_sales_report_task.delay')
+        mock_task = mocker.patch('src.domain.tasks.reporting_tasks.generate_sales_report_task.delay')
         # Simulamos que la tarea devuelve un ID ficticio
         mock_task.return_value.id = "fake-task-id"
 

@@ -43,7 +43,7 @@ class TestOrderReturn:
 
     def test_return_success_updates_stock(self, organization, product, mocker):
         # Mockeamos la tarea de Celery para que no se ejecute realmente en el test unitario
-        mock_task = mocker.patch('src.domain.tasks.alert_unusual_return_task.delay')
+        mock_task = mocker.patch('src.domain.tasks.notification_tasks.alert_unusual_return_task.delay')
         
         # Creamos una orden mínima
         order = Order.objects.create(organization=organization, customer_name="Luis")

@@ -336,3 +336,23 @@ graph TD
     Worker --> DB
     Beat --> Redis
 ```
+
+---
+
+Se actualiza  el mapa visual/textual de la estructura:
+
+```text
+src/
+└── domain/
+    ├── models/          # Entity definitions (PostgreSQL)
+    │   ├── inventory.py
+    │   ├── sales.py
+    │   └── ...
+    ├── services/        # Business Logic (The "Brain")
+    │   ├── order_service.py
+    │   ├── finance_service.py
+    │   └── ...
+    └── tasks/           # Background Jobs (Celery/Redis)
+        ├── notification_tasks.py
+        └── reporting_tasks.py
+```        

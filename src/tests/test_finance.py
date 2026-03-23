@@ -4,6 +4,15 @@ from src.domain.services.finance_service import get_net_margin_report # Ajustado
 
 @pytest.mark.django_db
 def test_net_margin_calculation_accuracy(organization, product, warehouse, supplier):
+    # --- PASO PREVIO: Inyectar Stock ---
+    from src.domain.models import Stock
+    Stock.objects.update_or_create(
+        product=product, 
+        organization=organization, 
+        warehouse=warehouse,  # <--- Agregamos la bodega aquí
+        defaults={'quantity': 100} 
+    )
+
     # 1. Simulamos una COMPRA (Costo)
     # Compramos 10 unidades a 50.00 cada una
     from src.domain.models import PurchaseOrder, PurchaseOrderItem
@@ -19,7 +28,13 @@ def test_net_margin_calculation_accuracy(organization, product, warehouse, suppl
 
     # 3. Agregamos un PAGO con COMISIÓN
     from src.domain.models import Payment
-    Payment.objects.create(organization=organization, order=order, amount=Decimal('200.00'), fee_amount=Decimal('10.00'), status='PAID')
+    Payment.objects.create(
+            organization=organization, 
+            order=order, 
+            amount=Decimal('200.00'), 
+            fee_amount=Decimal('10.00'),
+            method='CARD'
+        )
 
     # 4. EJECUTAMOS EL REPORTE
     from django.utils import timezone
