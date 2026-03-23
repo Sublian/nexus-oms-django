@@ -33,3 +33,19 @@ def product(db, organization):
         price=1000.00,
         organization=organization
     )
+
+@pytest.fixture
+def warehouse(organization):
+    from src.domain.models import Warehouse
+    return Warehouse.objects.create(
+        name="Bodega Central",
+        organization=organization
+    )
+
+@pytest.fixture
+def supplier(organization):
+    from src.domain.models import Supplier
+    return Supplier.objects.create(
+        name="Proveedor Tech",
+        organization=organization
+    )

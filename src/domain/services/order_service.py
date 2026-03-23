@@ -37,7 +37,7 @@ class OrderService:
 
     @staticmethod
     def handle_return(return_id):
-        from .tasks import alert_unusual_return_task
+        from ..tasks import alert_unusual_return_task
         alert_unusual_return_task.delay(return_id)
         
     @staticmethod
