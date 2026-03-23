@@ -11,37 +11,13 @@ jobs:
     name: Run test suite
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_DB: nexus_test
-          POSTGRES_USER: nexus
-          POSTGRES_PASSWORD: nexus
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     env:
-      DJANGO_SETTINGS_MODULE: nexus_project.settings.test
-      DATABASE_URL: postgres://nexus:nexus@localhost:5432/nexus_test
-      REDIS_URL: redis://localhost:6379/0
+      DJANGO_SETTINGS_MODULE: config.settings
       SECRET_KEY: ci-secret-key-not-for-production
+      DATABASE_URL: sqlite:///test_db.sqlite3
+      REDIS_URL: redis://localhost:6379/0
       CELERY_TASK_ALWAYS_EAGER: "True"
+      DEBUG: "True"
 
     steps:
       - name: Checkout code
@@ -58,6 +34,9 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Add project root to PYTHONPATH
+        run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
+
       - name: Run tests with coverage
         run: |
           pytest --cov=src --cov-report=xml --cov-report=term-missing --tb=short -q
@@ -67,4 +46,3 @@ jobs:
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
-          verbose: false
