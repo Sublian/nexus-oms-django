@@ -3,6 +3,8 @@
 [![Python Version](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![Django Version](https://img.shields.io/badge/django-5.0%2B-green)](https://www.djangoproject.com/)
 [![Architecture](https://img.shields.io/badge/architecture-Clean%20%2B%20DDD-orange)](#architecture)
+[![Coverage](https://codecov.io/gh/Sublian/nexus-oms-django/branch/main/graph/badge.svg)](https://codecov.io/gh/Sublian/nexus-oms-django)
+[![CI](https://github.com/Sublian/nexus-oms-django/actions/workflows/ci.yml/badge.svg)](https://github.com/Sublian/nexus-oms-django/actions/workflows/ci.yml)
 
 Nexus es una plataforma de **Order Management System (OMS)** de alto rendimiento diseñada bajo un modelo **SaaS Multi-tenant**. A diferencia de los e-commerce convencionales, Nexus separa estrictamente la lógica de negocio de la infraestructura, permitiendo gestionar múltiples tiendas independientes con reglas de negocio complejas y flujos de trabajo asíncronos.
 
