@@ -156,3 +156,26 @@ class StockMovement(TenantModel):
     def __str__(self):
         return f"{self.movement_type} - {self.stock.product.name} ({self.quantity})"
 
+
+class Payment(TenantModel):
+    class PaymentMethod(models.TextChoices):
+        CASH = 'CASH', 'Efectivo'
+        CREDIT_CARD = 'CARD', 'Tarjeta de Crédito/Débito'
+        TRANSFER = 'TRANSFER', 'Transferencia Bancaria'
+        DIGITAL_WALLET = 'WALLET', 'Billetera Digital (Yape/Plin)'
+
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='payment')
+    method = models.CharField(max_length=10, choices=PaymentMethod.choices)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    transaction_reference = models.CharField(max_length=100, blank=True, null=True)
+    payment_date = models.DateTimeField(auto_now_add=True)
+    
+    # Para realismo: ¿Hubo comisión? (Ej: 3.5% de Niubiz/Izipay)
+    fee_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    def __str__(self):
+        return f"Pago {self.method} - {self.amount} (Pedido {self.order.id})"
+
+    @property
+    def net_amount(self):
+        return self.amount - self.fee_amount

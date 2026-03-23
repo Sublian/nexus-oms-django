@@ -7,7 +7,8 @@ from decimal import Decimal
 
 from src.domain.models import (
     Organization, Product, Category, Warehouse, 
-    Stock, TaxConfiguration, Order, OrderItem
+    Stock, TaxConfiguration, Order, OrderItem,
+    Payment
 )
 from src.infrastructure.multitenancy.thread_local import (
     set_current_organization, clear_current_organization
@@ -140,3 +141,18 @@ class Command(BaseCommand):
             order.tax_amount = tax
             order.total_amount = subtotal + tax
             order.save()
+
+            # Dentro de _generate_orders, después de order.save()
+            method = random.choice(Payment.PaymentMethod.choices)[0]
+            fee = Decimal('0.00')
+            if method == 'CARD':
+                fee = order.total_amount * Decimal('0.035') # Simulación de comisión 3.5%
+
+            Payment.objects.create(
+                organization=org,
+                order=order,
+                method=method,
+                amount=order.total_amount,
+                fee_amount=fee,
+                transaction_reference=f"REF-{random.randint(1000, 9999)}"
+            )
