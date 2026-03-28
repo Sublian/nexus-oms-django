@@ -8,61 +8,84 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     
-    <style>
-        :root {
-            /* Inyectamos tus nuevos campos de base de datos directamente al CSS */
-            --tenant-primary: {{ tenant.primary_color|default:"#000000" }};
-            --tenant-secondary: {{ tenant.secondary_color|default:"#FFFFFF" }};
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        tenant: {
+                            // Definimos el color primario y secundario del tenant
+                            primary: '{{ tenant.primary_color|default:"#000000" }}',
+                            secondary: '{{ tenant.secondary_color|default:"#FFFFFF" }}',
+                        }
+                    }
+                }
+            }
         }
-
-        /* Clases utilitarias personalizadas */
-        .bg-tenant-primary { background-color: var(--tenant-primary); }
-        .text-tenant-primary { color: var(--tenant-primary); }
-        .border-tenant-primary { border-color: var(--tenant-primary); }
-        
-        .btn-tenant {
-            background-color: var(--tenant-primary);
-            color: var(--tenant-secondary);
-            transition: opacity 0.2s;
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer components {
+            .btn-tenant {
+                /* Usamos el color secundario como fondo y primario como texto para el botón */
+                @apply bg-tenant-secondary text-tenant-primary px-5 py-2 rounded-lg shadow-md flex items-center gap-2 hover:opacity-90 transition-all font-semibold;
+            }
+            .card-tenant {
+                @apply bg-white p-6 rounded-xl shadow-sm border border-gray-100 border-l-4 border-tenant-primary;
+            }
         }
-        .btn-tenant:hover { opacity: 0.9; }
     </style>
 </head>
-<body class="bg-gray-50 font-sans antialiased" hx-boost="true">
+<body class="bg-gray-50/50 font-sans antialiased" hx-boost="true">
     
-    <nav class="bg-white border-b border-gray-200 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16 items-center">
-                <div class="flex items-center">
+    <nav class="bg-tenant-primary text-tenant-secondary shadow-lg border-b border-tenant-secondary/10">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8">
+            <div class="flex justify-between h-20 items-center">
+                
+                <div class="flex items-center gap-4">
                     {% if tenant.logo_image %}
-                        <img src="{{ tenant.logo_image.url }}" alt="Logo" class="h-8 w-auto mr-3">
+                        <img src="{{ tenant.logo_image.url }}" alt="Logo {{ tenant.name }}" class="h-10 w-auto bg-white p-1 rounded-md">
                     {% endif %}
-                    <span class="text-xl font-bold border-l-4 border-tenant-primary pl-3">
-                        {{ tenant.name|upper }}
-                    </span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-3xl font-extrabold tracking-tighter">{{ tenant.name|upper }}</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-tenant-secondary/10 border border-tenant-secondary/20 font-medium">
+                            OMS
+                        </span>
+                    </div>
                 </div>
                 
-                <div class="hidden md:block">
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border-tenant-primary border">
-                        <span class="w-2 h-2 mr-2 rounded-full bg-tenant-primary"></span>
-                        Modo Operativo
-                    </span>
+                <div class="flex items-center gap-5">
+                    <button class="flex items-center gap-2 text-sm font-medium hover:opacity-80">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                        Alertas
+                    </button>
+                    <div class="h-8 w-px bg-tenant-secondary/20"></div>
+                    <button class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-tenant-secondary text-tenant-primary flex items-center justify-center font-bold text-lg">
+                            {{ user.first_name|default:"O"|first }}
+                        </div>
+                        <span class="font-medium text-sm">{{ user.get_full_name|default:"Operador Nexus" }}</span>
+                    </button>
                 </div>
             </div>
         </div>
     </nav>
 
-    <main class="py-10">
+    <main class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             {% block content %}{% endblock %}
         </div>
     </main>
 
     <script>
-        // Token CSRF para todas las peticiones HTMX
+        // Token CSRF para HTMX
         document.body.addEventListener('htmx:configRequest', (event) => {
             event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
         });
     </script>
+
+    <div class="bg-yellow-200 text-black p-2 text-xs">
+        Debug: Organization en el context: {{ tenant }} | Slug: {{ tenant.slug }}
+    </div>
 </body>
 </html>

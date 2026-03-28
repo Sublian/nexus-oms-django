@@ -2,8 +2,7 @@
 
 def tenant_context(request):
     """
-    Hace que el objeto 'organization' esté disponible globalmente 
-    en todos los templates HTML del proyecto.
+    Toma la organización inyectada por el middleware y la pasa a los templates.
     """
     # Asumiendo que tu middleware ya inyecta la organización en el request
     return {

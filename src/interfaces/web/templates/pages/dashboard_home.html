@@ -1,57 +1,63 @@
 {% extends 'layouts/base.html' %}
 
 {% block content %}
-<div class="mb-8 flex justify-between items-end">
+<div class="mb-10 flex justify-between items-center p-6 bg-white rounded-xl shadow-sm border border-gray-100">
     <div>
-        <h1 class="text-2xl font-bold text-gray-800">Bienvenido, {{ user.first_name|default:"Operador" }}</h1>
-        <p class="mt-1 text-gray-500">Gestionando: <span class="font-semibold text-tenant-primary">{{ tenant.name }}</span></p>
+        <span class="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-tenant-primary/20 mb-2">
+            <span class="w-2 h-2 mr-2 rounded-full bg-tenant-primary"></span>
+            {{ tenant.name|upper }} - Modo Operativo
+        </span>
+        <h1 class="text-3xl font-extrabold text-gray-950 tracking-tight">Bienvenido, Operador</h1>
     </div>
     
-    <div class="mt-6">
-        <button class="btn-tenant px-6 py-2 font-semibold rounded-lg shadow-sm flex items-center gap-2 hover:scale-105 transition-transform">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-            </svg>
-            Nueva Orden
-        </button>
-    </div>
+    <button class="btn-tenant">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+        </svg>
+        Nueva Orden
+    </button>
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
     
-    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 border-l-4 border-tenant-primary"
-         {% if tenant %}
-            hx-get="{% url 'web:dashboard_home' org_slug=tenant.slug %}" 
-        {% endif %}
-        hx-trigger="load">
-         hx-select="#sales-data"> 
-         <p class="text-sm text-gray-400 font-medium">VENTAS DEL MES</p>
-        <div class="h-8 w-24 bg-gray-100 animate-pulse mt-2 rounded"></div>
+    <div class="card-tenant" hx-get="..." hx-trigger="load">
+        <p class="text-xs text-gray-400 font-semibold uppercase tracking-wider">Ventas del Mes</p>
+        <div class="h-9 w-28 bg-gray-100 animate-pulse mt-2 rounded-lg"></div>
     </div>
 
-    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 border-l-4 border-red-500">
-        <p class="text-sm text-gray-400 font-medium text-red-500">STOCK BAJO</p>
+    <div class="card-tenant !border-l-red-500">
+        <p class="text-xs text-gray-400 font-semibold uppercase tracking-wider">STOCK BAJO</p>
         <div class="flex items-baseline mt-2">
-            <p class="text-3xl font-bold text-gray-800">12</p>
-            <span class="ml-2 text-xs text-gray-400">SKUs alerta</span>
+            <p class="text-4xl font-extrabold text-gray-950 tracking-tight">12</p>
+            <span class="ml-2.5 text-sm text-gray-500 font-medium">SKUs alerta</span>
         </div>
     </div>
 
-    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 border-l-4 border-green-500">
-        <p class="text-sm text-gray-400 font-medium text-green-500">MARGEN NETO</p>
+    <div class="card-tenant !border-l-green-500">
+        <p class="text-xs text-gray-400 font-semibold uppercase tracking-wider">MARGEN NETO</p>
         <div class="flex items-baseline mt-2">
-            <p class="text-3xl font-bold text-gray-800">24.5%</p>
-            <span class="ml-2 text-xs text-green-500">↑ 2.1%</span>
+            <p class="text-4xl font-extrabold text-gray-950 tracking-tight">24.5%</p>
+            <span class="ml-2.5 text-sm text-green-600 font-semibold flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd" />
+                </svg>
+                2.1%
+            </span>
         </div>
     </div>
 </div>
 
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-    <div class="p-6 border-b border-gray-100 bg-gray-50/50">
-        <h3 class="font-bold text-gray-700">Últimos Pedidos</h3>
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+        <h3 class="font-bold text-lg text-gray-800">Últimos Pedidos</h3>
+        <input type="search" placeholder="Buscar pedido..." class="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-tenant-primary focus:border-tenant-primary outline-none transition-all w-64">
     </div>
-    <div class="p-0">
-        <p class="p-10 text-center text-gray-400 italic">No hay pedidos recientes para mostrar.</p>
+    <div class="p-16 text-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-gray-200 mx-auto mb-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <p class="text-gray-500 font-medium text-lg">No hay pedidos recientes</p>
+        <p class="text-gray-400 mt-1">Los pedidos nuevos aparecerán aquí automáticamente.</p>
     </div>
 </div>
 {% endblock %}
