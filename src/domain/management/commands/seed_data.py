@@ -26,11 +26,36 @@ class Command(BaseCommand):
 
         # Restauramos todas las tiendas que tenías originalmente
         org_configs = [
-            {'name': 'Tienda Principal', 'slug': 'main', 'tax': 18.00, 'email': 'admin@main.com'},
-            {'name': 'Nike', 'slug': 'nike', 'tax': 15.00, 'email': 'vende@nike.com'},
-            {'name': 'Adidas', 'slug': 'adidas', 'tax': 15.00, 'email': 'ventas@adidas.com'},
-            {'name': 'Tienda Minorista', 'slug': 'minorista', 'tax': 12.00, 'email': 'contacto@minorista.com'},
+            {
+                'name': 'Tienda Principal', 'slug': 'main', 'tax': 18.00, 'email': 'admin@main.com',
+                'p_color': '#4F46E5', 's_color': '#F8FAFC' # Indigo / Slate
+            },
+            {
+                'name': 'Nike', 'slug': 'nike', 'tax': 15.00, 'email': 'vende@nike.com',
+                'p_color': '#000000', 's_color': '#FFFFFF' # Black / White
+            },
+            {
+                'name': 'Adidas', 'slug': 'adidas', 'tax': 15.00, 'email': 'ventas@adidas.com',
+                'p_color': '#0070AC', 's_color': '#FFFFFF' # Adidas Blue / White
+            },
+            {
+                'name': 'Tienda Minorista', 'slug': 'minorista', 'tax': 12.00, 'email': 'contacto@minorista.com',
+                'p_color': '#059669', 's_color': '#ECFDF5' # Emerald / Green
+            },
         ]
+        
+        for config in org_configs:
+            with transaction.atomic():
+                # 1. Organización con COLORES
+                org, _ = Organization.objects.update_or_create(
+                    slug=config['slug'],
+                    defaults={
+                        'name': config['name'], 
+                        'admin_email': config['email'],
+                        'primary_color': config['p_color'],
+                        'secondary_color': config['s_color']
+                    }
+                )
 
         catalogs = {
             'Nike': {

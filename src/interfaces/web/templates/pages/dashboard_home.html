@@ -1,14 +1,57 @@
 {% extends 'layouts/base.html' %}
 
 {% block content %}
-<div class="bg-white p-8 rounded-lg shadow-sm border border-gray-100">
-    <h1 class="text-2xl font-bold text-gray-800">Bienvenido a {{ tenant.name }}</h1>
-    <p class="mt-2 text-gray-600">Este es tu panel de control minimalista.</p>
+<div class="mb-8 flex justify-between items-end">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">Bienvenido, {{ user.first_name|default:"Operador" }}</h1>
+        <p class="mt-1 text-gray-500">Gestionando: <span class="font-semibold text-tenant-primary">{{ tenant.name }}</span></p>
+    </div>
     
     <div class="mt-6">
-        <button class="btn-tenant px-6 py-2 font-semibold rounded-md shadow-md">
+        <button class="btn-tenant px-6 py-2 font-semibold rounded-lg shadow-sm flex items-center gap-2 hover:scale-105 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+            </svg>
             Nueva Orden
         </button>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+    
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 border-l-4 border-tenant-primary"
+         {% if tenant %}
+            hx-get="{% url 'web:dashboard_home' org_slug=tenant.slug %}" 
+        {% endif %}
+        hx-trigger="load">
+         hx-select="#sales-data"> 
+         <p class="text-sm text-gray-400 font-medium">VENTAS DEL MES</p>
+        <div class="h-8 w-24 bg-gray-100 animate-pulse mt-2 rounded"></div>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 border-l-4 border-red-500">
+        <p class="text-sm text-gray-400 font-medium text-red-500">STOCK BAJO</p>
+        <div class="flex items-baseline mt-2">
+            <p class="text-3xl font-bold text-gray-800">12</p>
+            <span class="ml-2 text-xs text-gray-400">SKUs alerta</span>
+        </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 border-l-4 border-green-500">
+        <p class="text-sm text-gray-400 font-medium text-green-500">MARGEN NETO</p>
+        <div class="flex items-baseline mt-2">
+            <p class="text-3xl font-bold text-gray-800">24.5%</p>
+            <span class="ml-2 text-xs text-green-500">↑ 2.1%</span>
+        </div>
+    </div>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="p-6 border-b border-gray-100 bg-gray-50/50">
+        <h3 class="font-bold text-gray-700">Últimos Pedidos</h3>
+    </div>
+    <div class="p-0">
+        <p class="p-10 text-center text-gray-400 italic">No hay pedidos recientes para mostrar.</p>
     </div>
 </div>
 {% endblock %}
