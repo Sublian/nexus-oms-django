@@ -1,10 +1,17 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render
+from src.domain.models import Order
 # Importamos el modelo si necesitas validar algo extra, 
 # aunque el middleware ya debería tenerlo.
 
 def dashboard_home(request, org_slug):
-    """
-    Renderiza el inicio del dashboard. 
-    org_slug viene de la URL: /dashboard/mi-empresa/
-    """
-    return render(request, 'pages/dashboard_home.html')
+    # El middleware ya validó la organización en request.organization
+    tenant = request.organization
+    
+    # Traemos los últimos 5 pedidos de esta organización
+    recent_orders = Order.objects.filter(
+        organization=tenant
+    ).order_by('-created_at')[:5]
+    
+    return render(request, 'pages/dashboard_home.html', {
+        'orders': recent_orders
+    })
