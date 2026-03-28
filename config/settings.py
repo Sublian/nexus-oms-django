@@ -95,6 +95,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                # personalizacion para inyectar la organización en el contexto global de templates
+                'src.interfaces.web.context_processors.tenant_context',
             ],
         },
     },

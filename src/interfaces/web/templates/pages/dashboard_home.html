@@ -1,0 +1,14 @@
+{% extends 'layouts/base.html' %}
+
+{% block content %}
+<div class="bg-white p-8 rounded-lg shadow-sm border border-gray-100">
+    <h1 class="text-2xl font-bold text-gray-800">Bienvenido a {{ tenant.name }}</h1>
+    <p class="mt-2 text-gray-600">Este es tu panel de control minimalista.</p>
+    
+    <div class="mt-6">
+        <button class="btn-tenant px-6 py-2 font-semibold rounded-md shadow-md">
+            Nueva Orden
+        </button>
+    </div>
+</div>
+{% endblock %}

@@ -25,3 +25,4 @@ gunicorn
 pytest-django
 pytest-mock
 pytest-cov
+pillow
