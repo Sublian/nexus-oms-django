@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus OMS - {{ organization.name }}</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+    <style>
+        /* Definimos una variable de CSS dinámica basada en el Tenant */
+        :root {
+            --tenant-primary: {{ organization.primary_color|default:'#4f46e5' }};
+        }
+        .btn-primary { @apply bg-[var(--tenant-primary)] text-white px-4 py-2 rounded-md hover:opacity-90 transition-all; }
+        .border-tenant { border-color: var(--tenant-primary); }
+        .text-tenant { color: var(--tenant-primary); }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900" hx-boost="true">
+    {% block content %}{% endblock %}
+
+    <script>
+        // Configuración global de HTMX para manejo de CSRF de Django
+        document.body.addEventListener('htmx:configRequest', (event) => {
+            event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+        });
+    </script>
+</body>
+</html>

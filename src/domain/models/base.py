@@ -11,6 +11,9 @@ class Organization(models.Model):
     telegram_enabled = models.BooleanField(default=False)
     whatsapp_enabled = models.BooleanField(default=False)
     admin_email = models.EmailField()
+    primary_color = models.CharField(max_length=7, default="#000000") # Color en formato hexadecimal
+    secondary_color = models.CharField(max_length=7, default="#FFFFFF") # Color en formato hexadecimal
+    logo_image = models.ImageField(upload_to='organization_logos/', blank=True, null=True) # Imagen del logo de la empresa
 
     def __str__(self):
         return self.name
