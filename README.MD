@@ -16,29 +16,40 @@ Nexus OMS es un **Order Management System multi-tenant** pensado para e‑commer
 
 ## 🚀 Características Principales (High-Level)
 
-- **Multi-tenancy Riguroso:** Aislamiento de datos por esquema/ID mediante Middleware personalizado.
-- **Core de Pedidos (OMS):** Motor de estados complejo (FSM) para la gestión del ciclo de vida de las órdenes.
-- **Motor de Promociones:** Basado en el patrón *Strategy* para aplicar descuentos dinámicos.
-- **Arquitectura Orientada a Eventos (EDA):** Procesamiento de pagos y notificaciones vía Celery.
-- **Observabilidad:** Logs estructurados y trazabilidad completa de cambios de estado (Audit Logs).
+- **Multi-tenancy Riguroso:** Aislamiento de datos por ID mediante Middleware personalizado y filtrado automático en el ORM.
+- **Core de Pedidos (OMS):** Motor de gestión del ciclo de vida de las órdenes y logística inversa protegida.
+- **Finanzas y Margen Neto:** Servicio especializado (`FinanceService`) para calcular rentabilidad real, comisiones y costos.
+- **Arquitectura Orientada a Eventos (EDA):** Procesamiento de tareas pesadas y notificaciones vía Celery + Redis.
+- **CI/CD & Cloud:** Pipeline automatizado con GitHub Actions y despliegue preparado para AWS EC2.
+
+---
+
+## 🎨 Estrategia de Frontend: "The New Django Way"
+
+Nexus rechaza la complejidad innecesaria de los frameworks de JS pesados. En su lugar, utiliza un stack moderno y ligero:
+
+* **HTMX:** Para realizar peticiones AJAX directamente desde HTML, permitiendo actualizaciones parciales del DOM y una sensación de SPA.
+* **Tailwind CSS:** Para un diseño utilitario, rápido y totalmente responsivo.
+* **Alpine.js (Opcional):** Para lógica de cliente mínima (dropdowns, tabs) sin salir del ecosistema HTML.
+* **Django Templates:** Renderizado del lado del servidor (SSR) para máxima velocidad inicial y SEO.
 
 ---
 
 ## 🏗️ Arquitectura y Patrones
 
-El proyecto implementa **Clean Architecture** para garantizar que el sistema sea fácil de mantener y testear.
+El proyecto implementa **Clean Architecture** y **DDD** para garantizar mantenibilidad.
 
 ### Capas del Proyecto
-1. **Domain:** Entidades puras y reglas de oro del negocio. Cero dependencias externas.
-2. **Application:** Casos de uso (Orquestación). Aquí reside el "qué hace" el sistema.
-3. **Infrastructure:** Adaptadores de base de datos (Django ORM), clientes de API y servicios externos.
-4. **Interface (API):** Controladores de Django Rest Framework y Serializers.
+1. **Domain:** Entidades puras, modelos de persistencia y lógica financiera.
+2. **Application (Services):** Orquestación de casos de uso (OrderService, FinanceService).
+3. **Infrastructure:** Tareas de Celery, adaptadores de DB y configuración de AWS.
+4. **Interface (Web/API):** * **API:** Endpoints REST para integraciones externas.
+    * **Web:** Vistas reactivas potenciadas por **HTMX** para el operador humano.
 
 ### Patrones de Diseño Implementados
-* **Repository Pattern:** Desacoplamiento total del ORM.
-* **Service Layer:** Lógica de orquestación de procesos complejos.
-* **Domain Events:** Comunicación desacoplada entre módulos.
-* **Dependency Injection (DI):** Inyección de dependencias para facilitar Unit Testing.
+* **Strategy Pattern:** En el sistema de notificaciones multi-canal.
+* **Service Layer:** Centralización de lógica de negocio compleja.
+* **Mocker Pattern:** Para el aislamiento total de tests unitarios asíncronos.
 
 ---
 
@@ -46,47 +57,24 @@ El proyecto implementa **Clean Architecture** para garantizar que el sistema sea
 
 | Componente | Tecnología |
 | :--- | :--- |
-| **Backend** | Python 3.12+, Django 5.x, DRF |
-| **Base de Datos** | PostgreSQL (JSONB support) |
+| **Backend** | Python 3.12+, Django 5.x |
+| **Base de Datos** | PostgreSQL 17 |
 | **Task Queue** | Celery + Redis |
-| **Testing** | Pytest (Unit, Integration, E2E) |
-| **DevOps** | Docker, Docker Compose, GitHub Actions |
+| **Cloud & Infra** | AWS EC2 (Ubuntu + Nginx), Docker |
+| **CI/CD** | GitHub Actions + Codecov |
 
 ---
 
 ## 📂 Estructura del Repositorio
 
 ```text
-/nexus_project
+/src
 │
-├── src/
-│   ├── domain/              # Reglas de negocio (Python Puro)
-│   ├── application/         # Casos de uso (PlaceOrder, etc)
-│   ├── infrastructure/      # Adaptadores (Postgres, HTTPX Clients, Celery Tasks)
-│   └── interfaces/          # Web (HTMX Views), API (DRF), Templates
+├── domain/            # Modelos, Servicios de Dominio y Lógica Financiera
+├── application/       # (En transición) Casos de uso
+├── infrastructure/    # Tareas de Celery y configuraciones externas
+├── interfaces/        # API (DRF) y Vistas Web (HTMX)
 │
-├── templates/               # Fragmentos de HTML para HTMX
-├── static/                  # Tailwind CSS
-├── docker-compose.yml       # Django, Postgres, Redis, Celery Worker, Mailhog
-└── Makefile                 # Comandos: make test, make build, make logs
-```
-
-## 📌 Estado actual del proyecto
-
-Este repositorio está en construcción activa. A día de hoy:
-
-- [x] Definido el **modelo de capas** (Domain, Application, Infrastructure, Interfaces).
-- [x] Documentada la **estrategia multi-tenant** a nivel de middleware y repositorios.
-- [ ] Implementación completa de agregados de dominio (Order, Product, Inventory).
-- [ ] API REST para órdenes, productos y clientes.
-- [ ] Integración con Celery para procesos asincrónicos (events/handlers).
-- [ ] Batería de tests (unitarios, integración, contratos) alineada con DDD.
-
-
-## 📖 Documentación Detallada
-
-Para comprender a fondo las decisiones técnicas y el plan de ejecución, revisa los documentos en la carpeta [`docs/`](./docs/):
-
-* [**Architecture & Design**](./docs/ARCHITECTURE.md): Diagramas de capas, flujo asíncrono y máquina de estados.
-* [**Modern Stack Strategy**](./docs/STACK.md): Justificación del uso de HTMX, HTTPX y arquitectura basada en eventos.
-* [**Roadmap & Milestones**](./docs/ROADMAP.md): Seguimiento detallado del progreso y objetivos técnicos.
+├── .github/workflows/ # CI Pipeline (Tests & Coverage)
+├── docker-compose.yml # Stack completo de desarrollo
+└── docs/              # Roadmap, Arquitectura y Decisiones (ADRs)
