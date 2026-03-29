@@ -24,6 +24,31 @@ class Order(TenantModel):
 
     def __str__(self):
         return f"Pedido {self.id} - {self.customer_name} ({self.organization.name})"
+    
+# En src/domain/models/sales.py (clase Order)
+
+    @property
+    def active_tax_rate(self):
+        """Obtiene la tasa de impuesto por defecto para la organización."""
+        from .config import TaxConfiguration # Ajusta el import según tu estructura
+        tax_config = TaxConfiguration.objects.filter(
+            organization=self.organization, 
+            is_default=True
+        ).first()
+        
+        # Si por alguna razón no hay uno por defecto, usamos 18.00 como fallback
+        return tax_config.rate if tax_config else 18.00
+
+    @property
+    def subtotal(self):
+        """Calcula el subtotal (Base Imponible) partiendo del total."""
+        rate = self.active_tax_rate
+        return round(float(self.total_amount) / (1 + (float(rate) / 100)), 2)
+
+    @property
+    def tax_amount(self):
+        """Calcula el monto exacto del impuesto aplicado."""
+        return round(float(self.total_amount) - self.subtotal, 2)
 
 class OrderItem(TenantModel):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
