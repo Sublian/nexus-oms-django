@@ -27,7 +27,7 @@ class Command(BaseCommand):
         # Restauramos todas las tiendas que tenías originalmente
         org_configs = [
             {
-                'name': 'Tienda Principal', 'slug': 'main', 'tax': 18.00, 'email': 'admin@main.com',
+                'name': 'Tienda Principal', 'slug': 'tienda-principal', 'tax': 18.00, 'email': 'admin@main.com',
                 'p_color': '#4F46E5', 's_color': '#F8FAFC' # Indigo / Slate
             },
             {

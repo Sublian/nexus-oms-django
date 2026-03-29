@@ -11,7 +11,7 @@ def dashboard_home(request, org_slug):
     recent_orders = Order.objects.filter(
         organization=tenant
     ).order_by('-created_at')[:5]
-    
+    print(f"Tenant: {tenant} | pedidos_recientes: {recent_orders}")
     return render(request, 'pages/dashboard_home.html', {
         'orders': recent_orders
     })
