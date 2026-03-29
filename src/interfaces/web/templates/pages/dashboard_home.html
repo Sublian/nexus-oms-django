@@ -18,40 +18,46 @@
     </button>
 </div>
 
+<!-- Segmento de tarjetas -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+    
     <div class="card-tenant">
-        <p class="text-xs text-gray-400 font-semibold uppercase tracking-wider">Ventas del Mes</p>
-        <div class="flex items-baseline mt-2">
-            <p class="text-4xl font-extrabold text-gray-950 tracking-tight">$0.00</p>
-            <span class="ml-2 text-xs text-gray-400 font-normal italic">(Simulado)</span>
+        <p class="text-xs text-gray-400 font-black uppercase tracking-widest">Ventas del Mes</p>
+        <div class="flex items-baseline mt-2 gap-2">
+            <p class="text-4xl font-black text-gray-950 tracking-tighter">${{ monthly_sales|floatformat:2 }}</p>
+            <span class="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-bold uppercase">Actualizado</span>
         </div>
+        <p class="text-[10px] text-gray-400 mt-1 italic">Ingresos brutos acumulados</p>
     </div>
 
-    <div class="card-tenant !border-l-red-500">
-        <p class="text-xs text-gray-400 font-semibold uppercase tracking-wider">STOCK BAJO</p>
+    <div class="card-tenant !border-l-red-500 shadow-md">
+        <p class="text-xs text-gray-400 font-black uppercase tracking-widest">Alerta de Inventario</p>
         <div class="flex items-baseline mt-2">
-            <p class="text-4xl font-extrabold text-gray-950 tracking-tight">12</p>
-            <span class="ml-2.5 text-sm text-gray-500 font-medium">SKUs alerta</span>
+            <p class="text-4xl font-black text-red-600 tracking-tighter">{{ low_stock_count }}</p>
+            <span class="ml-2.5 text-sm text-gray-500 font-bold uppercase tracking-tighter">SKUs Críticos</span>
         </div>
+        <p class="text-[10px] text-red-400 mt-1 font-medium">Requieren reposición inmediata</p>
     </div>
 
-    <div class="card-tenant !border-l-green-500">
-        <p class="text-xs text-gray-400 font-semibold uppercase tracking-wider">MARGEN NETO</p>
+    <div class="card-tenant !border-l-tenant-primary">
+        <p class="text-xs text-gray-400 font-black uppercase tracking-widest">Eficacia Operativa</p>
         <div class="flex items-baseline mt-2">
-            <p class="text-4xl font-extrabold text-gray-950 tracking-tight">24.5%</p>
-            <span class="ml-2.5 text-sm text-green-600 font-semibold flex items-center gap-1">
+            <p class="text-4xl font-black text-gray-950 tracking-tighter">{{ net_margin }}%</p>
+            <span class="ml-2.5 text-sm text-tenant-primary font-bold flex items-center gap-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd" />
                 </svg>
-                2.1%
+                MARGEN
             </span>
         </div>
+        <p class="text-[10px] text-gray-400 mt-1">Post-comisiones de pasarela</p>
     </div>
 </div>
 
+<!-- Segmento ultimos pedidos con modal de detalle al hacer click -->
 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
     <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-        <h3 class="font-bold text-lg text-gray-800">Últimos Pedidos</h3>
+        <h3 class="font-bold text-lg text-gray-800">Últimos {{ batch_size }} Pedidos</h3>
         <span class="text-xs font-bold text-tenant-primary uppercase tracking-widest">Tiempo Real</span>
     </div>
     
