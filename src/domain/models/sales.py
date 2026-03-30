@@ -25,6 +25,8 @@ class Order(TenantModel):
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    pdf_report = models.FileField(upload_to='orders/pdfs/', null=True, blank=True)
+
     def __str__(self):
         return f"Pedido {self.id} - {self.customer_name} ({self.organization.name})"
     
@@ -47,6 +49,10 @@ class OrderItem(TenantModel):
     quantity = models.PositiveIntegerField()
     price_at_order = models.DecimalField(max_digits=10, decimal_places=2) # Histórico del precio
 
+    @property
+    def total_price(self):
+        return self.quantity * self.price_at_order
+    
     def __str__(self):
         return f"{self.quantity} x {self.product.name}"
 

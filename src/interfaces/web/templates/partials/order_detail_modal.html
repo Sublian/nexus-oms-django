@@ -110,12 +110,31 @@
             </div>
         </div>
 
+        <!-- boton de imprimir pdf -->
         <div class="p-6 bg-white border-t border-gray-50 flex gap-3">
-            <button class="flex-1 py-4 bg-tenant-primary text-tenant-secondary rounded-xl font-black shadow-lg shadow-tenant-primary/30 hover:translate-y-[-1px] active:translate-y-[0px] transition-all flex items-center justify-center gap-2 uppercase text-xs tracking-[0.1em]">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                Imprimir Comprobante
-            </button>
-            <button onclick="document.getElementById('order-modal').remove()" class="px-8 py-4 bg-gray-100 text-gray-500 rounded-xl font-bold hover:bg-gray-200 transition-all text-xs uppercase tracking-widest">
+            <div id="pdf-action-container-{{ order.id }}" class="flex-1">
+                {% if order.pdf_report %}
+                    {# ESTADO: ÉXITO - BOTÓN VERDE ESTÉTICO #}
+                    <a href="{{ order.pdf_report.url }}" target="_blank" 
+                    class="w-full py-4 bg-green-600 text-white rounded-xl font-black shadow-lg shadow-green-600/30 hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 uppercase text-xs tracking-[0.1em]">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Descargar Comprobante PDF
+                    </a>
+                {% else %}
+                    {# ESTADO: INICIAL - BOTÓN ORIGINAL NEXUS #}
+                    <button 
+                        hx-post="{% url 'web:generate_order_pdf' org_slug=order.organization.slug order_id=order.id %}"
+                        hx-target="#pdf-action-container-{{ order.id }}"
+                        hx-swap="innerHTML"
+                        class="w-full py-4 bg-tenant-primary text-tenant-secondary rounded-xl font-black shadow-lg shadow-tenant-primary/30 hover:translate-y-[-1px] active:translate-y-[0px] transition-all flex items-center justify-center gap-2 uppercase text-xs tracking-[0.1em]">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        Generar PDF Oficial
+                    </button>
+                {% endif %}
+            </div>
+
+            <button onclick="document.getElementById('order-modal').remove()" 
+                    class="px-8 py-4 bg-gray-100 text-gray-500 rounded-xl font-bold hover:bg-gray-200 transition-all text-xs uppercase tracking-widest">
                 Cerrar
             </button>
         </div>

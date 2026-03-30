@@ -6,6 +6,7 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 
 from ..models import Order, OrderItem, Stock, Product, TaxConfiguration, OrderReturn, Warehouse, Payment, PurchaseOrderItem
+from ..tasks.reporting_tasks import generate_order_pdf_task
 
 class CatalogService:
     @staticmethod
@@ -101,6 +102,7 @@ class OrderService:
         # 5. (Opcional) Disparar tarea asíncrona para el PDF
         # from src.domain.tasks.reporting_tasks import generate_order_pdf_task
         # transaction.on_commit(lambda: generate_order_pdf_task.delay(order.id))
+        transaction.on_commit(lambda: generate_order_pdf_task.delay(order.id))
 
         return order
     

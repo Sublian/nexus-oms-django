@@ -1,9 +1,12 @@
-from django.shortcuts import render,get_object_or_404
-from src.domain.models import Order, OrderItem, Organization, Payment, Product
+from datetime import timedelta
 
+from django.http import HttpResponse
+from django.shortcuts import render,get_object_or_404
 from django.utils import timezone
 from django.db.models import Sum, Count, F, ExpressionWrapper, DecimalField
-from datetime import timedelta
+
+from src.domain.models import Order, OrderItem, Organization, Payment, Product
+from src.domain.tasks.reporting_tasks import generate_order_pdf_task
 
 # Importamos el modelo si necesitas validar algo extra, 
 # aunque el middleware ya debería tenerlo.
@@ -62,3 +65,28 @@ def order_detail_partial(request, org_slug, order_id):
         'order': order,
         'items': items
     })
+
+def trigger_pdf_generation(request, org_slug, order_id):
+    order = get_object_or_404(Order, id=order_id, organization__slug=org_slug)
+    generate_order_pdf_task.delay(order.id)
+    
+    # Respuesta con estética de "botón en proceso"
+    return HttpResponse(f'''
+        <div hx-get="/dashboard/{org_slug}/orders/{order_id}/" 
+             hx-trigger="load delay:3s" 
+             hx-target="#order-modal" 
+             hx-select="#order-modal"
+             class="w-full py-4 bg-gray-900 text-tenant-secondary rounded-xl font-black flex items-center justify-center gap-3 uppercase text-xs tracking-[0.1em] animate-pulse">
+            
+            <svg class="animate-spin h-4 w-4 text-tenant-secondary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            
+            <span>Sincronizando Archivo...</span>
+        </div>
+        <p class="text-[9px] text-center text-gray-400 mt-2 font-bold tracking-tighter uppercase opacity-60">
+            La tarea se ha delegado al worker de reporting
+        </p>
+    ''')
+

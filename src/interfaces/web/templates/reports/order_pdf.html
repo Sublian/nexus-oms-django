@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page { size: A4; margin: 2cm; }
+        body { font-family: 'Helvetica', sans-serif; color: #333; line-height: 1.5; }
+        .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 20px; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .table th { background-color: #f8fafc; text-align: left; padding: 12px; border-bottom: 1px solid #e2e8f0; }
+        .table td { padding: 12px; border-bottom: 1px solid #f1f5f9; }
+        .text-right { text-align: right; }
+        .font-bold { font-weight: bold; }
+        .footer { margin-top: 50px; font-size: 10px; color: #64748b; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>NEXUS OMS - Comprobante de Pedido</h1>
+        <p><strong>Organización:</strong> {{ order.organization.name }}</p>
+        <p><strong>Orden #:</strong> {{ order.id }} | <strong>Fecha:</strong> {{ order.created_at|date:"d/m/Y H:i" }}</p>
+    </div>
+
+    <div>
+        <h3>Datos del Cliente</h3>
+        <p>Nombre: {{ order.customer_name }}<br>Email: {{ order.customer_email }}</p>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th class="text-right">Cant.</th>
+                <th class="text-right">P. Unit</th>
+                <th class="text-right">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order.items.all %}
+            <tr>
+                <td>{{ item.product.name }}</td>
+                <td class="text-right">{{ item.quantity }}</td>
+                <td class="text-right">${{ item.price_at_order }}</td>
+                <td class="text-right">${{ item.total_price }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="margin-top: 30px; width: 300px; margin-left: auto;">
+        <p class="text-right">Subtotal: <strong>${{ order.subtotal }}</strong></p>
+        <p class="text-right">Impuestos ({{ order.get_tax_rate }}%): <strong>${{ order.tax_amount }}</strong></p>
+        <hr>
+        <h2 class="text-right">Total: ${{ order.total_amount }}</h2>
+    </div>
+
+    <div class="footer">
+        Documento generado automáticamente por Nexus OMS - Lima, Perú.
+    </div>
+</body>
+</html>

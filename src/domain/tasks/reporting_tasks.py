@@ -162,26 +162,28 @@ def generate_weekly_all_orgs():
 @shared_task(bind=True, max_retries=3)
 def generate_order_pdf_task(self, order_id):
     try:
-        order = Order.objects.get(id=order_id)
+        # Usamos select_related para traer la organización y evitar queries extras
+        order = Order.objects.select_related('organization').prefetch_related('items__product').get(id=order_id)
         
-        # 1. Renderizar el HTML con el estilo Tailwind (usando CDN para el PDF)
-        html_string = render_to_string('dashboard/reports/order_print.html', {
+        # 1. Renderizar el HTML
+        html_string = render_to_string('reports/order_pdf.html', {
             'order': order,
-            'items': order.items.all(),
         })
 
-        # 2. Generar el PDF
+        # 2. Generar el PDF en memoria
         pdf_file = HTML(string=html_string).write_pdf()
 
-        # 3. Guardar el PDF en el modelo o en un storage
-        # Supongamos que añadimos un campo 'pdf_report' a Order
+        # 3. Guardar el archivo físicamente
+        # El slug de la organización ayuda a organizar archivos en el storage
         filename = f"order_{order.id}_{order.organization.slug}.pdf"
-        order.pdf_report.save(filename, ContentFile(pdf_file))
-        order.save()
-
-        return f"PDF generado exitosamente para la orden {order_id}"
         
+        # Guardamos en el campo FileField
+        order.pdf_report.save(filename, ContentFile(pdf_file), save=True)
+
+        return f"PDF para Orden {order_id} generado y guardado."
+        
+    except Order.DoesNotExist:
+        return f"Error: Orden {order_id} no encontrada."
     except Exception as exc:
-        # Reintento en caso de fallo (ej. DB ocupada)
-        raise self.retry(exc=exc, countdown=10)
+        raise self.retry(exc=exc, countdown=15)
 
