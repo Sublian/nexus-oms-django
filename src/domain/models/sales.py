@@ -18,6 +18,8 @@ class Order(TenantModel):
     customer_name = models.CharField(max_length=255)
     customer_email = models.EmailField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DRAFT')
+
+    # CAMPOS REALES EN DB (Se llenan al crear la orden)
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -26,30 +28,18 @@ class Order(TenantModel):
     def __str__(self):
         return f"Pedido {self.id} - {self.customer_name} ({self.organization.name})"
     
-# En src/domain/models/sales.py (clase Order)
-
+    # PROPIEDADES DE APOYO (Sin colisión de nombres)
     @property
-    def active_tax_rate(self):
-        """Obtiene la tasa de impuesto por defecto para la organización."""
-        from .config import TaxConfiguration # Ajusta el import según tu estructura
-        tax_config = TaxConfiguration.objects.filter(
+    def get_tax_rate(self):
+        """Busca la tasa de impuesto configurada para la organización."""
+        from .config import TaxConfiguration
+        config = TaxConfiguration.objects.filter(
             organization=self.organization, 
             is_default=True
         ).first()
-        
-        # Si por alguna razón no hay uno por defecto, usamos 18.00 como fallback
-        return tax_config.rate if tax_config else 18.00
+        # Fallback al 18% si no hay configuración (común en Perú/IGV)
+        return config.rate if config else 18.00
 
-    @property
-    def subtotal(self):
-        """Calcula el subtotal (Base Imponible) partiendo del total."""
-        rate = self.active_tax_rate
-        return round(float(self.total_amount) / (1 + (float(rate) / 100)), 2)
-
-    @property
-    def tax_amount(self):
-        """Calcula el monto exacto del impuesto aplicado."""
-        return round(float(self.total_amount) - self.subtotal, 2)
 
 class OrderItem(TenantModel):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')

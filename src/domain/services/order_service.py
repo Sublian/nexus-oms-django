@@ -39,23 +39,26 @@ class OrderService:
     def handle_return(return_id):
         from ..tasks import alert_unusual_return_task
         alert_unusual_return_task.delay(return_id)
-        
+
     @staticmethod
     @transaction.atomic
     def create_order(organization, customer_data, items_data):
-        # 1. Crear la orden base
+        # 1. Crear la instancia de la orden (Estado inicial Borrador o Pendiente)
         order = Order.objects.create(
             organization=organization,
             customer_name=customer_data['name'],
-            customer_email=customer_data['email']
+            customer_email=customer_data['email'],
+            status='PENDING'
         )
 
-        # 2. Crear los items y manejar stock
+        running_subtotal = Decimal('0.00')
+
+        # 2. Iterar items, validar stock y crear OrderItems
         for item in items_data:
             product = item['product']
             qty = item['quantity']
 
-            # Usamos select_for_update para evitar condiciones de carrera en el stock
+            # Bloqueo preventivo de stock (Pessimistic Locking)
             stock_record = Stock.objects.select_for_update().filter(
                 product=product, 
                 organization=organization
@@ -64,31 +67,41 @@ class OrderService:
             if not stock_record or stock_record.quantity < qty:
                 raise ValueError(f"Stock insuficiente para {product.name}")
 
-            # Descontar stock
+            # Descontar stock físicamente
             stock_record.quantity -= qty
             stock_record.save()
 
-            # Crear el item del pedido
+            # CONVERSIÓN CRÍTICA: Convertimos el precio a Decimal antes de multiplicar
+            current_price = Decimal(str(product.price))
+            item_qty = Decimal(str(qty))
+
+            # Crear el registro del item (grabando el precio actual)
             OrderItem.objects.create(
                 organization=organization,
                 order=order,
                 product=product,
                 quantity=qty,
-                price_at_order=product.price
+                price_at_order=current_price
             )
+            
+            # Acumular para el cálculo final
+            running_subtotal += (current_price * item_qty)
 
-        # 3. Importante: Como total_amount solía ser un campo real y ahora 
-        # queremos que sea persistente (o calculado), asegurémonos de que 
-        # el modelo Order tenga el campo total_amount si la lógica lo requiere,
-        # O simplemente dejemos que las @properties hagan su trabajo.
+        # 3. Cálculos finales basados en la configuración de impuestos del Tenant
+        tax_rate = Decimal(str(order.get_tax_rate))
         
-        # Si total_amount es un FloatField/DecimalField en la DB:
+        # Asignamos a los campos DecimalField de la base de datos
+        order.subtotal = running_subtotal
+        order.tax_amount = (running_subtotal * (tax_rate / 100)).quantize(Decimal('0.01'))
         order.total_amount = order.subtotal + order.tax_amount
+        
+        # 4. Guardar los valores calculados en la DB
         order.save()
 
-        # 4. Procesar (Asíncrono o lógica extra)
-        # OrderService.process_order(order.id) # Descomentar si usas Celery
-        
+        # 5. (Opcional) Disparar tarea asíncrona para el PDF
+        # from src.domain.tasks.reporting_tasks import generate_order_pdf_task
+        # transaction.on_commit(lambda: generate_order_pdf_task.delay(order.id))
+
         return order
     
     @staticmethod
