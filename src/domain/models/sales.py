@@ -8,6 +8,7 @@ from src.infrastructure.models import TenantModel
 class Order(TenantModel):
     STATUS_CHOICES = [
         ('PENDING', 'Pendiente'),
+        ('DRAFT', 'Borrador'),
         ('PAID', 'Pagado'),
         ('SHIPPED', 'Enviado'),
         ('DELIVERED', 'Entregado'),
@@ -16,7 +17,7 @@ class Order(TenantModel):
 
     customer_name = models.CharField(max_length=255)
     customer_email = models.EmailField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DRAFT')
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)

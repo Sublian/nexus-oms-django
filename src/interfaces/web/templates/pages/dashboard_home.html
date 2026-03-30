@@ -57,7 +57,10 @@
 <!-- Segmento ultimos pedidos con modal de detalle al hacer click -->
 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
     <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-        <h3 class="font-bold text-lg text-gray-800">Últimos {{ batch_size }} Pedidos</h3>
+        <h3 class="text-lg font-bold text-gray-800">Últimos Pedidos</h3>
+        <span class="text-[10px] font-bold text-gray-400 uppercase bg-gray-100 px-2 py-1 rounded">
+            Mostrando: {{ batch_size }} registros (Configuración de {{ tenant.name }})
+        </span>
         <span class="text-xs font-bold text-tenant-primary uppercase tracking-widest">Tiempo Real</span>
     </div>
     

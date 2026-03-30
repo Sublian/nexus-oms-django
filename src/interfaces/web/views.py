@@ -9,7 +9,7 @@ from datetime import timedelta
 # aunque el middleware ya debería tenerlo.
 def dashboard_home(request, org_slug):
     tenant = get_object_or_404(Organization, slug=org_slug)
-    batch_size = 10
+    batch_size = tenant.dashboard_batch_size
     orders = Order.objects.filter(organization=tenant).order_by('-created_at')[:batch_size]
     
     # --- Cálculos para las métricas ---

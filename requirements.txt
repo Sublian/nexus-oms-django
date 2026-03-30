@@ -26,3 +26,4 @@ pytest-django
 pytest-mock
 pytest-cov
 pillow
+weasyprint

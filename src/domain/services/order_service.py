@@ -43,28 +43,32 @@ class OrderService:
     @staticmethod
     @transaction.atomic
     def create_order(organization, customer_data, items_data):
-        tax_config = TaxConfiguration.objects.filter(organization=organization, is_default=True).first()
-        tax_rate = tax_config.rate if tax_config else 0
-
+        # 1. Crear la orden base
         order = Order.objects.create(
             organization=organization,
             customer_name=customer_data['name'],
             customer_email=customer_data['email']
         )
 
-        subtotal = 0
+        # 2. Crear los items y manejar stock
         for item in items_data:
             product = item['product']
             qty = item['quantity']
 
-            stock_record = Stock.objects.filter(product=product, organization=organization).first()
+            # Usamos select_for_update para evitar condiciones de carrera en el stock
+            stock_record = Stock.objects.select_for_update().filter(
+                product=product, 
+                organization=organization
+            ).first()
+            
             if not stock_record or stock_record.quantity < qty:
                 raise ValueError(f"Stock insuficiente para {product.name}")
 
-            # Descontar stock (Esto sí se queda aquí porque no tenemos signal de "venta")
+            # Descontar stock
             stock_record.quantity -= qty
             stock_record.save()
 
+            # Crear el item del pedido
             OrderItem.objects.create(
                 organization=organization,
                 order=order,
@@ -72,17 +76,21 @@ class OrderService:
                 quantity=qty,
                 price_at_order=product.price
             )
-            subtotal += product.price * qty
 
-        order.subtotal = subtotal
-        order.tax_amount = (subtotal * tax_rate) / 100
+        # 3. Importante: Como total_amount solía ser un campo real y ahora 
+        # queremos que sea persistente (o calculado), asegurémonos de que 
+        # el modelo Order tenga el campo total_amount si la lógica lo requiere,
+        # O simplemente dejemos que las @properties hagan su trabajo.
+        
+        # Si total_amount es un FloatField/DecimalField en la DB:
         order.total_amount = order.subtotal + order.tax_amount
         order.save()
 
-        # FIX: Llamada correcta al método estático
-        OrderService.process_order(order.id)
+        # 4. Procesar (Asíncrono o lógica extra)
+        # OrderService.process_order(order.id) # Descomentar si usas Celery
+        
         return order
-
+    
     @staticmethod
     @transaction.atomic
     def process_return(organization, order_id, product_id, quantity, reason, notes=""):

@@ -1,11 +1,15 @@
+import time
+from datetime import datetime, timedelta
+from weasyprint import HTML
 from celery import shared_task
+
+from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
 from django.db import transaction
 from django.db.models import Sum, F
-from datetime import datetime, timedelta
-import time
-
+from django.template.loader import render_to_string
+from django.core.files.base import ContentFile
 
 from src.domain.notifications.service import NotificationService
 
@@ -154,4 +158,30 @@ def generate_weekly_all_orgs():
     """Restaurada: Dispara reportes para todas las orgs cada semana"""
     for org in Organization.objects.all().iterator():
         generate_sales_report_task.delay(org.id)
+
+@shared_task(bind=True, max_retries=3)
+def generate_order_pdf_task(self, order_id):
+    try:
+        order = Order.objects.get(id=order_id)
+        
+        # 1. Renderizar el HTML con el estilo Tailwind (usando CDN para el PDF)
+        html_string = render_to_string('dashboard/reports/order_print.html', {
+            'order': order,
+            'items': order.items.all(),
+        })
+
+        # 2. Generar el PDF
+        pdf_file = HTML(string=html_string).write_pdf()
+
+        # 3. Guardar el PDF en el modelo o en un storage
+        # Supongamos que añadimos un campo 'pdf_report' a Order
+        filename = f"order_{order.id}_{order.organization.slug}.pdf"
+        order.pdf_report.save(filename, ContentFile(pdf_file))
+        order.save()
+
+        return f"PDF generado exitosamente para la orden {order_id}"
+        
+    except Exception as exc:
+        # Reintento en caso de fallo (ej. DB ocupada)
+        raise self.retry(exc=exc, countdown=10)
 

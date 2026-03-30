@@ -14,6 +14,8 @@ class Organization(models.Model):
     primary_color = models.CharField(max_length=7, default="#000000") # Color en formato hexadecimal
     secondary_color = models.CharField(max_length=7, default="#FFFFFF") # Color en formato hexadecimal
     logo_image = models.ImageField(upload_to='organization_logos/', blank=True, null=True) # Imagen del logo de la empresa
+    dashboard_batch_size = models.PositiveIntegerField(default=10, help_text="Registros por página en el dashboard")
+    currency_symbol = models.CharField(max_length=5, default="$")
 
     def __str__(self):
         return self.name
