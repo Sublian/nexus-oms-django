@@ -182,20 +182,27 @@ def monto_a_letras(monto):
 @shared_task(bind=True, max_retries=3)
 def generate_order_pdf_task(self, order_id):
     try:
-        # Usamos select_related para traer la organización y evitar queries extras
-        order = Order.objects.select_related('organization', 'customer').prefetch_related('items__product').get(id=order_id)
+        # CORRECCIÓN: Eliminamos 'customer' del select_related ya que no es un modelo aparte
+        order = Order.objects.select_related('organization').prefetch_related('items__product').get(id=order_id)
         
-        # 1. Preparar cadena para QR (Estándar SUNAT simplificado)
-        # RUC | Tipo | Serie | Numero | IGV | Total | Fecha | TipoDocCli | NumDocCli
-        qr_string = (f"{order.organization.ruc}|03|{order.series}|{order.number}|"
-                    f"{order.tax_amount:.2f}|{order.total_amount:.2f}|"
-                    f"{order.created_at.date()}|1|{order.customer_document}")
+        # 1. Preparar cadena para QR usando los campos reales del modelo Order
+        # Estructura: RUC | Tipo | Serie | Numero | IGV | Total | Fecha | TipoDocCli | NumDocCli
+        # Nota: Si no tienes series/number aún, usamos el ID como fallback
+        serie = getattr(order, 'series', 'B001')
+        numero = getattr(order, 'number', order.id)
+        ruc_cliente = "00000000" # O crear el campo customer_document en el modelo más adelante
         
-        # 2. Renderizar con el QR en base64
+        qr_string = (
+            f"{order.organization.ruc}|03|{serie}|{numero}|"
+            f"{order.tax_amount:.2f}|{order.total_amount:.2f}|"
+            f"{order.created_at.date()}|1|{ruc_cliente}"
+        )
+        
+        # 2. Renderizar con el QR en base64 y datos reales
         html_string = render_to_string('reports/order_pdf.html', {
             'order': order,
             'qr_code': get_qr_base64(qr_string),
-            'total_in_words': monto_a_letras(order.total_amount),
+            'total_in_words': monto_a_letras(order.total_amount), # La función que definimos antes
             'current_time': timezone.now(),
         })
 
@@ -203,16 +210,14 @@ def generate_order_pdf_task(self, order_id):
         pdf_file = HTML(string=html_string).write_pdf()
 
         # 4. Guardar el archivo físicamente
-        # El slug de la organización ayuda a organizar archivos en el storage
         filename = f"order_{order.id}_{order.organization.slug}.pdf"
-        
-        # Guardamos en el campo FileField
         order.pdf_report.save(filename, ContentFile(pdf_file), save=True)
 
-        return f"PDF para Orden {order_id} generado y guardado."
+        return f"PDF para Orden {order_id} generado correctamente."
         
     except Order.DoesNotExist:
         return f"Error: Orden {order_id} no encontrada."
     except Exception as exc:
+        # Reintento automático en caso de fallo técnico (WeasyPrint, Storage, etc.)
         raise self.retry(exc=exc, countdown=15)
 
