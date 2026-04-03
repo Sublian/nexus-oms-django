@@ -1,0 +1,45 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Configuración del Sistema</h1>
+        <p class="text-gray-500">Gestiona la identidad y notificaciones de {{ tenant.name }}</p>
+    </div>
+
+    <div class="flex space-x-4 border-b border-gray-200 mb-6" hx-target="#settings-content">
+        <button hx-get="{% url 'web:org-settings-notifications' tenant.slug %}" 
+                hx-on:click="updateActiveTab(this)"
+                class="tab-btn px-4 py-2 border-b-2 border-tenant-primary text-tenant-primary font-semibold">
+            Notificaciones
+        </button>
+        
+        <button hx-get="{% url 'web:org-settings-company' tenant.slug %}" 
+                hx-on:click="updateActiveTab(this)"
+                class="tab-btn px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-tenant-primary transition">
+            Información de Empresa
+        </button>
+    </div>
+
+    <div id="settings-content" class="card-tenant">
+        {% include "partials/notifications_form.html" %}
+    </div>
+    
+    <div class="htmx-indicator fixed bottom-5 right-5 bg-tenant-primary text-tenant-secondary px-4 py-2 rounded-full shadow-lg">
+        Procesando...
+    </div>
+</div>
+
+<script>
+    function updateActiveTab(el) {
+        // Limpiamos estilos de todos los botones
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('border-tenant-primary', 'text-tenant-primary');
+            btn.classList.add('border-transparent', 'text-gray-500');
+        });
+        // Aplicamos al seleccionado
+        el.classList.add('border-tenant-primary', 'text-tenant-primary');
+        el.classList.remove('border-transparent', 'text-gray-500');
+    }
+</script>
+{% endblock %}
