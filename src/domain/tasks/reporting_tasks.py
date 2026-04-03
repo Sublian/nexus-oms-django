@@ -2,6 +2,9 @@ import time
 from datetime import datetime, timedelta
 from weasyprint import HTML
 from celery import shared_task
+import qrcode
+import io
+import base64
 
 from django.conf import settings
 from django.core.cache import cache
@@ -159,21 +162,47 @@ def generate_weekly_all_orgs():
     for org in Organization.objects.all().iterator():
         generate_sales_report_task.delay(org.id)
 
+def get_qr_base64(data_string):
+    qr = qrcode.QRCode(version=1, box_size=10, border=2)
+    qr.add_data(data_string)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    buffered = io.BytesIO()
+    img.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode()
+
+def monto_a_letras(monto):
+    from num2words import num2words
+    entero = int(monto)
+    decimal = int(round((monto - entero) * 100))
+    letras = num2words(entero, lang='es').upper()
+    return f"SON: {letras} CON {decimal:02d}/100 SOLES"
+
 @shared_task(bind=True, max_retries=3)
 def generate_order_pdf_task(self, order_id):
     try:
         # Usamos select_related para traer la organización y evitar queries extras
-        order = Order.objects.select_related('organization').prefetch_related('items__product').get(id=order_id)
+        order = Order.objects.select_related('organization', 'customer').prefetch_related('items__product').get(id=order_id)
         
-        # 1. Renderizar el HTML
+        # 1. Preparar cadena para QR (Estándar SUNAT simplificado)
+        # RUC | Tipo | Serie | Numero | IGV | Total | Fecha | TipoDocCli | NumDocCli
+        qr_string = (f"{order.organization.ruc}|03|{order.series}|{order.number}|"
+                    f"{order.tax_amount:.2f}|{order.total_amount:.2f}|"
+                    f"{order.created_at.date()}|1|{order.customer_document}")
+        
+        # 2. Renderizar con el QR en base64
         html_string = render_to_string('reports/order_pdf.html', {
             'order': order,
+            'qr_code': get_qr_base64(qr_string),
+            'total_in_words': monto_a_letras(order.total_amount),
+            'current_time': timezone.now(),
         })
 
-        # 2. Generar el PDF en memoria
+        # 3. Generar el PDF en memoria
         pdf_file = HTML(string=html_string).write_pdf()
 
-        # 3. Guardar el archivo físicamente
+        # 4. Guardar el archivo físicamente
         # El slug de la organización ayuda a organizar archivos en el storage
         filename = f"order_{order.id}_{order.organization.slug}.pdf"
         
