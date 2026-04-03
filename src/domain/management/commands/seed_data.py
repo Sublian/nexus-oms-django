@@ -25,10 +25,21 @@ class Command(BaseCommand):
         self.stdout.write(self.style.MIGRATE_HEADING("🚀 Iniciando Nexus Master Seed..."))
 
         org_configs = [
-            {'name': 'Tienda Principal', 'slug': 'tienda-principal', 'tax': 18.00, 'email': 'admin@main.com', 'p_color': '#4F46E5', 's_color': '#F8FAFC'},
-            {'name': 'Nike', 'slug': 'nike', 'tax': 15.00, 'email': 'vende@nike.com', 'p_color': '#000000', 's_color': '#FFFFFF'},
-            {'name': 'Adidas', 'slug': 'adidas', 'tax': 15.00, 'email': 'ventas@adidas.com', 'p_color': '#0070AC', 's_color': '#FFFFFF'},
-            {'name': 'Minorista', 'slug': 'minorista', 'tax': 12.00, 'email': 'contacto@minorista.com', 'p_color': '#059669', 's_color': '#ECFDF5'},
+            {'name': 'Tienda Principal', 'slug': 'tienda-principal', 'tax': 18.00, 'email': 'admin@main.com', 'p_color': '#4F46E5', 's_color': '#F8FAFC', 'ruc': '20123456789', 'addr': 'Av. Larco 123, Miraflores'},
+            {'name': 'Nike', 'slug': 'nike', 'tax': 15.00, 'email': 'vende@nike.com', 'p_color': '#000000', 's_color': '#FFFFFF', 'ruc': '20555666777', 'addr': 'Jockey Plaza, Surco'},
+            {'name': 'Adidas', 'slug': 'adidas', 'tax': 15.00, 'email': 'ventas@adidas.com', 'p_color': '#0070AC', 's_color': '#FFFFFF', 'ruc': '20999888777', 'addr': 'Real Plaza Salaverry'},
+            {'name': 'Minorista', 'slug': 'minorista', 'tax': 12.00, 'email': 'contacto@minorista.com', 'p_color': '#059669', 's_color': '#ECFDF5', 'ruc': '10444555666', 'addr': 'Jr. Ucayali 456, Lima'},
+            # NUEVA TIENDA: Mykonos Shop
+            {
+                'name': 'Mykonos Shop', 
+                'slug': 'mykonos-shop', 
+                'tax': 18.00, 
+                'email': 'sales@mykonos.pe', 
+                'p_color': '#4B5563', # Gris azulado elegante
+                's_color': '#FFFBEB', # Crema suave
+                'ruc': '20778899441', 
+                'addr': 'Centro Comercial Camino Real, San Isidro'
+            },
         ]
         
         for config in org_configs:
@@ -40,7 +51,9 @@ class Command(BaseCommand):
                         'name': config['name'], 
                         'admin_email': config['email'],
                         'primary_color': config['p_color'],
-                        'secondary_color': config['s_color']
+                        'secondary_color': config['s_color'],
+                        'ruc': config['ruc'],
+                        'address': config['addr']
                     }
                 )
                 set_current_organization(org.id)
@@ -68,21 +81,34 @@ class Command(BaseCommand):
 
     def _setup_catalog(self, org, warehouse):
         # Simplificación para el ejemplo, puedes expandir según tu dict de 'catalogs'
-        category, _ = Category.objects.get_or_create(name="General", organization=org)
+        category, _ = Category.objects.get_or_create(name="Fragancias" if org.slug == 'mykonos-shop' else "General", organization=org)
+        
+        items = []
+        if org.slug == 'mykonos-shop':
+            items = [
+                ('Aqua di Gio Profondo 30ml', 'ADG-P-30', random.randint(55, 60)),
+                ('Asad de Lataffa 30ml', 'ASAD-30', random.randint(40, 45)),
+                ('Invictus Intense Paco Rabanne 30ml', 'INV-I-30', random.randint(50, 60)),
+                ('Blue de Polo 30ml', 'POLO-B-30', random.randint(45, 55)),
+                ('Silver Mountain de Creed 30ml', 'SMC-30', random.randint(58, 60)),
+            ]
+        else:
+            items = [(f"Producto {i} {org.name}", f"PROD-{i}-{org.slug}", random.randint(50, 500)) for i in range(5)]
+
         products = []
-        for i in range(5):
+        for name, sku, price in items:
             p, _ = Product.objects.update_or_create(
-                sku=f"PROD-{i}-{org.slug}".upper(),
+                sku=sku.upper(),
                 defaults={
-                    'name': f"Producto {i} {org.name}",
-                    'price': Decimal(random.randint(50, 500)),
+                    'name': name,
+                    'price': Decimal(str(price)),
                     'category': category,
                     'organization': org
                 }
             )
             Stock.objects.update_or_create(
                 product=p, warehouse=warehouse, organization=org,
-                defaults={'quantity': 500}
+                defaults={'quantity': 100}
             )
             products.append(p)
         return products
