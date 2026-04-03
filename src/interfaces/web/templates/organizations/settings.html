@@ -21,9 +21,22 @@
         </button>
     </div>
 
-    <div id="settings-content" class="card-tenant">
+    <div id="settings-content" 
+        class="card-tenant transition-all duration-300" 
+        hx-swap="innerHTML transition:true">
         {% include "partials/notifications_form.html" %}
     </div>
+    
+    <style>
+        /* Definimos la animación de entrada */
+        .htmx-added {
+            opacity: 0;
+        }
+        .htmx-settling {
+            opacity: 1;
+            transition: opacity 0.25s ease-in;
+        }
+    </style>
     
     <div class="htmx-indicator fixed bottom-5 right-5 bg-tenant-primary text-tenant-secondary px-4 py-2 rounded-full shadow-lg">
         Procesando...
