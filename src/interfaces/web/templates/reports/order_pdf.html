@@ -3,59 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        @page { size: A4; margin: 2cm; }
-        body { font-family: 'Helvetica', sans-serif; color: #333; line-height: 1.5; }
-        .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 20px; }
-        .table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .table th { background-color: #f8fafc; text-align: left; padding: 12px; border-bottom: 1px solid #e2e8f0; }
-        .table td { padding: 12px; border-bottom: 1px solid #f1f5f9; }
+        /* Configuraciones de página */
+        @page { size: A4; margin: 1.5cm; }
+        body { font-family: 'Helvetica', 'Arial', sans-serif; color: #1a202c; line-height: 1.4; font-size: 12px; }
+        
+        /* Layout de Cabecera Estilo SUNAT */
+        .header-container { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        .logo-section { width: 35%; vertical-align: middle; }
+        .emitter-section { width: 35%; font-size: 10px; padding-left: 15px; vertical-align: top; }
+        .ruc-section { width: 30%; border: 2px solid {{ order.organization.primary_color }}; text-align: center; vertical-align: middle; padding: 10px; }
+        
+        .ruc-text { font-size: 16px; font-weight: bold; margin: 0; }
+        .doc-type { background-color: {{ order.organization.primary_color }}; color: {{ order.organization.secondary_color }}; 
+                    padding: 8px; font-weight: bold; margin: 10px 0; text-transform: uppercase; font-size: 14px; }
+        .doc-number { font-size: 16px; font-weight: bold; margin: 0; }
+
+        /* Información del Cliente */
+        .client-box { border: 1px solid #e2e8f0; padding: 12px; margin-bottom: 20px; border-radius: 8px; background-color: #f8fafc; }
+        .client-grid { width: 100%; }
+
+        /* Tabla de Items */
+        .table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .table th { background-color: {{ order.organization.primary_color }}; color: {{ order.organization.secondary_color }}; 
+                    text-align: left; padding: 10px; font-size: 11px; text-transform: uppercase; }
+        .table td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
+
+        /* Totales y QR */
+        .summary-container { width: 100%; margin-top: 25px; }
+        .qr-section { width: 65%; vertical-align: top; font-size: 9px; color: #4a5568; }
+        .totals-section { width: 35%; }
+        .total-row { display: flex; justify-content: space-between; padding: 4px 0; }
+        .grand-total { font-size: 16px; font-weight: bold; color: {{ order.organization.primary_color }}; border-top: 2px solid #e2e8f0; padding-top: 8px; }
+
         .text-right { text-align: right; }
         .font-bold { font-weight: bold; }
-        .footer { margin-top: 50px; font-size: 10px; color: #64748b; text-align: center; }
+        .footer { position: fixed; bottom: 0; width: 100%; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>NEXUS OMS - Comprobante de Pedido</h1>
-        <p><strong>Organización:</strong> {{ order.organization.name }}</p>
-        <p><strong>Orden #:</strong> {{ order.id }} | <strong>Fecha:</strong> {{ order.created_at|date:"d/m/Y H:i" }}</p>
-    </div>
+    <table class="header-container">
+        <tr>
+            <td class="logo-section">
+                {% if order.organization.logo_image %}
+                    <img src="{{ order.organization.logo_image.path }}" style="max-width: 180px; max-height: 80px;">
+                {% else %}
+                    <h1 style="color: {{ order.organization.primary_color }}; margin: 0;">{{ order.organization.name }}</h1>
+                {% endif %}
+            </td>
+            <td class="emitter-section">
+                <div class="font-bold" style="font-size: 13px;">{{ order.organization.name }}</div>
+                <div>{{ order.organization.address }}</div>
+                <div>Email: {{ order.organization.admin_email }}</div>
+                <div>Telf: {{ order.organization.whatsapp_number|default:"-" }}</div>
+            </td>
+            <td class="ruc-section">
+                <div class="ruc-text">R.U.C. {{ order.organization.ruc }}</div>
+                <div class="doc-type">
+                    {% if order.type == 'invoice' %} FACTURA ELECTRÓNICA {% elif order.type == 'bill' %} BOLETA DE VENTA ELECTRÓNICA {% else %} ORDEN DE PEDIDO {% endif %}
+                </div>
+                <div class="doc-number">{{ order.series|default:"NP01" }}-{{ order.id }}</div>
+            </td>
+        </tr>
+    </table>
 
-    <div>
-        <h3>Datos del Cliente</h3>
-        <p>Nombre: {{ order.customer_name }}<br>Email: {{ order.customer_email }}</p>
+    <div class="client-box">
+        <table class="client-grid">
+            <tr>
+                <td style="width: 15%;" class="font-bold">CLIENTE:</td>
+                <td>{{ order.customer_name|upper }}</td>
+                <td style="width: 15%;" class="font-bold">FECHA:</td>
+                <td style="width: 20%;">{{ order.created_at|date:"d/m/Y" }}</td>
+            </tr>
+            <tr>
+                <td class="font-bold">DNI/RUC:</td>
+                <td>{{ order.customer_document|default:"-" }}</td>
+                <td class="font-bold">MONEDA:</td>
+                <td>{{ order.organization.currency_symbol }} ({{ order.currency|default:"PEN" }})</td>
+            </tr>
+        </table>
     </div>
 
     <table class="table">
         <thead>
             <tr>
-                <th>Producto</th>
-                <th class="text-right">Cant.</th>
-                <th class="text-right">P. Unit</th>
-                <th class="text-right">Total</th>
+                <th style="width: 10%;">CÓD.</th>
+                <th style="width: 50%;">DESCRIPCIÓN</th>
+                <th class="text-right">CANT.</th>
+                <th class="text-right">P. UNIT</th>
+                <th class="text-right">TOTAL</th>
             </tr>
         </thead>
         <tbody>
             {% for item in order.items.all %}
             <tr>
+                <td>{{ item.product.sku|default:item.product.id }}</td>
                 <td>{{ item.product.name }}</td>
                 <td class="text-right">{{ item.quantity }}</td>
-                <td class="text-right">${{ item.price_at_order }}</td>
-                <td class="text-right">${{ item.total_price }}</td>
+                <td class="text-right">{{ order.organization.currency_symbol }}{{ item.price_at_order|floatformat:2 }}</td>
+                <td class="text-right">{{ order.organization.currency_symbol }}{{ item.total_price|floatformat:2 }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 
-    <div style="margin-top: 30px; width: 300px; margin-left: auto;">
-        <p class="text-right">Subtotal: <strong>${{ order.subtotal }}</strong></p>
-        <p class="text-right">Impuestos ({{ order.get_tax_rate }}%): <strong>${{ order.tax_amount }}</strong></p>
-        <hr>
-        <h2 class="text-right">Total: ${{ order.total_amount }}</h2>
-    </div>
+    <table class="summary-container">
+        <tr>
+            <td class="qr-section">
+                {% if qr_code %}
+                    <img src="data:image/png;base64,{{ qr_code }}" style="width: 110px; margin-bottom: 5px;">
+                {% endif %}
+                <div>Representación impresa de un comprobante electrónico generado en Nexus OMS.</div>
+                <div style="margin-top: 5px;"><strong>SON:</strong> {{ total_in_words|default:"---" }}</div>
+            </td>
+            <td class="totals-section">
+                <table style="width: 100%;">
+                    <tr>
+                        <td>Op. Gravada:</td>
+                        <td class="text-right">{{ order.organization.currency_symbol }}{{ order.subtotal|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td>I.G.V. (18%):</td>
+                        <td class="text-right">{{ order.organization.currency_symbol }}{{ order.tax_amount|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="grand-total">
+                        <td>TOTAL:</td>
+                        <td class="text-right">{{ order.organization.currency_symbol }}{{ order.total_amount|floatformat:2 }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 
     <div class="footer">
-        Documento generado automáticamente por Nexus OMS - Lima, Perú.
+        {{ order.organization.name }} - {{ order.organization.address }}<br>
+        Software de Gestión NEXUS OMS - Lima, Perú
     </div>
 </body>
 </html>
