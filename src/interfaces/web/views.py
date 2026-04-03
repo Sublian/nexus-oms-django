@@ -1,12 +1,66 @@
 from datetime import timedelta
 
 from django.http import HttpResponse
-from django.shortcuts import render,get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
 from django.db.models import Sum, Count, F, ExpressionWrapper, DecimalField
+from django.template.loader import render_to_string
 
 from src.domain.models import Order, OrderItem, Organization, Payment, Product
 from src.domain.tasks.reporting_tasks import generate_order_pdf_task
+
+# --- VISTAS DE CONFIGURACIÓN (TABS) ---
+
+def organization_settings(request, org_slug):
+    """Vista principal que carga el layout de configuración y la primera pestaña."""
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    
+    context = {
+        'tenant': tenant,
+        'active_tab': 'notifications'
+    }
+    return render(request, 'organizations/settings.html', context)
+
+def settings_notifications_partial(request, org_slug):
+    """Maneja la pestaña de Notificaciones (GET y POST)."""
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    message = None
+
+    if request.method == 'POST':
+        # Actualizamos los datos del tenant
+        tenant.admin_email = request.POST.get('admin_email')
+        tenant.telegram_enabled = 'telegram_enabled' in request.POST
+        tenant.whatsapp_enabled = 'whatsapp_enabled' in request.POST
+        tenant.save()
+        message = "Preferencias de notificación actualizadas."
+
+    context = {'tenant': tenant, 'message': message}
+    
+    # Si es una petición HTMX, devolvemos solo el fragmento del formulario
+    if request.headers.get('HX-Request'):
+        return render(request, 'partials/notifications_form.html', context)
+    
+    # Si entran directo por URL, cargamos la página completa con esta pestaña activa
+    return render(request, 'organizations/settings.html', {**context, 'active_tab': 'notifications'})
+
+def settings_company_partial(request, org_slug):
+    """Maneja la pestaña de Información de Empresa (GET y POST)."""
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    message = None
+
+    if request.method == 'POST':
+        tenant.name = request.POST.get('name')
+        tenant.ruc = request.POST.get('ruc')
+        tenant.address = request.POST.get('address')
+        tenant.save()
+        message = "Datos fiscales actualizados correctamente."
+
+    context = {'tenant': tenant, 'message': message}
+
+    if request.headers.get('HX-Request'):
+        return render(request, 'partials/company_form.html', context)
+    
+    return render(request, 'organizations/settings.html', {**context, 'active_tab': 'company'})
 
 # Importamos el modelo si necesitas validar algo extra, 
 # aunque el middleware ya debería tenerlo.
