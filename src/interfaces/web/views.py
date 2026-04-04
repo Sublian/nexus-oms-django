@@ -1,3 +1,5 @@
+# src\interfaces\web\views.py
+
 from datetime import timedelta
 
 from django.http import HttpResponse
@@ -8,6 +10,7 @@ from django.template.loader import render_to_string
 
 from src.domain.models import Order, OrderItem, Organization, Payment, Product
 from src.domain.tasks.reporting_tasks import generate_order_pdf_task
+from src.infrastructure.services.apimigo import APIMigoClient
 
 # --- VISTAS DE CONFIGURACIÓN (TABS) ---
 
@@ -143,4 +146,28 @@ def trigger_pdf_generation(request, org_slug, order_id):
             La tarea se ha delegado al worker de reporting
         </p>
     ''')
+
+
+def validate_ruc_partial(request, org_slug):
+    ruc = request.GET.get('ruc', '')
+    
+    if len(ruc) != 11:
+        return HttpResponse('<span class="text-amber-600 text-xs italic">Esperando 11 dígitos...</span>')
+
+    data = APIMigoClient.get_ruc(ruc)
+    
+    if data and data.get('success'):
+        nombre = data.get('nombre_o_razon_social')
+        direccion = data.get('direccion_simple') or data.get('direccion')
+        
+        # El script inyecta los valores directamente en los inputs de 'name' y 'address'
+        return HttpResponse(f"""
+            <span class="text-green-600 text-xs font-bold animate-pulse">✓ {nombre}</span>
+            <script>
+                document.getElementsByName('name')[0].value = "{nombre}";
+                document.getElementsByName('address')[0].value = "{direccion}";
+            </script>
+        """)
+    
+    return HttpResponse('<span class="text-red-500 text-xs">RUC no encontrado</span>')
 

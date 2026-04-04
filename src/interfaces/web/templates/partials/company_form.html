@@ -1,8 +1,11 @@
-<div id="company-settings"> 
-    <h3 class="text-xl font-bold text-gray-800 mb-6 border-b pb-4">Información de la Empresa</h3>
-    
+<div id="company-settings" class="space-y-6">
+    <div>
+        <h3 class="text-lg font-bold text-gray-800">Información Fiscal</h3>
+        <p class="text-sm text-gray-500 text-balance">Los datos se validan directamente con SUNAT vía Migo.pe</p>
+    </div>
+
     {% if message %}
-        <div class="p-3 mb-4 bg-green-100 text-green-700 rounded-lg border border-green-200">
+        <div class="p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">
             {{ message }}
         </div>
     {% endif %}
@@ -10,28 +13,36 @@
     <form hx-post="{% url 'web:org-settings-company' tenant.slug %}" 
           hx-target="#company-settings" 
           hx-swap="outerHTML" 
-          class="space-y-4">
+          class="grid grid-cols-1 md:grid-cols-2 gap-6">
         {% csrf_token %}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="col-span-2">
-                <label class="block text-sm font-medium text-gray-700">Nombre de la Organización</label>
-                <input type="text" name="name" value="{{ tenant.name }}" 
-                       class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-tenant-primary focus:border-tenant-primary">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">RUC / ID Fiscal</label>
-                <input type="text" name="ruc" value="{{ tenant.ruc }}" 
-                       class="w-full border-gray-300 rounded-lg p-2.5">
-            </div>
-            <div class="col-span-2">
-                <label class="block text-sm font-medium text-gray-700">Dirección Legal</label>
-                <textarea name="address" rows="3" 
-                          class="w-full border-gray-300 rounded-lg p-2.5">{{ tenant.address }}</textarea>
-            </div>
+        
+        <div class="col-span-1">
+            <label class="block text-sm font-semibold text-gray-700 mb-1">RUC</label>
+            <input type="text" name="ruc" value="{{ tenant.ruc|default:'' }}" 
+                   maxlength="11"
+                   placeholder="Ingrese 11 dígitos"
+                   hx-get="{% url 'web:validate-ruc' tenant.slug %}"
+                   hx-trigger="keyup changed delay:500ms"
+                   hx-target="#ruc-status"
+                   class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-tenant-primary focus:border-tenant-primary p-2.5">
+            <div id="ruc-status" class="mt-1 min-h-[1.25rem]"></div>
         </div>
-        <div class="flex justify-end pt-4">
+
+        <div class="col-span-1">
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Razón Social</label>
+            <input type="text" name="name" value="{{ tenant.name }}" 
+                   class="w-full border-gray-300 rounded-lg shadow-sm p-2.5 bg-gray-50">
+        </div>
+
+        <div class="col-span-2">
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Dirección Legal</label>
+            <textarea name="address" rows="2" 
+                      class="w-full border-gray-300 rounded-lg shadow-sm p-2.5">{{ tenant.address|default:'' }}</textarea>
+        </div>
+
+        <div class="col-span-2 flex justify-end">
             <button type="submit" class="btn-tenant !bg-tenant-primary !text-tenant-secondary">
-                Actualizar Información
+                Guardar Cambios
             </button>
         </div>
     </form>
