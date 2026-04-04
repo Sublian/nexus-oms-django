@@ -25,6 +25,8 @@ DATABASES = {
     'default': env.db(),
 }
 
+MIGO_API_TOKEN = env('MIGO_API_TOKEN')
+
 # ── Redis (única fuente de verdad para Celery y Cache) ────────────────────────
 REDIS_URL = env('REDIS_URL', default='redis://redis:6379/0')
 
