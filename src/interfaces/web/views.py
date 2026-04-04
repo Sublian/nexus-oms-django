@@ -148,26 +148,35 @@ def trigger_pdf_generation(request, org_slug, order_id):
     ''')
 
 
-def validate_ruc_partial(request, org_slug):
-    ruc = request.GET.get('ruc', '')
+def validate_identity_partial(request, org_slug):
+    """Validador universal para RUC y DNI"""
+    document = request.GET.get('document', '').strip()
+    length = len(document)
     
-    if len(ruc) != 11:
-        return HttpResponse('<span class="text-amber-600 text-xs italic">Esperando 11 dígitos...</span>')
+    # Lógica para DNI
+    if length == 8 and document.isdigit():
+        data = APIMigoClient.get_dni(document)
+        if data and data.get('success'):
+            nombre = data.get('nombre')
+            return HttpResponse(f"""
+                <span class="text-green-600 text-xs font-bold animate-pulse">✓ Persona Natural: {nombre}</span>
+                <script>
+                    document.getElementsByName('name')[0].value = "{nombre}";
+                </script>
+            """)
 
-    data = APIMigoClient.get_ruc(ruc)
-    
-    if data and data.get('success'):
-        nombre = data.get('nombre_o_razon_social')
-        direccion = data.get('direccion_simple') or data.get('direccion')
-        
-        # El script inyecta los valores directamente en los inputs de 'name' y 'address'
-        return HttpResponse(f"""
-            <span class="text-green-600 text-xs font-bold animate-pulse">✓ {nombre}</span>
-            <script>
-                document.getElementsByName('name')[0].value = "{nombre}";
-                document.getElementsByName('address')[0].value = "{direccion}";
-            </script>
-        """)
-    
-    return HttpResponse('<span class="text-red-500 text-xs">RUC no encontrado</span>')
+    # Lógica para RUC
+    elif length == 11 and document.isdigit():
+        data = APIMigoClient.get_ruc(document)
+        if data and data.get('success'):
+            nombre = data.get('nombre_o_razon_social')
+            direccion = data.get('direccion_simple') or data.get('direccion')
+            return HttpResponse(f"""
+                <span class="text-green-600 text-xs font-bold animate-pulse">✓ Persona Jurídica: {nombre}</span>
+                <script>
+                    document.getElementsByName('name')[0].value = "{nombre}";
+                    document.getElementsByName('address')[0].value = "{direccion}";
+                </script>
+            """)
 
+    return HttpResponse('<span class="text-amber-500 text-xs">Esperando documento válido...</span>')
