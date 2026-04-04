@@ -7,7 +7,8 @@ from .views import (
     trigger_pdf_generation,
     organization_settings,            # La vista principal
     settings_notifications_partial,   # Pestaña 1
-    settings_company_partial          # Pestaña 2
+    settings_company_partial,          # Pestaña 2
+    validate_identity_partial,
 )
 
 app_name = 'web'
@@ -21,4 +22,5 @@ urlpatterns = [
     path('settings/', organization_settings, name='org-settings'),
     path('settings/notifications/', settings_notifications_partial, name='org-settings-notifications'),
     path('settings/company/', settings_company_partial, name='org-settings-company'),
+    path('validate-identity/', validate_identity_partial, name='validate-identity'),
 ]
