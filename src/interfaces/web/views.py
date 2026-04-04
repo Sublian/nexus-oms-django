@@ -147,36 +147,35 @@ def trigger_pdf_generation(request, org_slug, order_id):
         </p>
     ''')
 
+# src/interfaces/web/views.py
 
 def validate_identity_partial(request, org_slug):
-    """Validador universal para RUC y DNI"""
+    """Validador para DNI, RUC y aviso para CE"""
     document = request.GET.get('document', '').strip()
     length = len(document)
     
-    # Lógica para DNI
+    # Caso DNI (8 dígitos)
     if length == 8 and document.isdigit():
         data = APIMigoClient.get_dni(document)
         if data and data.get('success'):
             nombre = data.get('nombre')
-            return HttpResponse(f"""
-                <span class="text-green-600 text-xs font-bold animate-pulse">✓ Persona Natural: {nombre}</span>
-                <script>
-                    document.getElementsByName('name')[0].value = "{nombre}";
-                </script>
-            """)
+            return HttpResponse(f'<span class="text-green-600 text-xs font-bold">✓ {nombre}</span>'
+                                f'<script>document.getElementsByName("name")[0].value = "{nombre}";</script>')
 
-    # Lógica para RUC
+    # Caso RUC (11 dígitos)
     elif length == 11 and document.isdigit():
         data = APIMigoClient.get_ruc(document)
         if data and data.get('success'):
             nombre = data.get('nombre_o_razon_social')
             direccion = data.get('direccion_simple') or data.get('direccion')
-            return HttpResponse(f"""
-                <span class="text-green-600 text-xs font-bold animate-pulse">✓ Persona Jurídica: {nombre}</span>
-                <script>
-                    document.getElementsByName('name')[0].value = "{nombre}";
-                    document.getElementsByName('address')[0].value = "{direccion}";
-                </script>
-            """)
+            return HttpResponse(f'<span class="text-green-600 text-xs font-bold">✓ {nombre}</span>'
+                                f'<script>'
+                                f'document.getElementsByName("name")[0].value = "{nombre}";'
+                                f'document.getElementsByName("address")[0].value = "{direccion}";'
+                                f'</script>')
 
-    return HttpResponse('<span class="text-amber-500 text-xs">Esperando documento válido...</span>')
+    # Caso Carnet de Extranjería (Típicamente 9 o 12 caracteres)
+    elif 8 < length < 13 and not document.startswith(('10', '20')): # Filtro simple para no confundir con RUC
+        return HttpResponse('<span class="text-blue-500 text-xs font-medium italic">⚠️ Validación manual requerida para CE</span>')
+
+    return HttpResponse('<span class="text-gray-400 text-xs">Esperando documento válido...</span>')
