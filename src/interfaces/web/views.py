@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.db.models import Sum, Count, F, ExpressionWrapper, DecimalField
 from django.template.loader import render_to_string
 
-from src.domain.models import Order, OrderItem, Organization, Payment, Product
+from src.domain.models import Order, OrderItem, Organization, Payment, Product, Client
 from src.domain.tasks.reporting_tasks import generate_order_pdf_task
 from src.infrastructure.services.apimigo import APIMigoClient
 
@@ -179,3 +179,41 @@ def validate_identity_partial(request, org_slug):
         return HttpResponse('<span class="text-blue-500 text-xs font-medium italic">⚠️ Validación manual requerida para CE</span>')
 
     return HttpResponse('<span class="text-gray-400 text-xs">Esperando documento válido...</span>')
+
+def order_create_view(request, org_slug):
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    # Obtenemos el tipo de cambio para los cálculos en el frontend
+    exchange = APIMigoClient.get_exchange_rate()
+    
+    context = {
+        'tenant': tenant,
+        'exchange_rate': exchange.get('precio_venta', 3.80),
+        'currency_base': 'PEN'
+    }
+    return render(request, 'orders/order_form.html', context)
+
+def search_client_partial(request, org_slug):
+    query = request.GET.get('document', '').strip()
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    
+    # 1. Buscar en DB local
+    client = Client.objects.filter(organization=tenant, document_number=query).first()
+    
+    if client:
+        return render(request, 'orders/partials/client_selected.html', {'client': client})
+    
+    # 2. Si no existe y tiene longitud de DNI/RUC, sugerir validación externa
+    if len(query) in [8, 11]:
+        return HttpResponse(f"""
+            <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg flex justify-between items-center">
+                <span class="text-sm text-blue-700">Cliente no registrado localmente.</span>
+                <button type="button" 
+                        hx-get="/{org_slug}/validate-identity/?document={query}" 
+                        hx-target="#client-result"
+                        class="text-xs bg-blue-600 text-white px-3 py-1 rounded shadow">
+                    Consultar a Migo.pe
+                </button>
+            </div>
+        """)
+    
+    return HttpResponse('<span class="text-gray-400 text-xs">Ingrese un documento válido...</span>')
