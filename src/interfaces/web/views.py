@@ -217,3 +217,24 @@ def search_client_partial(request, org_slug):
         """)
     
     return HttpResponse('<span class="text-gray-400 text-xs">Ingrese un documento válido...</span>')
+
+
+def search_product_partial(request, org_slug):
+    query = request.GET.get('q', '').strip()
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    
+    if len(query) < 3:
+        return HttpResponse("") # No buscar hasta tener 3 letras
+
+    # Buscamos por nombre o SKU (si tienes ese campo)
+    products = Product.objects.filter(
+        organization=tenant, 
+        name__icontains=query,
+        stock__gt=0 # Solo productos con stock
+    )[:5] # Limitar a 5 resultados para el dropdown
+    
+    return render(request, 'orders/partials/product_results.html', {
+        'products': products,
+        'tenant': tenant
+    })
+
