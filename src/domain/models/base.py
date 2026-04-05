@@ -21,3 +21,29 @@ class Organization(models.Model):
 
     def __str__(self):
         return self.name
+   
+
+class Client(models.Model):
+    DOCUMENT_TYPES = (
+        ('DNI', 'DNI'),
+        ('RUC', 'RUC'),
+        ('CE', 'Carnet de Extranjería'),
+        ('PAS', 'Pasaporte'),
+    )
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='clients')
+    document_type = models.CharField(max_length=5, choices=DOCUMENT_TYPES)
+    document_number = models.CharField(max_length=15)
+    name = models.CharField(max_length=255, verbose_name="Nombre o Razón Social")
+    address = models.TextField(blank=True, null=True, verbose_name="Dirección")
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('organization', 'document_number') # Evitar duplicados por tenant
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.document_number} - {self.name}"   
