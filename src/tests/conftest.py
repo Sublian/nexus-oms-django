@@ -49,3 +49,9 @@ def supplier(organization):
         name="Proveedor Tech",
         organization=organization
     )
+
+@pytest.fixture(autouse=True)
+def mock_migo_token(settings):
+    settings.MIGO_API_TOKEN = "test_token_123"
+
+    
