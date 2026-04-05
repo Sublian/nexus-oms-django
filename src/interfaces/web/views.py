@@ -1,6 +1,6 @@
 # src\interfaces\web\views.py
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
@@ -70,7 +70,17 @@ def settings_company_partial(request, org_slug):
 def dashboard_home(request, org_slug):
     tenant = get_object_or_404(Organization, slug=org_slug)
     batch_size = tenant.dashboard_batch_size
+    
+    # Obtenemos tipo de cambio (usa cache internamente si lo implementamos)
+    exchange = APIMigoClient.get_exchange_rate()
+    tc = float(exchange.get('precio_venta', 3.80)) if exchange else 3.80
+    
     orders = Order.objects.filter(organization=tenant).order_by('-created_at')[:batch_size]
+
+    sales_pen = Order.objects.filter(
+        organization=tenant, 
+        created_at__month=date.today().month
+    ).aggregate(total=Sum('total_amount'))['total'] or 0.00
     
     # --- Cálculos para las métricas ---
     now = timezone.now()
@@ -104,6 +114,9 @@ def dashboard_home(request, org_slug):
         'tenant': tenant,
         'orders': orders,
         'monthly_sales': monthly_sales,
+        'monthly_sales_pen': sales_pen,
+        'monthly_sales_usd': float(sales_pen) / tc,
+        'exchange_rate': tc,
         'low_stock_count': low_stock_count,
         'net_margin': round(net_margin, 1),
         'batch_size': batch_size
@@ -233,7 +246,8 @@ def search_product_partial(request, org_slug):
         stock__gt=0 # Solo productos con stock
     )[:5] # Limitar a 5 resultados para el dropdown
     
-    return render(request, 'orders/partials/product_results.html', {
+    # return render(request, 'orders/partials/product_results.html', {
+    return render(request, 'orders/product_results.html', {
         'products': products,
         'tenant': tenant
     })

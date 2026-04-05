@@ -10,24 +10,31 @@
         <h1 class="text-3xl font-extrabold text-gray-950 tracking-tight">Bienvenido, Operador</h1>
     </div>
     
-    <button class="btn-tenant">
+    <a href="{% url 'web:order-create' tenant.slug %}" class="btn-tenant flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
         </svg>
         Nueva Orden
-    </button>
+    </a>
 </div>
 
 <!-- Segmento de tarjetas -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
     
     <div class="card-tenant">
-        <p class="text-xs text-gray-400 font-black uppercase tracking-widest">Ventas del Mes</p>
-        <div class="flex items-baseline mt-2 gap-2">
-            <p class="text-4xl font-black text-gray-950 tracking-tighter">${{ monthly_sales|floatformat:2 }}</p>
-            <span class="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-bold uppercase">Actualizado</span>
+        <p class="text-xs text-gray-400 font-black uppercase tracking-widest flex justify-between">
+            Ventas del Mes
+            <span class="text-[10px] text-tenant-primary lowercase font-normal italic">TC: {{ exchange_rate }}</span>
+        </p>
+        <div class="flex flex-col mt-2">
+            <div class="flex items-baseline gap-2">
+                <p class="text-4xl font-black text-gray-950 tracking-tighter">S/ {{ monthly_sales_pen|floatformat:2 }}</p>
+                <span class="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-bold uppercase">PEN</span>
+            </div>
+            <p class="text-sm font-bold text-gray-400 tracking-tight mt-1">
+                $ {{ monthly_sales_usd|floatformat:2 }} <span class="text-[10px] font-normal uppercase">USD</span>
+            </p>
         </div>
-        <p class="text-[10px] text-gray-400 mt-1 italic">Ingresos brutos acumulados</p>
     </div>
 
     <div class="card-tenant !border-l-red-500 shadow-md">
