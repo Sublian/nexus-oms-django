@@ -1,106 +1,125 @@
 {% extends "layouts/base.html" %}
 
 {% block content %}
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-    <div class="lg:col-span-2 space-y-6">
-        
-        <div class="card-tenant">
-            <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-                <svg class="w-5 h-5 text-tenant-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                Información del Cliente
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-xs font-bold uppercase text-gray-500">Documento (DNI/RUC)</label>
-                    <input type="text" name="document" 
-                           hx-get="{% url 'web:search-client' tenant.slug %}"
-                           hx-trigger="keyup changed delay:500ms"
-                           hx-target="#client-result"
-                           class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-tenant-primary">
-                </div>
-                <div id="client-result" class="flex items-end pb-1">
-                    </div>
-                <div class="col-span-2">
-                    <label class="block text-xs font-bold uppercase text-gray-500">Nombre / Razón Social</label>
-                    <input type="text" name="name" readonly class="w-full bg-gray-50 border-gray-200 rounded-lg p-2.5 text-gray-600">
-                </div>
-            </div>
-        </div>
-
-        <div class="card-tenant">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-lg font-bold">Detalle de Productos</h2>
+<form hx-post="{% url 'web:order-create' tenant.slug %}" hx-target="body">
+    {% csrf_token %}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-2 space-y-6">
             
-            <div class="relative w-64">
-                <input type="text" 
-                    name="q" 
-                    placeholder="Buscar producto..." 
-                    hx-get="{% url 'web:search-product' tenant.slug %}"
-                    hx-trigger="keyup changed delay:300ms"
-                    hx-target="#product-search-results"
-                    class="w-full text-sm border-gray-300 rounded-lg p-2 focus:ring-tenant-primary">
-                
-                <div id="product-search-results" class="absolute z-50 w-full mt-1"></div>
+            <div class="card-tenant">
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-tenant-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    Información del Cliente
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-gray-500">Documento (DNI/RUC)</label>
+                        <input type="text" name="document" required
+                               hx-get="{% url 'web:search-client' tenant.slug %}"
+                               hx-trigger="keyup changed delay:500ms"
+                               hx-target="#client-result"
+                               class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-tenant-primary">
+                    </div>
+                    <div id="client-result" class="flex items-end pb-1">
+                        </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-bold uppercase text-gray-500">Nombre / Razón Social</label>
+                        <input type="text" name="name" id="client_name" readonly 
+                               class="w-full bg-gray-50 border-gray-200 rounded-lg p-2.5 text-gray-600 font-medium">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-tenant">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-bold">Detalle de Productos</h2>
+                    
+                    <div class="relative w-64">
+                        <input type="text" name="q" autocomplete="off"
+                            placeholder="Buscar producto..." 
+                            hx-get="{% url 'web:search-product' tenant.slug %}"
+                            hx-trigger="keyup changed delay:300ms"
+                            hx-target="#product-search-results"
+                            class="w-full text-sm border-gray-300 rounded-lg p-2 focus:ring-tenant-primary">
+                        <div id="product-search-results" class="absolute z-50 w-full mt-1"></div>
+                    </div>
+                </div>
+
+                <table class="w-full text-left">
+                    <thead class="text-xs uppercase bg-gray-50 text-gray-500">
+                        <tr>
+                            <th class="px-4 py-2">Producto</th>
+                            <th class="px-4 py-2 w-24">Cant.</th>
+                            <th class="px-4 py-2">P. Unit</th>
+                            <th class="px-4 py-2">Subtotal</th>
+                            <th class="px-4 py-2 w-10"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="order-items">
+                        <tr id="empty-cart-msg">
+                            <td colspan="5" class="py-8 text-center text-gray-400 italic text-sm">
+                                No hay productos en el pedido
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <table class="w-full text-left">
-            <thead class="text-xs uppercase bg-gray-50 text-gray-500">
-                <tr>
-                    <th class="px-4 py-2">Producto</th>
-                    <th class="px-4 py-2">Cant.</th>
-                    <th class="px-4 py-2">P. Unit</th>
-                    <th class="px-4 py-2">Subtotal</th>
-                    <th class="px-4 py-2"></th>
-                </tr>
-            </thead>
-            <tbody id="order-items">
-                <tr id="empty-cart-msg">
-                    <td colspan="5" class="py-8 text-center text-gray-400 italic text-sm">
-                        No hay productos en el pedido
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-</div>
-    </div>
+        <div class="lg:col-span-1">
+            <div class="card-tenant sticky top-6 bg-tenant-primary !border-none text-tenant-secondary shadow-2xl">
+                <h2 class="text-xl font-bold mb-6 border-b border-tenant-secondary/20 pb-4">Resumen</h2>
+                <div class="space-y-4">
+                    <div class="flex justify-between text-sm opacity-80">
+                        <span>Subtotal</span>
+                        <span id="summary-subtotal" class="font-mono">S/ 0.00</span>
+                    </div>
+                    <div class="flex justify-between text-sm opacity-80">
+                        <span>IGV (18%)</span>
+                        <span id="summary-tax" class="font-mono">S/ 0.00</span>
+                    </div>
+                    
+                    <div class="flex justify-between text-lg font-extrabold border-t border-tenant-secondary/20 pt-4">
+                        <span>TOTAL SOL</span>
+                        <span id="total-sol-display" class="text-2xl">S/ 0.00</span>
+                    </div>
 
-    <div class="lg:col-span-1">
-        <div class="card-tenant sticky top-6 bg-tenant-primary !border-none text-tenant-secondary">
-            <h2 class="text-xl font-bold mb-6 border-b border-tenant-secondary/20 pb-4">Resumen</h2>
-            <div class="space-y-4">
-                <div class="flex justify-between">
-                    <span>Subtotal</span>
-                    <span class="font-mono">S/ 0.00</span>
+                    <div class="bg-white/10 p-3 rounded-lg">
+                        <div class="flex justify-between text-xs mb-1 opacity-70 italic">
+                            <span>Equivalente USD (T.C. {{ exchange_rate }})</span>
+                            <span id="total-usd-display">$ 0.00</span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-tenant-secondary text-tenant-primary py-4 rounded-xl font-black shadow-lg hover:scale-[1.02] active:scale-95 transition-all mt-6 uppercase tracking-wider">
+                        FINALIZAR PEDIDO
+                    </button>
                 </div>
-                <div class="flex justify-between text-lg font-extrabold border-t border-tenant-secondary/20 pt-4">
-                    <span>TOTAL SOL</span>
-                    <span class="text-2xl">S/ 0.00</span>
-                </div>
-                <div class="flex justify-between text-tenant-secondary/70 text-sm italic">
-                    <span>Equivalente USD</span>
-                    <span>$ 0.00</span>
-                </div>
-                <button class="w-full bg-tenant-secondary text-tenant-primary py-4 rounded-xl font-bold shadow-lg hover:scale-[1.02] transition-transform mt-6">
-                    FINALIZAR PEDIDO
-                </button>
             </div>
         </div>
     </div>
-</div>
-{% endblock %}
+</form>
 
 <script>
+// Guardamos el TC de la vista para el JS
+const EXCHANGE_RATE = {{ exchange_rate|default:3.80 }};
+
 function updateRowSubtotal(input, price) {
     const row = input.closest('tr');
     const subtotalEl = row.querySelector('.row-subtotal');
-    const newSubtotal = (input.value * price).toFixed(2);
+    const quantity = parseFloat(input.value) || 0;
+    const newSubtotal = (quantity * price).toFixed(2);
+    
     subtotalEl.innerText = `S/ ${newSubtotal}`;
     calculateGrandTotal();
 }
 
 function removeRow(btn) {
     btn.closest('tr').remove();
+    const tbody = document.getElementById('order-items');
+    if (tbody.children.length === 0 || (tbody.children.length === 1 && tbody.firstElementChild.id === 'empty-cart-msg')) {
+        document.getElementById('empty-cart-msg').classList.remove('hidden');
+    }
     calculateGrandTotal();
 }
 
@@ -109,7 +128,25 @@ function calculateGrandTotal() {
     document.querySelectorAll('.row-subtotal').forEach(el => {
         total += parseFloat(el.innerText.replace('S/ ', ''));
     });
-    // Actualiza el resumen de la derecha
+
+    const subtotal = total / 1.18;
+    const tax = total - subtotal;
+    const totalUsd = total / EXCHANGE_RATE;
+
+    // Actualizar UI
+    document.getElementById('summary-subtotal').innerText = `S/ ${subtotal.toFixed(2)}`;
+    document.getElementById('summary-tax').innerText = `S/ ${tax.toFixed(2)}`;
     document.getElementById('total-sol-display').innerText = `S/ ${total.toFixed(2)}`;
+    document.getElementById('total-usd-display').innerText = `$ ${totalUsd.toFixed(2)}`;
 }
+
+// Escuchar cuando HTMX añade una fila nueva para ocultar el mensaje de vacío
+document.body.addEventListener('htmx:afterOnLoad', function(evt) {
+    if (evt.detail.target.id === 'order-items') {
+        const emptyMsg = document.getElementById('empty-cart-msg');
+        if (emptyMsg) emptyMsg.classList.add('hidden');
+        calculateGrandTotal();
+    }
+});
 </script>
+{% endblock %}
