@@ -1,0 +1,48 @@
+<tr id="order-row-{{ order.id }}" 
+    class="hover:bg-gray-50/50 transition-colors {% if order.status == 'CANCELLED' %}bg-gray-50 opacity-75{% endif %}">
+    
+    <td class="px-6 py-4 font-mono text-sm {% if order.status == 'CANCELLED' %}line-through text-gray-400{% else %}text-tenant-primary font-bold{% endif %}">
+        #{{ order.id }}
+    </td>
+    
+    <td class="px-6 py-4 text-sm text-gray-600">{{ order.created_at|date:"d/m/Y H:i" }}</td>
+    
+    <td class="px-6 py-4">
+        <div class="text-sm font-medium {% if order.status == 'CANCELLED' %}line-through text-gray-400{% else %}text-gray-900{% endif %}">
+            {{ order.customer_name }}
+        </div>
+        <div class="text-xs text-gray-500">{{ order.client.document_number|default:"S/D" }}</div>
+    </td>
+
+    <td class="px-6 py-4 font-bold text-gray-900">S/ {{ order.total_amount }}</td>
+    
+    <td class="px-6 py-4">
+        <span class="px-2 py-1 rounded-full text-[10px] font-black uppercase 
+            {% if order.status == 'CANCELLED' %}bg-red-100 text-red-700
+            {% elif order.status == 'PAID' %}bg-green-100 text-green-700
+            {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+            {{ order.get_status_display }}
+        </span>
+    </td>
+
+    <td class="px-6 py-4 text-right space-x-2">
+        <button hx-get="{% url 'web:order_detail' tenant.slug order.id %}" hx-target="#modals-here"
+                class="text-gray-400 hover:text-tenant-primary">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+        </button>
+
+        {% if order.status != 'CANCELLED' %}
+            <button hx-post="{% url 'web:order-cancel' tenant.slug order.id %}" 
+                    hx-confirm="¿Deseas anular este pedido?"
+                    hx-target="#order-row-{{ order.id }}"
+                    hx-swap="outerHTML"
+                    class="text-gray-400 hover:text-red-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
+            </button>
+        {% else %}
+            <span class="text-gray-300 inline-block px-1" title="Pedido Anulado">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path></svg>
+            </span>
+        {% endif %}
+    </td>
+</tr>
