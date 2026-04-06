@@ -10,6 +10,7 @@ from django.db import transaction
 from django.db.models import Sum, Count, F, ExpressionWrapper, DecimalField
 from django.template.loader import render_to_string
 from django.core.paginator import Paginator
+from django.views.decorators.http import require_POST
 
 from src.domain.models import Order, OrderItem, Organization, Payment, Product, Client, Stock
 from src.domain.tasks.reporting_tasks import generate_order_pdf_task
@@ -430,3 +431,19 @@ def order_list_view(request, org_slug):
         'orders': page_obj,
         'status_choices': Order.STATUS_CHOICES
     })
+
+
+
+@require_POST
+def order_cancel_view(request, org_slug, order_id):
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    order = get_object_or_404(Order, id=order_id, organization=tenant)
+    
+    # Solo cancelar si no está ya cancelada o entregada (regla de negocio)
+    if order.status != 'CANCELLED':
+        order.status = 'CANCELLED'
+        order.save()
+    
+    # Devolvemos un partial de la fila o simplemente disparamos un evento de refresco
+    # Para este ejemplo, devolvemos la fila actualizada para que se vea el "tachado"
+    return render(request, 'orders/partials/order_row.html', {'order': order, 'tenant': tenant})

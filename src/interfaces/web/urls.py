@@ -14,6 +14,7 @@ from .views import (
     search_product_partial,
     add_product_to_order_partial,
     order_list_view,
+    order_cancel_view,
 )
 
 app_name = 'web'
@@ -35,5 +36,6 @@ urlpatterns = [
     path('orders/add-item/<int:product_id>/', add_product_to_order_partial, name='add-to-order'),
     path('orders/new/', order_create_view, name='order-create'),
     path('orders/search-client/', search_client_partial, name='search-client'),
+    path('orders/<int:order_id>/cancel/', order_cancel_view, name='order-cancel'), # Cambiamos delete por cancel
 
 ]
