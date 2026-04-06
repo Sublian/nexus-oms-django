@@ -1,0 +1,84 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-gray-800">Historial de Pedidos</h1>
+        <a href="{% url 'web:order-create' tenant.slug %}" class="btn-tenant-primary flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"></path></svg>
+            Nuevo Pedido
+        </a>
+    </div>
+
+    <div class="card-tenant flex flex-wrap gap-4 items-center">
+        <form method="GET" class="flex flex-wrap gap-4 w-full">
+            <input type="text" name="q" value="{{ request.GET.q|default:'' }}" placeholder="Buscar por cliente o #ID..." 
+                   class="border-gray-300 rounded-lg text-sm focus:ring-tenant-primary w-64">
+            
+            <select name="status" class="border-gray-300 rounded-lg text-sm focus:ring-tenant-primary">
+                <option value="">Todos los estados</option>
+                {% for code, label in status_choices %}
+                    <option value="{{ code }}" {% if request.GET.status == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+
+            <button type="submit" class="bg-gray-100 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200">Filtrar</button>
+        </form>
+    </div>
+
+    <div class="card-tenant overflow-hidden !p-0">
+        <table class="w-full text-left border-collapse">
+            <thead class="bg-gray-50 text-xs uppercase text-gray-500 border-b">
+                <tr>
+                    <th class="px-6 py-4">ID</th>
+                    <th class="px-6 py-4">Fecha</th>
+                    <th class="px-6 py-4">Cliente</th>
+                    <th class="px-6 py-4">Total</th>
+                    <th class="px-6 py-4">Estado</th>
+                    <th class="px-6 py-4 text-right">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for order in orders %}
+                <tr class="hover:bg-gray-50/50 transition-colors">
+                    <td class="px-6 py-4 font-mono text-sm text-tenant-primary font-bold">#{{ order.id }}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">{{ order.created_at|date:"d/m/Y H:i" }}</td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm font-medium text-gray-900">{{ order.customer_name }}</div>
+                        <div class="text-xs text-gray-500">{{ order.client.document_number|default:"S/D" }}</div>
+                    </td>
+                    <td class="px-6 py-4 font-bold text-gray-900">S/ {{ order.total_amount|default:"0.00" }}</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 rounded-full text-[10px] font-black uppercase 
+                            {% if order.status == 'PAID' or order.status == 'DELIVERED' %}bg-green-100 text-green-700
+                            {% elif order.status == 'PENDING' %}bg-yellow-100 text-yellow-700
+                            {% else %}bg-gray-100 text-gray-600{% endif %}">
+                            {{ order.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <button class="text-gray-400 hover:text-tenant-primary"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center text-gray-400 italic">No se encontraron pedidos.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        {% if orders.has_other_pages %}
+        <div class="px-6 py-4 bg-gray-50 border-t flex justify-center gap-2">
+            {% if orders.has_previous %}
+                <a href="?page={{ orders.previous_page_number }}" class="text-sm text-tenant-primary">Anterior</a>
+            {% endif %}
+            <span class="text-sm text-gray-500">Página {{ orders.number }} de {{ orders.paginator.num_pages }}</span>
+            {% if orders.has_next %}
+                <a href="?page={{ orders.next_page_number }}" class="text-sm text-tenant-primary">Siguiente</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

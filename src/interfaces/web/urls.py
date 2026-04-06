@@ -13,6 +13,7 @@ from .views import (
     search_client_partial,
     search_product_partial,
     add_product_to_order_partial,
+    order_list_view,
 )
 
 app_name = 'web'
@@ -27,8 +28,12 @@ urlpatterns = [
     path('settings/notifications/', settings_notifications_partial, name='org-settings-notifications'),
     path('settings/company/', settings_company_partial, name='org-settings-company'),
     path('validate-identity/', validate_identity_partial, name='validate-identity'),
+    
+    # --- Rutas de Ordenes ---
+    path('orders/', order_list_view, name='order-list'),
     path('orders/search-product/', search_product_partial, name='search-product'),
     path('orders/add-item/<int:product_id>/', add_product_to_order_partial, name='add-to-order'),
     path('orders/new/', order_create_view, name='order-create'),
     path('orders/search-client/', search_client_partial, name='search-client'),
+
 ]
