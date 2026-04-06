@@ -15,6 +15,7 @@ class Order(TenantModel):
         ('CANCELLED', 'Cancelado'),
     ]
 
+    client = models.ForeignKey('domain.Client', on_delete=models.PROTECT, related_name='orders', null=True)
     customer_name = models.CharField(max_length=255)
     customer_email = models.EmailField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DRAFT')
