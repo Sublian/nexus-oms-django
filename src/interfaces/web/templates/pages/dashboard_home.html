@@ -123,5 +123,14 @@
     </div>
 </div>
 
+
+<div class="flex justify-between items-center mb-4">
+    <h3 class="font-bold text-gray-700">Últimos Pedidos</h3>
+    <a href="{% url 'web:order-list' tenant.slug %}" class="text-xs text-tenant-primary font-black hover:underline flex items-center gap-1">
+        VER TODOS
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+    </a>
+</div>
+
 <div id="modal-container"></div>
 {% endblock %}
