@@ -5,10 +5,12 @@ from datetime import date, timedelta
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
+from django.contrib import messages
+from django.db import transaction
 from django.db.models import Sum, Count, F, ExpressionWrapper, DecimalField
 from django.template.loader import render_to_string
 
-from src.domain.models import Order, OrderItem, Organization, Payment, Product, Client
+from src.domain.models import Order, OrderItem, Organization, Payment, Product, Client, Stock
 from src.domain.tasks.reporting_tasks import generate_order_pdf_task
 from src.infrastructure.services.apimigo import APIMigoClient
 
@@ -198,19 +200,97 @@ def validate_identity_partial(request, org_slug):
     return HttpResponse('<span class="text-gray-400 text-xs">Documento incompleto...</span>')
 
 
+@transaction.atomic
 def order_create_view(request, org_slug):
     tenant = get_object_or_404(Organization, slug=org_slug)
     
-    # Obtenemos el objeto (ahora garantizado por el refactor anterior)
-    exchange = APIMigoClient.get_exchange_rate()
-    
-    # Extraemos el valor de venta con un fallback final
-    # Usamos float() para asegurar que sea operable en el template o JS
-    try:
-        tc_value = float(exchange.get('precio_venta', 3.80))
-    except (ValueError, TypeError):
-        tc_value = 3.80
+    if request.method == 'POST':
+        try:
+            # 1. Obtener datos del form
+            doc_number = request.POST.get('document')
+            client_name = request.POST.get('name')
+            product_ids = request.POST.getlist('product_ids[]')
+            quantities = request.POST.getlist('quantities[]')
 
+            # 2. Obtener/Crear Cliente
+            # Nota: document_type lo pondremos como DNI/RUC según el largo o un default
+            doc_type = 'RUC' if len(doc_number) == 11 else 'DNI'
+            client, _ = Client.objects.get_or_create(
+                organization=tenant,
+                document_number=doc_number,
+                defaults={
+                    'name': client_name,
+                    'document_type': doc_type
+                }
+            )
+
+            # 3. Crear la Orden (Usando los nombres exactos de tu modelo)
+            order = Order.objects.create(
+                organization=tenant,
+                client=client, # Solo si agregaste la FK, si no, quita esta línea
+                customer_name=client.name,
+                customer_email=client.email or "sin@correo.com",
+                status='DRAFT',
+                subtotal=0,
+                tax_amount=0,
+                total_amount=0
+            )
+
+            total_subtotal = 0
+            
+            # 4. Procesar Items
+            for p_id, qty in zip(product_ids, quantities):
+                qty = int(qty)
+                if qty <= 0: continue
+                
+                product = Product.objects.select_for_update().get(id=p_id, organization=tenant)
+                
+                # Descuento de stock simple (puedes mejorar la lógica de bodega luego)
+                stock_record = Stock.objects.filter(product=product, quantity__gte=qty).first()
+                if not stock_record:
+                    raise ValueError(f"No hay stock suficiente para: {product.name}")
+                
+                stock_record.quantity -= qty
+                stock_record.save()
+
+                # Cálculo de montos del item
+                price = float(product.price)
+                item_subtotal = price * qty
+                
+                OrderItem.objects.create(
+                    order=order,
+                    product=product,
+                    quantity=qty,
+                    price_at_order=price,
+                    organization=tenant
+                )
+                total_subtotal += item_subtotal
+
+            # 5. Cálculos Finales (IGV 18%)
+            # Si el precio ya incluye IGV:
+            order.total_amount = total_subtotal
+            order.subtotal = float(total_subtotal) / 1.18
+            order.tax_amount = float(total_subtotal) - order.subtotal
+            order.save()
+
+            messages.success(request, f"Pedido #{order.id} creado correctamente.")
+            
+            if request.headers.get('HX-Request'):
+                res = HttpResponse(status=204)
+                res['HX-Redirect'] = f"/dashboard/{org_slug}/orders/" # O a la lista de pedidos
+                return res
+            
+            return redirect('web:order-list', org_slug=org_slug)
+
+        except Exception as e:
+            messages.error(request, f"Error al procesar el pedido: {str(e)}")
+            # El rollback es automático por el @transaction.atomic
+            # transaction.rollback()
+
+    # --- Lógica GET (ya la tenías, asegúrate de mantenerla) ---
+    exchange = APIMigoClient.get_exchange_rate()
+    tc_value = float(exchange.get('precio_venta', 3.80))
+    
     context = {
         'tenant': tenant,
         'exchange_rate': tc_value,
@@ -219,19 +299,27 @@ def order_create_view(request, org_slug):
     }
     return render(request, 'orders/order_form.html', context)
 
+
 def search_client_partial(request, org_slug):
-    query = request.GET.get('document', '').strip()
     tenant = get_object_or_404(Organization, slug=org_slug)
+    doc_number = request.GET.get('document', '').strip()
+
+    if len(doc_number) < 8: # Evitar búsquedas vacías o incompletas
+        return HttpResponse("")
     
     # 1. Buscar en DB local
-    client = Client.objects.filter(organization=tenant, document_number=query).first()
+    client = Client.objects.filter(organization=tenant, document_number=doc_number).first()
     
     if client:
-        return render(request, 'orders/partials/client_selected.html', {'client': client})
+        # return render(request, 'orders/client_selected.html', {'client': client})
+        return render(request, 'orders/partials/client_selected.html', {
+            'client': client,
+            'source': 'local'
+        })
     
     # 2. Si no existe y tiene longitud de DNI/RUC, sugerir validación externa
-    if len(query) in [8, 11]:
-        validate_url = f"/dashboard/{org_slug}/validate-identity/?document={query}"
+    if len(doc_number) in [8, 11]:
+        validate_url = f"/dashboard/{org_slug}/validate-identity/?document={doc_number}"
         return HttpResponse(f"""
             <div class="p-2 bg-blue-50 border border-blue-100 rounded-lg flex flex-col gap-2">
                 <span class="text-[10px] text-blue-600 font-bold uppercase">No registrado localmente</span>
