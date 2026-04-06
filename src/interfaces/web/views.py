@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.db.models import Sum, Count, F, ExpressionWrapper, DecimalField
 from django.template.loader import render_to_string
+from django.core.paginator import Paginator
 
 from src.domain.models import Order, OrderItem, Organization, Payment, Product, Client, Stock
 from src.domain.tasks.reporting_tasks import generate_order_pdf_task
@@ -401,3 +402,31 @@ def add_product_to_order_partial(request, org_slug, product_id):
             </td>
         </tr>
     ''')
+
+def order_list_view(request, org_slug):
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    
+    # Filtros básicos
+    query = request.GET.get('q')
+    status = request.GET.get('status')
+    
+    orders = Order.objects.filter(organization=tenant).select_related('client') # Si tienes el manager
+    
+    if not hasattr(orders, 'order_with_total_amount'): # Fallback si no hay manager optimizado
+        orders = Order.objects.filter(organization=tenant).select_related('client').order_by('-created_at')
+
+    if query:
+        orders = orders.filter(customer_name__icontains=query) | orders.filter(id__icontains=query)
+    
+    if status:
+        orders = orders.filter(status=status)
+
+    paginator = Paginator(orders, 15) # 15 pedidos por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'orders/order_list.html', {
+        'tenant': tenant,
+        'orders': page_obj,
+        'status_choices': Order.STATUS_CHOICES
+    })
