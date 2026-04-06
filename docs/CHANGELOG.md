@@ -39,3 +39,36 @@
 - `IntegrityError` en el modelo `Stock` al faltar la referencia obligatoria a `Warehouse`.
 
 - `TypeError` en instanciación de `Payment` por argumentos inesperados.
+
+
+---
+
+### [1.3.0] - 2026-04-05
+
+**📅 Hitos de Interfaz de Usuario y Gestión de Ventas**
+- **Arquitectura de Panel (Layout Modular):** Reestructuración del `base.html` para soportar un Sidebar de navegación lateral y un Navbar persistente, transformando la experiencia de usuario en un entorno ERP profesional.
+- **Flujo de Órdenes Completo:** Implementación de la vista de listado de órdenes con soporte para búsqueda, filtrado por estado y paginación (Paginator de Django).
+- **Interactividad HTMX:** Integración de un contenedor global de modales (`#modals-here`) para previsualizaciones rápidas de detalles de pedidos sin recarga de página.
+- **Política de Integridad de Datos:** Sustitución de la eliminación física por "Borrado Lógico" (`CANCELLED`), asegurando la trazabilidad financiera y auditoría de ventas.
+
+### Added
+
+- `order_list_view`: Vista principal para la gestión histórica de pedidos por organización.
+- `order_cancel_view`: Lógica para la anulación segura de pedidos con actualización de estado.
+- `layouts/partials/sidebar.html`: Menú lateral dinámico con agrupaciones lógicas (Ventas, Inventario, Finanzas).
+- `layouts/partials/navbar.html`: Barra superior modular con identidad corporativa del Tenant y menú de usuario (Alpine.js).
+- `orders/partials/order_row.html`: Fragmento especializado para renderizado individual de filas con soporte para estados visuales (tachado en cancelaciones).
+
+### Changed
+
+- **Refactorización de Layout:** Migración de diseño centrado a estructura de grid con Sidebar fijo y Main content responsivo.
+- **UX de Órdenes:** Los botones de acción ahora utilizan `hx-target` específicos (`closest tr` para anulaciones, `#modals-here` para detalles) mejorando la fluidez de la interfaz.
+- **Rutas Web:** Unificación de nombres de URL para mayor consistencia (`order-list`, `order-create`, `order-cancel`).
+
+### Fixed
+
+- `NoReverseMatch`: Resolución de errores en plantillas al referenciar rutas de eliminación/anulación inexistentes.
+- **Inyección de Fragmentos:** Corrección de error de UI donde los parciales de HTMX se incrustaban dentro de la tabla en lugar de disparar modales.
+- **CSS dinámico:** Ajuste en la configuración de Tailwind para asegurar que los colores del Tenant se apliquen correctamente a los nuevos componentes del Sidebar.
+
+**Estado de Cobertura:** 86% Total (Pytest-cov) 🚀.

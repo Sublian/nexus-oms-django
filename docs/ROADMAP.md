@@ -55,21 +55,24 @@ Es la **fuente de verdad** sobre qué está hecho y qué falta por implementar.
 - [x] **Mocker Pattern**: Mocks para tareas asíncronas en tests unitarios.
 - [x] Configuración de Workers para procesamiento de señales de dominio.
 
+
 ---
 
-## Hito 5: Interfaz de Usuario y Experiencia Reactiva (HTMX & Tailwind) 🎨 (NUEVO - EN PROGRESO)
+## Hito 5: Interfaz de Usuario y Experiencia Reactiva (HTMX & Tailwind) 🎨 (EN PROGRESO)
 
 **Objetivo**: Construir la capa visual del sistema enfocada en la eficiencia del operador del OMS, utilizando tecnologías modernas de renderizado parcial.
 
-- [x] **Layout Base y Dashboard**: Estructura principal con Tailwind CSS y navegación responsiva.
-- [ ] **Componentes HTMX**: Implementación de búsqueda en tiempo real de productos y filtrado de pedidos sin recargar la página.
-- [ ] **Modales y Drawers Dinámicos**: Uso de `hx-target` para gestión de inventario y edición rápida de items.
-- [ ] **Feedback de Tareas Asíncronas**: Barras de progreso en tiempo real conectadas a Celery mediante WebSockets o Polling de HTMX.
+- [x] **Layout Base y Sistema de Navegación**: Estructura profesional con Sidebar lateral, Navbar modular y persistencia de identidad visual por Tenant.
+- [x] **Arquitectura de Modales Globales**: Implementación de contenedor `#modals-here` para carga dinámica de detalles y formularios mediante HTMX.
+- [x] **Gestión de Órdenes en UI**: Listado reactivo de pedidos con estados visuales y acciones integradas.
+- [x] **Borrado Lógico (Cancelación) en UI**: Flujo de anulación de pedidos con feedback inmediato (tachado/deshabilitado) sin recarga de página.
+- [ ] **Componentes de Búsqueda Avanzada**: Implementación de búsqueda en tiempo real de productos y filtrado de pedidos mediante `hx-trigger="keyup changed delay:500ms"`.
+- [ ] **Feedback de Tareas Asíncronas**: Barras de progreso en tiempo real conectadas a Celery mediante Polling de HTMX para generación de reportes pesados.
 - [ ] **Validación Inline**: Feedback inmediato en formularios de creación de órdenes para evitar errores de servidor.
-- [ ] **Data Tables Reactivas**: Listados de ventas con paginación y ordenamiento dinámico.
+- [ ] **Data Tables Pro**: Listados de productos y stock con paginación, ordenamiento dinámico y edición rápida en línea.
 
 **Resultado esperado**:  
-Una consola de administración fluida donde el usuario gestiona el ciclo de vida de las órdenes con tiempos de respuesta mínimos.
+Una consola de administración fluida donde el usuario gestiona el ciclo de vida de las órdenes con tiempos de respuesta mínimos, emulando la agilidad de una SPA.
 
 ---
 
@@ -82,13 +85,18 @@ Una consola de administración fluida donde el usuario gestiona el ciclo de vida
 - [x] **Setup de CI/CD (GitHub Actions)**: Automatización de tests y Codecov.
 - [x] **Cloud Ready**: Configuración de instancia **AWS EC2 (Ubuntu + Nginx)**.
 - [ ] **Deployment Automático (CD)**: Despliegue continuo hacia AWS mediante GitHub Actions.
-- [ ] **Audit Logs**: Historial de movimientos por pedido/entidad.
-- [ ] **Mailing System**: Notificaciones de reportes y alertas de stock bajo.
-- [ ] **Hardening de Seguridad**: SSL/TLS (Certbot) y Rate limiting por Org-ID.
+- [ ] **Audit Logs**: Historial de movimientos por pedido/entidad (Trazabilidad total).
+- [ ] **Mailing System**: Notificaciones de reportes y alertas de stock bajo (Integración con SendGrid/Amazon SES).
+- [ ] **Hardening de Seguridad**: SSL/TLS (Certbot) y Rate limiting por Org-ID a nivel de Nginx.
 
 ---
 
 ## Notas de Versión
+
+### v0.40 - "The ERP Experience" (Actual)
+- **UI Architecture**: Transición a un layout profesional de tres capas (Navbar, Sidebar, Content).
+- **HTMX Integration**: Implementación de carga parcial de componentes y gestión de modales para el flujo de órdenes.
+- **Data Integrity**: Refuerzo del borrado lógico en la capa visual para cumplir con estándares de auditoría.
 
 ### v0.30 - "The Modular Leap"
 - **Arquitectura Limpia**: Transición de dominio monolítico a sub-paquetes (`models`, `services`, `tasks`).
@@ -100,4 +108,5 @@ Una consola de administración fluida donde el usuario gestiona el ciclo de vida
 ## Cómo leer este Roadmap
 
 - Si eres reviewer de **arquitectura**: Revisa Hito 1, 2 y 3.
-- Si te interesa la parte **DevOps / Cloud**: Enfócate en Hito 4 y 5 (GitHub Actions, AWS EC2).
+- Si te interesa la parte **Frontend/UX Senior**: Enfócate en el Hito 5 (HTMX, Tailwind, AlpineJS).
+- Si te interesa la parte **DevOps / Cloud**: Enfócate en Hito 6 (GitHub Actions, AWS EC2, Seguridad).

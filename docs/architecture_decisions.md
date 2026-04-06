@@ -1,80 +1,53 @@
 # 🧠 Decisiones Arquitectónicas y de Diseño - Nexus OMS
 
-Este documento registra las justificaciones técnicas y aprendizajes clave durante el desarrollo de Nexus OMS, sirviendo como guía para el mantenimiento y evolución del sistema.
+Este documento registra las justificaciones técnicas, evolución de la infraestructura y aprendizajes clave durante el desarrollo de **Nexus OMS**, sirviendo como la "Verdad Única" para el mantenimiento y escalabilidad del sistema.
 
-## 🏛️ Decisiones de Diseño
+## 🏛️ Decisiones de Diseño y Evolución
 
-1. Arquitectura Multi-tenant (Aislamiento de Datos)
-- Decisión: Implementar aislamiento mediante organization_id a nivel de aplicación (Shared Database).
+### 1. Arquitectura Multi-tenant (Aislamiento de Datos)
+- **Decisión:** Implementar aislamiento mediante `organization_id` a nivel de aplicación (Shared Database).
+- **Justificación:** Se priorizó un despliegue ágil y costos contenidos. El aislamiento se garantiza mediante **Custom Managers** de Django que filtran automáticamente por el contexto del Tenant actual, evitando fugas de datos entre organizaciones.
 
-- Justificación: Se priorizó una arquitectura que permita un despliegue ágil y costos de infraestructura contenidos, asegurando el aislamiento mediante managers personalizados de Django que filtran automáticamente por el contexto del Tenant actual.
+### 2. UI Modular y Patrón de Panel (Sidebar + Navbar)
+- **Decisión:** Implementar un layout de tres capas (Navbar superior fijo, Sidebar lateral de navegación y Área de contenido dinámico).
+- **Justificación:** Para transformar la aplicación de una "herramienta de una sola página" a un **ERP Profesional**. La separación del Navbar (Gestión de Sesión) y Sidebar (Navegación de Módulos) permite una expansión orgánica de funcionalidades como Inventario, Stock y Finanzas sin saturar la interfaz.
 
-2. Procesamiento Asíncrono con Celery & Redis
-- Decisión: Desacoplar procesos costosos (como la generación de reportes de ventas) del hilo principal de la API.
+### 3. Interactividad con HTMX y Contenedores de Modales Globales
+- **Decisión:** Uso de un contenedor único `<div id="modals-here"></div>` en el `base.html`.
+- **Justificación:** Evita la "inyección incrustada" de fragmentos HTML dentro del flujo de la página. Al definir un objetivo (target) global, los detalles de órdenes y formularios de creación se renderizan como capas superiores (Overlays), manteniendo limpia la estructura del DOM principal.
 
-- Justificación: Evitar tiempos de respuesta altos y timeouts. El uso de Redis como broker garantiza una comunicación rápida entre la aplicación y los workers.
+### 4. Gestión de Estado: Borrado Lógico (Idempotencia Financiera)
+- **Decisión:** Sustituir la eliminación física de registros por el estado `CANCELLED` (Borrado Lógico) en el modelo `Order`.
+- **Justificación:** En sistemas contables y ERPs, la eliminación de datos rompe la trazabilidad y las secuencias de auditoría. Cambiar el estado permite:
+    - Mantener el historial de intentos de venta.
+    - Visualizar registros anulados (con estilo *line-through* en UI).
+    - Evitar errores de integridad referencial en reportes financieros.
 
-3. Adopción de Patrones de Diseño (SOLID)
-
-- Decisión: Uso estricto de Singleton, Strategy y **Service Layer Pattern**.
-
-- Justificación: 
-    - **Strategy**: Permite que el sistema de reportes sea agnóstico al canal (Email, Slack, PDF).
-    - **Service Layer (SRP)**: Al extraer la lógica de `models.py` hacia `services/`, evitamos los "Fat Models" y facilitamos el testing de flujos complejos como la creación de órdenes y cálculos financieros.
-    - **Open/Closed**: El sistema extiende funcionalidades (como nuevos métodos de pago o canales de notificación) sin modificar el núcleo del dominio.
-
-4. Estrategia de Testing (80% Code Coverage)
-
-- Decisión: Mantener un coverage alto (>80%) con enfoque en integración y lógica de negocio.
-
-- Justificación: Alcanzar el **86%** actual garantiza que cualquier refactorización (como la reciente modularización del dominio) sea segura. Se priorizaron los "Happy Paths" financieros y la validación de integridad de stock.
-
-5. Stack Tecnológico Moderno
-
-- Decisión: Uso de Docker, PostgreSQL 17 y Python 3.12.
-
-- Justificacion: Para garantizar la paridad entre los entornos de desarrollo, staging y producción, minimizando los errores de "funciona en mi máquina".
-
-# 🎓 Lecciones Aprendidas y Mejores Prácticas
-
-## 🚀 Por qué Pytest-Django sobre el Runner Estándar
-
-Durante el desarrollo, se optó por pytest-django por encima del comando manage.py test tradicional.
-
-Aprendizaje: Pytest ofrece una sintaxis mucho más limpia y potente gracias a los Fixtures. Esto facilitó la creación de entornos multi-tenant complejos (Organizations, Products, Orders) que pueden reutilizarse en múltiples tests, reduciendo el código repetitivo y mejorando la velocidad de ejecución.
-
-## 🔄 La Importancia de la Idempotencia en las Pruebas
-
-Uno de los retos más grandes fue asegurar que los tests fueran idempotentes (que produzcan el mismo resultado sin importar cuántas veces se ejecuten o el orden de estos).
-
-Aprendizaje: El uso de pruebas automatizadas nos obligó a garantizar que cada ejecución limpie su estado. Sin pruebas, es fácil ignorar efectos secundarios en la base de datos o en el estado de Celery. La idempotencia en los tests es el primer paso para lograr sistemas distribuidos fiables donde las tareas fallidas pueden reintentarse sin corromper los datos.
-
-## 🛠️ Gestión de Contexto en Tareas Asíncronas
-
-Un error común en arquitecturas multi-tenant es perder el contexto del usuario al pasar a un proceso de Celery.
-
-Aprendizaje: Se aprendió a serializar y pasar explícitamente el organization_id a las tareas, asegurando que el worker de Celery opere siempre bajo el marco de seguridad del Tenant correcto, evitando fugas de información entre organizaciones.
-
-## 📈 Estado de Calidad del Proyecto
-
-Code Coverage: 80% (Umbral mínimo de producción).
-
-Calidad de Código: Adhesión estricta a principios SOLID y diseño orientado al dominio (DDD).
-
+### 5. Adopción de Patrones de Diseño (SOLID)
+- **Strategy:** El sistema de reportes es agnóstico al canal (Email, PDF).
+- **Service Layer (SRP):** La lógica reside en `services/`, evitando "Fat Models".
+- **Open/Closed:** El sistema permite añadir nuevos métodos de pago o estados de orden sin modificar el núcleo del dominio.
 
 ---
 
-## 🔄 Resolución de Dependencias Circulares y Modularización (ADR 003)
+# 🎓 Lecciones Aprendidas y Mejores Prácticas
 
-**Contexto:** El crecimiento del ERP generó archivos "God" en `domain/`, causando errores de importación circular entre la lógica de negocio y las tareas de Celery.
+## 🔄 Resolución de Dependencias Circulares (ADR 003)
+**Aprendizaje:** El crecimiento del ERP generó archivos "God" en `domain/`. La solución fue fracturar la capa de dominio en: `models/` (Persistencia), `services/` (Orquestación) y `tasks/` (Asíncrono). El uso de **Lazy Loading** en métodos específicos asegura que los modelos estén cargados antes que las tareas de Celery.
 
-**Decisión:**
-- Se fracturó la capa de dominio en tres sub-paquetes: `models/` (Persistencia), `services/` (Orquestación/Lógica) y `tasks/` (Asíncrono).
-- Se implementaron **Absolute Imports** y **Lazy Loading** dentro de los métodos de servicio para asegurar que los modelos estén cargados antes que las tareas.
+## ⚡ UX con HTMX: `hx-target` y `closest`
+**Aprendizaje:** Al realizar acciones sobre tablas (como anular una fila), el uso de `hx-target="closest tr"` permite actualizar solo el fragmento necesario. Esto reduce la carga del servidor y elimina el "parpadeo" de la página, ofreciendo una experiencia similar a una Single Page Application (SPA) pero manteniendo la simplicidad de Django.
 
-**Aprendizaje:** En Python/Django, la estructura de carpetas dicta la salud de los imports. Separar las tareas asíncronas de los servicios permite testear la lógica de negocio mockeando Celery de forma limpia, sin cargar todo el stack de infraestructura.
+## 🛠️ Gestión de Contexto en Tareas Asíncronas
+**Aprendizaje:** Se debe serializar y pasar explícitamente el `organization_id` a las tareas de Celery. Esto garantiza que el worker opere siempre bajo el marco de seguridad del Tenant correcto, manteniendo el aislamiento multi-tenant incluso fuera del ciclo de solicitud HTTP.
+
+---
 
 ## 📈 Estado de Calidad del Proyecto
-- **Code Coverage:** 86% 🚀
+- **Code Coverage:** 86% 🚀 (Superando el umbral de producción).
 - **Arquitectura:** Domain-Driven Design (DDD) modular.
-- **Estándar de Código:** PEP8 y principios SOLID.
+- **Estándar de Código:** PEP8, principios SOLID y Clean Code.
+- **Estado UI:** Layout 100% responsivo con Sidebar dinámico y soporte para Modales.
+
+---
+*Última actualización: 5 de Abril de 2026 - Cierre de fase: Módulo de Órdenes y Estructura Base.*
