@@ -1,19 +1,41 @@
-<div class="absolute z-50 w-full bg-white border border-gray-200 shadow-xl rounded-b-lg overflow-hidden">
-    {% for product in products %}
-    <div class="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-none flex justify-between items-center"
-         hx-post="{% url 'web:add-to-cart' tenant.slug product.id %}"
-         hx-target="#order-items"
-         hx-swap="beforeend">
-        <div>
-            <p class="text-sm font-bold text-gray-800">{{ product.name }}</p>
-            <p class="text-[10px] text-gray-500 uppercase tracking-tighter">SKU: {{ product.sku }}</p>
+<div class="absolute z-50 w-full bg-white border border-gray-200 shadow-xl rounded-lg mt-1 overflow-hidden">
+    <div class="max-h-60 overflow-y-auto">
+        {% for product in products %}
+        <div class="p-3 hover:bg-tenant-primary/5 cursor-pointer border-b last:border-none flex justify-between items-center group"
+             hx-get="{% url 'web:add-to-order' tenant.slug product.id %}"
+             hx-target="#order-items"
+             hx-swap="beforeend">
+            
+            <div class="flex-1">
+                <p class="text-sm font-bold text-gray-800 group-hover:text-tenant-primary transition-colors">
+                    {{ product.name }}
+                </p>
+                <p class="text-[10px] text-gray-400 font-mono">SKU: {{ product.sku|default:"N/A" }}</p>
+            </div>
+            
+            <div class="text-right">
+                <span class="text-xs font-black text-gray-900">S/ {{ product.price|floatformat:2 }}</span>
+                <p class="text-[9px] {% if product.stock < 5 %}text-red-500 font-bold{% else %}text-green-600{% endif %}">
+                    Stock: {{ product.stock }}
+                </p>
+            </div>
         </div>
-        <div class="text-right">
-            <span class="text-xs font-mono font-bold text-tenant-primary">S/ {{ product.price }}</span>
-            <p class="text-[10px] text-green-600">Stock: {{ product.stock }}</p>
+        {% empty %}
+        <div class="p-4 text-center text-xs text-gray-500 italic">
+            No se encontraron productos.
         </div>
+        {% endfor %}
     </div>
-    {% empty %}
-    <div class="p-4 text-center text-sm text-gray-500">No se encontraron productos.</div>
-    {% endfor %}
 </div>
+
+<script>
+    document.body.addEventListener('htmx:afterOnLoad', function(evt) {
+        if (evt.detail.target.id === 'order-items') {
+            document.getElementsByName('q')[0].value = '';
+            document.getElementById('product-search-results').innerHTML = '';
+            // Ocultamos el mensaje de "No hay productos" si existe
+            const emptyMsg = document.getElementById('empty-cart-msg');
+            if (emptyMsg) emptyMsg.classList.add('hidden');
+        }
+    });
+</script>

@@ -36,7 +36,6 @@ def test_get_ruc_not_found():
         result = APIMigoClient.get_ruc(ruc_number)
         assert result is None
 
-
 def test_get_ruc_batch_success():
     ruc_numbers = ["20603274742", "20123456789"]
     with requests_mock.Mocker() as m:
@@ -84,4 +83,4 @@ def test_get_dni_not_found():
 
         result = APIMigoClient.get_dni(dni_number)
         assert result is None
-        
+

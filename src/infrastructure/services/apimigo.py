@@ -1,3 +1,4 @@
+# src\infrastructure\services\apimigo.py
 import requests
 from django.conf import settings
 from datetime import date
@@ -20,6 +21,7 @@ class APIMigoClient:
         
         try:
             response = requests.post(url, json=data, headers=headers, timeout=10)
+            print (f"APIMigo Request to {url} with data {data} - Status: {response.status_code} - Response: {response.text}")
             if response.status_code == 200:
                 return response.json()
             elif response.status_code == 404:
@@ -56,7 +58,22 @@ class APIMigoClient:
         return cls._post_request('/dni', {'dni': dni})
     
     @classmethod
-    def get_exchange_rate(cls, fecha: str = None):
-        """Consulta tipo de cambio. Si no hay fecha, usa la de hoy (YYYY-MM-DD)."""
+    def get_exchange_rate(cls, fecha: str = None) -> Dict[str, Any]:
         search_date = fecha if fecha else date.today().strftime('%Y-%m-%d')
-        return cls._post_request('/exchange/date', {'fecha': search_date})
+        data = cls._post_request('/exchange/date', {'fecha': search_date})
+        
+        # Si falla (404), intentamos con una fecha anterior (ayer) antes de rendirnos
+        if not data or not data.get('success'):
+            from datetime import timedelta
+            yesterday = (date.today() - timedelta(days=1)).strftime('%Y-%m-%d')
+            data = cls._post_request('/exchange/date', {'fecha': yesterday})
+
+        # Fallback final si sigue fallando
+        if not data or not data.get('success'):
+            return {
+                'success': False,
+                'precio_venta': '3.80', 
+                'precio_compra': '3.75',
+                'moneda': 'USD'
+            }
+        return data

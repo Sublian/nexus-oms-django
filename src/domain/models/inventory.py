@@ -1,3 +1,4 @@
+# src\domain\models\inventory.py
 # Product, Stock, Warehouse, Supplier, PurchaseOrder
 from django.db import models
 

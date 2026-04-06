@@ -215,7 +215,7 @@ def order_create_view(request, org_slug):
         'tenant': tenant,
         'exchange_rate': tc_value,
         'currency_base': 'PEN',
-        'is_api_online': exchange.get('success', False)
+        'api_status': 'online' if exchange.get('success') else 'offline'
     }
     return render(request, 'orders/order_form.html', context)
 
@@ -231,14 +231,15 @@ def search_client_partial(request, org_slug):
     
     # 2. Si no existe y tiene longitud de DNI/RUC, sugerir validación externa
     if len(query) in [8, 11]:
+        validate_url = f"/dashboard/{org_slug}/validate-identity/?document={query}"
         return HttpResponse(f"""
-            <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg flex justify-between items-center">
-                <span class="text-sm text-blue-700">Cliente no registrado localmente.</span>
+            <div class="p-2 bg-blue-50 border border-blue-100 rounded-lg flex flex-col gap-2">
+                <span class="text-[10px] text-blue-600 font-bold uppercase">No registrado localmente</span>
                 <button type="button" 
-                        hx-get="/{org_slug}/validate-identity/?document={query}" 
+                        hx-get="{validate_url}" 
                         hx-target="#client-result"
-                        class="text-xs bg-blue-600 text-white px-3 py-1 rounded shadow">
-                    Consultar a Migo.pe
+                        class="bg-blue-600 text-white text-xs py-1 px-2 rounded hover:bg-blue-700 transition-colors">
+                    🔍 Consultar Migo.pe
                 </button>
             </div>
         """)
@@ -254,15 +255,61 @@ def search_product_partial(request, org_slug):
         return HttpResponse("") # No buscar hasta tener 3 letras
 
     # Buscamos por nombre o SKU (si tienes ese campo)
+    # Anotamos el stock_total sumando las cantidades en todas las bodegas (Warehouse)
     products = Product.objects.filter(
-        organization=tenant, 
-        name__icontains=query,
-        stock__gt=0 # Solo productos con stock
-    )[:5] # Limitar a 5 resultados para el dropdown
+        organization=tenant,
+        is_active=True,
+        name__icontains=query
+    ).annotate(
+        total_stock=Sum('stocks__quantity')
+    ).filter(
+        total_stock__gt=0  # Solo productos que realmente tengan algo en alguna bodega
+    )[:5]
     
-    # return render(request, 'orders/partials/product_results.html', {
     return render(request, 'orders/product_results.html', {
         'products': products,
         'tenant': tenant
     })
 
+
+def add_product_to_order_partial(request, org_slug, product_id):
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    
+    # Obtenemos el producto anotando el stock total disponible
+    product = get_object_or_404(
+        Product.objects.filter(organization=tenant).annotate(
+            total_available=Sum('stocks__quantity')
+        ), 
+        id=product_id
+    )
+    
+    # Aseguramos un valor numérico para el stock (evitar None)
+    stock_max = product.total_available or 0
+    
+    # Renderizamos la fila usando el valor anotado
+    return HttpResponse(f'''
+        <tr class="border-b border-gray-100 animate-in fade-in duration-300">
+            <td class="px-4 py-3">
+                <input type="hidden" name="product_ids[]" value="{product.id}">
+                <span class="text-sm font-medium text-gray-800">{product.name}</span>
+            </td>
+            <td class="px-4 py-3">
+                <input type="number" name="quantities[]" value="1" min="1" max="{stock_max}"
+                       class="w-16 border-gray-300 rounded text-sm p-1 focus:ring-tenant-primary quantity-input"
+                       onchange="updateRowSubtotal(this, {product.price:.2f})">
+            </td>
+            <td class="px-4 py-3 text-sm font-mono text-gray-600">
+                S/ {product.price:.2f}
+            </td>
+            <td class="px-4 py-3 text-sm font-bold text-gray-950 row-subtotal">
+                S/ {product.price:.2f}
+            </td>
+            <td class="px-4 py-3 text-right">
+                <button type="button" onclick="removeRow(this)" class="text-red-400 hover:text-red-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </button>
+            </td>
+        </tr>
+    ''')
