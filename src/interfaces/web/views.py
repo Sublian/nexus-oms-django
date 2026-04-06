@@ -73,7 +73,10 @@ def dashboard_home(request, org_slug):
     
     # Obtenemos tipo de cambio (usa cache internamente si lo implementamos)
     exchange = APIMigoClient.get_exchange_rate()
-    tc = float(exchange.get('precio_venta', 3.80)) if exchange else 3.80
+    try:
+        tc_value = float(exchange.get('precio_venta', 3.80))
+    except (ValueError, TypeError):
+        tc_value = 3.80
     
     orders = Order.objects.filter(organization=tenant).order_by('-created_at')[:batch_size]
 
@@ -115,8 +118,8 @@ def dashboard_home(request, org_slug):
         'orders': orders,
         'monthly_sales': monthly_sales,
         'monthly_sales_pen': sales_pen,
-        'monthly_sales_usd': float(sales_pen) / tc,
-        'exchange_rate': tc,
+        'monthly_sales_usd': float(sales_pen) / tc_value,
+        'exchange_rate': tc_value,
         'low_stock_count': low_stock_count,
         'net_margin': round(net_margin, 1),
         'batch_size': batch_size
@@ -160,48 +163,59 @@ def trigger_pdf_generation(request, org_slug, order_id):
         </p>
     ''')
 
-# src/interfaces/web/views.py
 
 def validate_identity_partial(request, org_slug):
-    """Validador para DNI, RUC y aviso para CE"""
     document = request.GET.get('document', '').strip()
     length = len(document)
     
-    # Caso DNI (8 dígitos)
-    if length == 8 and document.isdigit():
+    # Log interno para debug
+    print(f"DEBUG: Validating {document} for tenant {org_slug}")
+
+    if length == 8:
         data = APIMigoClient.get_dni(document)
-        if data and data.get('success'):
-            nombre = data.get('nombre')
-            return HttpResponse(f'<span class="text-green-600 text-xs font-bold">✓ {nombre}</span>'
-                                f'<script>document.getElementsByName("name")[0].value = "{nombre}";</script>')
+        if data:
+            if data.get('success'):
+                nombre = data.get('nombre')
+                return HttpResponse(f'<span class="text-green-600 text-xs font-bold">✓ {nombre}</span>'
+                                    f'<script>document.getElementsByName("name")[0].value = "{nombre}";</script>')
+            else:
+                return HttpResponse('<span class="text-red-500 text-xs">Error en data de DNI</span>')
+        return HttpResponse('<span class="text-amber-500 text-xs">DNI no encontrado en RENIEC (Migo)</span>')
 
-    # Caso RUC (11 dígitos)
-    elif length == 11 and document.isdigit():
+    elif length == 11:
         data = APIMigoClient.get_ruc(document)
-        if data and data.get('success'):
-            nombre = data.get('nombre_o_razon_social')
-            direccion = data.get('direccion_simple') or data.get('direccion')
-            return HttpResponse(f'<span class="text-green-600 text-xs font-bold">✓ {nombre}</span>'
-                                f'<script>'
-                                f'document.getElementsByName("name")[0].value = "{nombre}";'
-                                f'document.getElementsByName("address")[0].value = "{direccion}";'
-                                f'</script>')
+        if data:
+            if data.get('success'):
+                nombre = data.get('nombre_o_razon_social')
+                direccion = data.get('direccion_simple') or data.get('direccion', '')
+                return HttpResponse(f'<span class="text-green-600 text-xs font-bold">✓ {nombre}</span>'
+                                    f'<script>'
+                                    f'document.getElementsByName("name")[0].value = "{nombre}";'
+                                    f'document.getElementsByName("address")[0].value = "{direccion}";'
+                                    f'</script>')
+        return HttpResponse('<span class="text-amber-500 text-xs">RUC no encontrado en SUNAT</span>')
 
-    # Caso Carnet de Extranjería (Típicamente 9 o 12 caracteres)
-    elif 8 < length < 13 and not document.startswith(('10', '20')): # Filtro simple para no confundir con RUC
-        return HttpResponse('<span class="text-blue-500 text-xs font-medium italic">⚠️ Validación manual requerida para CE</span>')
+    return HttpResponse('<span class="text-gray-400 text-xs">Documento incompleto...</span>')
 
-    return HttpResponse('<span class="text-gray-400 text-xs">Esperando documento válido...</span>')
 
 def order_create_view(request, org_slug):
     tenant = get_object_or_404(Organization, slug=org_slug)
-    # Obtenemos el tipo de cambio para los cálculos en el frontend
+    
+    # Obtenemos el objeto (ahora garantizado por el refactor anterior)
     exchange = APIMigoClient.get_exchange_rate()
     
+    # Extraemos el valor de venta con un fallback final
+    # Usamos float() para asegurar que sea operable en el template o JS
+    try:
+        tc_value = float(exchange.get('precio_venta', 3.80))
+    except (ValueError, TypeError):
+        tc_value = 3.80
+
     context = {
         'tenant': tenant,
-        'exchange_rate': exchange.get('precio_venta', 3.80),
-        'currency_base': 'PEN'
+        'exchange_rate': tc_value,
+        'currency_base': 'PEN',
+        'is_api_online': exchange.get('success', False)
     }
     return render(request, 'orders/order_form.html', context)
 
