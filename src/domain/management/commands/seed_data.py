@@ -185,10 +185,16 @@ class Command(BaseCommand):
 
             # Registrar el Pago
             method = random.choice(['CASH', 'CARD', 'TRANSFER', 'WALLET'])
+            fee = Decimal('0.00')
+            if method == 'CARD':
+                fee = order.total_amount * Decimal('0.035') # Simulación de comisión 3.5%
+                fee = (order.total_amount * Decimal('0.035')).quantize(Decimal('0.01'))
+                
             Payment.objects.create(
                 organization=org,
                 order=order,
                 method=method,
+                fee_amount=fee,
                 amount=order.total_amount,
                 payment_date=order_date
             )
