@@ -28,7 +28,9 @@
                                hx-get="{% url 'web:search-client' tenant.slug %}"
                                hx-trigger="keyup changed delay:500ms"
                                hx-target="#client-result"
-                               class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-tenant-primary">
+                               class="w-full border border-tenant-secondary/40 rounded-lg p-2.5 focus:border-tenant-primary focus:ring-1 focus:ring-tenant-primary bg-white transition-all shadow-sm"
+                                placeholder="Ingrese RUC, DNI o CE...">
+                               
                     </div>
                     <div id="client-result" class="flex items-end pb-1">
                         </div>
@@ -56,7 +58,9 @@
                             hx-trigger="keyup changed delay:300ms, click, focus"
                             
                             hx-target="#product-search-results"
-                            class="w-full text-sm border-gray-300 rounded-lg p-2 focus:ring-tenant-primary">
+                            class="w-full text-sm border border-tenant-secondary/40 rounded-lg p-2 
+                                focus:border-tenant-primary focus:ring-1 focus:ring-tenant-primary 
+                                bg-white transition-all shadow-sm">
                         
                         <div id="product-search-results" class="absolute z-50 w-full mt-1"></div>
                     </div>
