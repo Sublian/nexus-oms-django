@@ -457,16 +457,13 @@ def order_cancel_view(request, org_slug, order_id):
 ## tipo de cambio
 
 def exchange_history_view(request, org_slug):
+    # Mantenemos el tenant para el contexto de la UI (sidebar, navbar, etc.)
     tenant = get_object_or_404(Organization, slug=org_slug)
     
-    # Obtenemos el histórico ordenado por fecha descendente
-    # select_related no es necesario aquí si no hay FKs pesadas, 
-    # pero ExchangeRate es ligero.
-    rates = ExchangeRate.objects.filter(
-        organization=tenant
-    ).order_by('-date', '-created_at')
+    # Eliminamos el filtro de organization que causaba el FieldError
+    rates = ExchangeRate.objects.all().order_by('-date', '-created_at')
 
-    paginator = Paginator(rates, 20) # 20 registros por página
+    paginator = Paginator(rates, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 

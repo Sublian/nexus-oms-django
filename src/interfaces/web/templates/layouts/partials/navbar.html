@@ -15,27 +15,31 @@
             </a>
 
             <!-- Segmento tipo de cambio -->
-            <div class="hidden lg:flex items-center gap-4 bg-black/10 px-4 py-2 rounded-lg border border-tenant-secondary/10">
-                <div class="flex flex-col">
-                    <span class="text-[9px] uppercase tracking-tighter opacity-70">Tipo de Cambio</span>
-                    <div class="flex gap-3 text-xs font-bold">
-                        <span class="flex items-center gap-1">
-                            <span class="opacity-60 font-medium">USD Compra:</span> 
-                            S/ {{ current_exchange.buy_price|default:"3.75" }}
+            <a href="{% url 'web:exchange-history' tenant.slug %}" 
+                class="hidden lg:flex items-center gap-4 bg-black/10 px-4 py-2 rounded-lg border border-tenant-secondary/10 hover:bg-black/20 transition-all group">
+                    <div class="flex flex-col">
+                        <span class="text-[9px] uppercase tracking-tighter opacity-70 group-hover:text-tenant-secondary transition-colors">
+                            Tipo de Cambio (Ver Historial)
                         </span>
-                        <div class="w-px h-3 bg-tenant-secondary/20 self-center"></div>
-                        <span class="flex items-center gap-1">
-                            <span class="opacity-60 font-medium">USD Venta:</span> 
-                            S/ {{ current_exchange.sell_price|default:"3.80" }}
-                        </span>
+                        <div class="flex gap-3 text-xs font-bold">
+                            <span class="flex items-center gap-1">
+                                <span class="opacity-60 font-medium">USD Compra:</span> 
+                                S/ {{ current_exchange.buy_price|default:"3.75" }}
+                            </span>
+                            <div class="w-px h-3 bg-tenant-secondary/20 self-center"></div>
+                            <span class="flex items-center gap-1">
+                                <span class="opacity-60 font-medium">USD Venta:</span> 
+                                S/ {{ current_exchange.sell_price|default:"3.80" }}
+                            </span>
+                        </div>
                     </div>
-                </div>
-                {% if current_exchange.origin == 'fallback' %}
-                    <span title="Usando datos referenciales (API Offline)" class="flex h-2 w-2 rounded-full bg-yellow-400 animate-pulse"></span>
-                {% else %}
-                    <span title="Actualizado hoy" class="flex h-2 w-2 rounded-full bg-green-400"></span>
-                {% endif %}
-            </div>
+                    
+                    {% if current_exchange.origin == 'fallback' %}
+                        <span title="Usando datos referenciales (API Offline)" class="flex h-2 w-2 rounded-full bg-yellow-400 animate-pulse"></span>
+                    {% else %}
+                        <span title="Actualizado hoy" class="flex h-2 w-2 rounded-full bg-green-400"></span>
+                    {% endif %}
+                </a>
             
             <div class="flex items-center gap-5">
                 <button class="nav-link flex items-center gap-2 text-sm font-bold opacity-80 hover:opacity-100 transition-opacity">
