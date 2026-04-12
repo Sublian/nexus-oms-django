@@ -1,10 +1,12 @@
 from decimal import Decimal
+from datetime import date
 
 from django.db.models import Sum
 from django.db import transaction
 from django.core.exceptions import ValidationError
 
-from ..models import Payment, OrderItem, OrderReturn, PurchaseOrderItem
+from ..models import Payment, OrderItem, OrderReturn, PurchaseOrderItem, ExchangeRate
+from infrastructure.services.apimigo import APIMigoClient
 
 
 def calculate_expected_cash(organization, start_date, end_date):
@@ -82,3 +84,31 @@ def get_net_margin_report(organization, start_date, end_date):
         "net_profit": net_profit,
         "margin_percentage": round(float(margin_pct), 2)
     }
+
+class ExchangeService:
+    @staticmethod
+    def get_current_rate():
+        today = date.today()
+        
+        # 1. Intentar obtener de la base de datos (Ultra rápido)
+        rate = ExchangeRate.objects.filter(date=today).first()
+        if rate:
+            return rate
+
+        # 2. Si no existe, llamar a APIMigo
+        print(f"Buscando tipo de cambio en APIMigo para {today}...")
+        api_data = APIMigoClient.get_exchange_rate(today.strftime('%Y-%m-%d'))
+        
+        # 3. Persistir el resultado (aunque sea el fallback) para evitar re-llamadas constantes
+        if api_data:
+            rate, _ = ExchangeRate.objects.get_or_create(
+                date=today,
+                defaults={
+                    'buy_price': Decimal(str(api_data.get('precio_compra', '0.00'))),
+                    'sell_price': Decimal(str(api_data.get('precio_venta', '0.00'))),
+                    'origin': 'apimigo' if api_data.get('success') else 'fallback'
+                }
+            )
+            return rate
+        
+        return None
