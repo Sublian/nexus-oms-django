@@ -1,0 +1,66 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="mb-6 flex justify-between items-center">
+    <div>
+        <h1 class="text-2xl font-black text-gray-900">Histórico de Tipo de Cambio</h1>
+        <p class="text-sm text-gray-500">Registro de tasas recuperadas vía APIMigo</p>
+    </div>
+</div>
+
+<div class="card-tenant overflow-hidden">
+    <table class="w-full text-left border-collapse">
+        <thead>
+            <tr class="bg-gray-50 border-b border-gray-100">
+                <th class="px-6 py-4 text-xs font-bold uppercase text-gray-400">Fecha</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase text-gray-400">Compra (S/)</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase text-gray-400">Venta (S/)</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase text-gray-400">Origen</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+            {% for rate in rates %}
+            <tr class="hover:bg-gray-50/50 transition-colors">
+                <td class="px-6 py-4">
+                    <span class="text-sm font-bold text-gray-800">{{ rate.date|date:"d/m/Y" }}</span>
+                    <p class="text-[10px] text-gray-400">{{ rate.created_at|time:"H:i" }}</p>
+                </td>
+                <td class="px-6 py-4 font-mono text-sm text-gray-600">
+                    {{ rate.purchase_price }}
+                </td>
+                <td class="px-6 py-4 font-mono text-sm font-bold text-tenant-primary">
+                    {{ rate.sell_price }}
+                </td>
+                <td class="px-6 py-4">
+                    <span class="px-2 py-1 rounded-full text-[10px] font-bold uppercase 
+                        {% if rate.origin == 'apimigo' %}bg-green-100 text-green-700
+                        {% else %}bg-amber-100 text-amber-700{% endif %}">
+                        {{ rate.origin }}
+                    </span>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" class="px-6 py-12 text-center text-gray-400 italic">
+                    No hay registros históricos disponibles.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if rates.has_other_pages %}
+    <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+        <span class="text-xs text-gray-500">Página {{ rates.number }} de {{ rates.paginator.num_pages }}</span>
+        <div class="flex gap-2">
+            {% if rates.has_previous %}
+                <a href="?page={{ rates.previous_page_number }}" class="btn-secondary py-1 px-3 text-xs">Anterior</a>
+            {% endif %}
+            {% if rates.has_next %}
+                <a href="?page={{ rates.next_page_number }}" class="btn-secondary py-1 px-3 text-xs">Siguiente</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

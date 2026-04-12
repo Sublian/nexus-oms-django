@@ -2,7 +2,8 @@
 
 from django.urls import path
 from .views import (
-    dashboard_home, 
+    dashboard_home,
+    exchange_history_view,      
     order_detail_partial, 
     trigger_pdf_generation,
     organization_settings,            # La vista principal
@@ -38,4 +39,6 @@ urlpatterns = [
     path('orders/search-client/', search_client_partial, name='search-client'),
     path('orders/<int:order_id>/cancel/', order_cancel_view, name='order-cancel'), # Cambiamos delete por cancel
 
+    # --- Rutas de Tipo de cambio ---
+    path('finance/exchange-history/', exchange_history_view, name='exchange-history'),
 ]

@@ -13,6 +13,7 @@ from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
 
 from src.domain.models import Order, OrderItem, Organization, Payment, Product, Client, Stock
+from src.domain.models.finance import ExchangeRate
 from src.domain.services.finance_service import ExchangeService
 from src.domain.tasks.reporting_tasks import generate_order_pdf_task
 from src.infrastructure.services.apimigo import APIMigoClient
@@ -340,20 +341,25 @@ def search_product_partial(request, org_slug):
     query = request.GET.get('q', '').strip()
     tenant = get_object_or_404(Organization, slug=org_slug)
     
-    if len(query) < 3:
-        return HttpResponse("") # No buscar hasta tener 3 letras
-
-    # Buscamos por nombre o SKU (si tienes ese campo)
-    # Anotamos el stock_total sumando las cantidades en todas las bodegas (Warehouse)
-    products = Product.objects.filter(
+    # Base del queryset optimizada
+    products_qs = Product.objects.filter(
         organization=tenant,
-        is_active=True,
-        name__icontains=query
+        is_active=True
     ).annotate(
         total_stock=Sum('stocks__quantity')
     ).filter(
-        total_stock__gt=0  # Solo productos que realmente tengan algo en alguna bodega
-    )[:5]
+        total_stock__gt=0
+    )
+
+    if query:
+        # Filtrado por nombre o SKU
+        products = products_qs.filter(
+            Q(name__icontains=query) | Q(sku__icontains=query)
+        ).order_by('name')[:8]
+    else:
+        # Al hacer clic sin escribir, mostramos los primeros 5 alfabéticamente
+        # O podrías usar .order_by('-id') si quieres ver los últimos creados
+        products = products_qs.order_by('name')[:5]
     
     return render(request, 'orders/product_results.html', {
         'products': products,
@@ -446,3 +452,25 @@ def order_cancel_view(request, org_slug, order_id):
     # Devolvemos un partial de la fila o simplemente disparamos un evento de refresco
     # Para este ejemplo, devolvemos la fila actualizada para que se vea el "tachado"
     return render(request, 'orders/partials/order_row.html', {'order': order, 'tenant': tenant})
+
+
+## tipo de cambio
+
+def exchange_history_view(request, org_slug):
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    
+    # Obtenemos el histórico ordenado por fecha descendente
+    # select_related no es necesario aquí si no hay FKs pesadas, 
+    # pero ExchangeRate es ligero.
+    rates = ExchangeRate.objects.filter(
+        organization=tenant
+    ).order_by('-date', '-created_at')
+
+    paginator = Paginator(rates, 20) # 20 registros por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'finance/exchange_history.html', {
+        'tenant': tenant,
+        'rates': page_obj,
+    })

@@ -46,11 +46,18 @@
                     
                     <div class="relative w-64">
                         <input type="text" name="q" autocomplete="off"
-                            placeholder="Buscar producto..." 
+                            placeholder="Buscar o ver productos..." 
                             hx-get="{% url 'web:search-product' tenant.slug %}"
-                            hx-trigger="keyup changed delay:300ms"
+                            
+                            # --- NUEVOS DISPARADORES ---
+                            # click: Carga productos al tocar el campo
+                            # keyup: Filtra mientras escribe (con delay)
+                            # focus: Por si navegan con Tab
+                            hx-trigger="keyup changed delay:300ms, click, focus"
+                            
                             hx-target="#product-search-results"
                             class="w-full text-sm border-gray-300 rounded-lg p-2 focus:ring-tenant-primary">
+                        
                         <div id="product-search-results" class="absolute z-50 w-full mt-1"></div>
                     </div>
                 </div>
@@ -156,6 +163,16 @@ document.body.addEventListener('htmx:afterOnLoad', function(evt) {
         const emptyMsg = document.getElementById('empty-cart-msg');
         if (emptyMsg) emptyMsg.classList.add('hidden');
         calculateGrandTotal();
+    }
+});
+
+// Cerrar resultados de búsqueda al hacer clic fuera del buscador
+document.addEventListener('click', function(evt) {
+    const searchContainer = document.getElementById('product-search-results');
+    const searchInput = document.getElementsByName('q')[0];
+    
+    if (!searchContainer.contains(evt.target) && evt.target !== searchInput) {
+        searchContainer.innerHTML = '';
     }
 });
 </script>

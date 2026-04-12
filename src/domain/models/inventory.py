@@ -33,6 +33,7 @@ class Product(TenantModel):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products')
     is_active = models.BooleanField(default=True)
+    
 
     def __str__(self):
         return f"{self.name} - {self.sku}"    
