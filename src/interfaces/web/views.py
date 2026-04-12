@@ -13,6 +13,7 @@ from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
 
 from src.domain.models import Order, OrderItem, Organization, Payment, Product, Client, Stock
+from src.domain.services.finance_service import ExchangeService
 from src.domain.tasks.reporting_tasks import generate_order_pdf_task
 from src.infrastructure.services.apimigo import APIMigoClient
 
@@ -76,12 +77,9 @@ def dashboard_home(request, org_slug):
     batch_size = tenant.dashboard_batch_size
     
     # Obtenemos tipo de cambio (usa cache internamente si lo implementamos)
-    exchange = APIMigoClient.get_exchange_rate()
-    try:
-        tc_value = float(exchange.get('precio_venta', 3.80))
-    except (ValueError, TypeError):
-        tc_value = 3.80
-    
+    exchange_obj = ExchangeService.get_current_rate()
+    tc_value = float(exchange_obj.sell_price)
+        
     orders = Order.objects.filter(organization=tenant).order_by('-created_at')[:batch_size]
 
     sales_pen = Order.objects.filter(
@@ -290,14 +288,15 @@ def order_create_view(request, org_slug):
             # transaction.rollback()
 
     # --- Lógica GET (ya la tenías, asegúrate de mantenerla) ---
-    exchange = APIMigoClient.get_exchange_rate()
-    tc_value = float(exchange.get('precio_venta', 3.80))
+    # exchange = APIMigoClient.get_exchange_rate()
+    exchange_obj = ExchangeService.get_current_rate()
+    tc_value = float(exchange_obj.sell_price)
     
     context = {
         'tenant': tenant,
         'exchange_rate': tc_value,
         'currency_base': 'PEN',
-        'api_status': 'online' if exchange.get('success') else 'offline'
+        'api_status': 'online' if exchange_obj.origin != 'fallback' else 'offline'
     }
     return render(request, 'orders/order_form.html', context)
 
