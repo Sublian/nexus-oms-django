@@ -39,6 +39,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'src.domain.tasks.generate_weekly_all_orgs',
         'schedule': crontab(minute=0, hour=0, day_of_week='monday'),
     },
+    'sync-exchange-6am': {
+        'task': 'tasks.sync_daily_exchange_rate',
+        'schedule': crontab(hour=6, minute=0),
+    },
 }
 
 # ── Cache ─────────────────────────────────────────────────────────────────────
@@ -102,6 +106,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 # personalizacion para inyectar la organización en el contexto global de templates
                 'src.interfaces.web.context_processors.tenant_context',
+                'src.interfaces.web.context_processors.exchange_rate_context',
             ],
         },
     },
