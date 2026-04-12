@@ -1,3 +1,4 @@
+from django.utils import timezone
 from decimal import Decimal
 from datetime import date
 
@@ -88,7 +89,7 @@ def get_net_margin_report(organization, start_date, end_date):
 class ExchangeService:
     @staticmethod
     def get_current_rate():
-        today = date.today()
+        today = timezone.localdate()
         
         # 1. Intentar obtener de la base de datos (Ultra rápido)
         rate = ExchangeRate.objects.filter(date=today).first()
