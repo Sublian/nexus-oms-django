@@ -1,8 +1,6 @@
 # src/domain/models/finance.py
 
-from src.domain import models
-
-
+from django.db import models
 
 class ExchangeRate(models.Model):
     date = models.DateField(unique=True, db_index=True)

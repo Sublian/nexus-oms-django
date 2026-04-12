@@ -1,6 +1,7 @@
-from celery import shared_task
-from domain.services.finance_service import ExchangeService
 import logging
+from celery import shared_task
+
+from src.domain.services.finance_service import ExchangeService
 
 logger = logging.getLogger(__name__)
 

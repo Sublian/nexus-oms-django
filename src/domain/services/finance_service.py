@@ -6,7 +6,7 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 
 from ..models import Payment, OrderItem, OrderReturn, PurchaseOrderItem, ExchangeRate
-from infrastructure.services.apimigo import APIMigoClient
+from ...infrastructure.services.apimigo import APIMigoClient
 
 
 def calculate_expected_cash(organization, start_date, end_date):

@@ -1,6 +1,6 @@
 # src/interfaces/web/context_processors.py
 
-from domain.services.finance_service import ExchangeService
+from ...domain.services.finance_service import ExchangeService
 
 def exchange_rate_context(request):
     # Solo ejecutamos esto si estamos en el dashboard (opcional, por performance)

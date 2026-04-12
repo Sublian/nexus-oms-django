@@ -8,6 +8,7 @@ from .notification_tasks import (
     process_order_notifications,
     alert_unusual_return_task
 )
+from .finance_tasks import sync_daily_exchange_rate
 
 __all__ = [
     'generate_sales_report_task',
@@ -15,5 +16,6 @@ __all__ = [
     'trigger_periodic_reports',
     'generate_weekly_all_orgs',
     'process_order_notifications',
-    'alert_unusual_return_task'
+    'alert_unusual_return_task',
+    'sync_daily_exchange_rate'
 ]
