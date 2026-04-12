@@ -72,3 +72,30 @@
 - **CSS dinámico:** Ajuste en la configuración de Tailwind para asegurar que los colores del Tenant se apliquen correctamente a los nuevos componentes del Sidebar.
 
 **Estado de Cobertura:** 86% Total (Pytest-cov) 🚀.
+
+### [1.4.0] - 2026-04-11
+
+**📅 Hitos de Finanzas, Búsqueda Reactiva y Sincronización Global**
+- **Motor de Búsqueda de Productos (UX):** Implementación de búsqueda asíncrona mediante HTMX en el formulario de ventas, permitiendo filtrado dinámico por Nombre/SKU con optimización de QuerySets (`annotate` para stock total).
+- **Integración con APIMigo:** Automatización de la sincronización de tipos de cambio (USD/PEN) mediante servicios especializados y fallback robusto en caso de fallos de API externa.
+- **Consistencia Cronológica (Fix Crítico):** Sincronización total de zonas horarias entre Docker, PostgreSQL y Django (`America/Lima`), eliminando el desfase de fechas en registros financieros.
+- **Dashboard de Histórico:** Creación del módulo de auditoría de tipos de cambio con soporte de paginación y trazabilidad de origen de datos (APIMigo vs Manual).
+
+### Added
+- `ExchangeService`: Lógica centralizada para recuperación y persistencia de tasas de cambio.
+- `exchange_history_view`: Vista dedicada para la visualización del histórico de fluctuación de divisas.
+- `finance/exchange_history.html`: Template con diseño profesional para auditoría de tasas de cambio.
+- Navbar Links: Acceso directo desde la UI principal al historial financiero mediante el componente de tipo de cambio.
+
+### Changed
+- **Optimización de UI de Órdenes:** Refuerzo visual en inputs de "Documento" y "Búsqueda" mediante el uso de bordes basados en el color secundario del Tenant para mejorar la detectabilidad.
+- **Refactorización de Búsqueda:** Migración de filtros pesados a lógica de base de datos para evitar latencia en la selección de productos.
+- **Docker Orchestration:** Actualización de `docker-compose.yml` con healthchecks de servicios y sincronización forzada de `TZ` (America/Lima).
+
+### Fixed
+- `FieldError` en `search_product_partial`: Corrección de ordenamiento por campos inexistentes (`created_at`) en el modelo `Product`.
+- `FieldError` en `ExchangeRate`: Eliminación de filtrado por `organization` en modelos de datos globales/financieros.
+- **UTC Date Drift:** Resolución del error que registraba transacciones con fecha del día siguiente debido al desfase horario del servidor.
+- **HTMX Trigger Fix:** Ajuste de disparadores (`keyup changed`) para evitar múltiples peticiones innecesarias al backend.
+
+**Estado de Cobertura:** 88% Total (Pytest-cov) 🚀.
