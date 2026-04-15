@@ -78,6 +78,7 @@ El proyecto implementa **Clean Architecture** y **DDD** para garantizar mantenib
 ├── .github/workflows/ # CI Pipeline (Tests & Coverage)
 ├── docker-compose.yml # Stack completo de desarrollo
 └── docs/              # Roadmap, Arquitectura y Decisiones (ADRs)
+```
 
 ## 📦 Instalación Rápida
 
