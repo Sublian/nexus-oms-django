@@ -82,4 +82,4 @@ El proyecto implementa **Clean Architecture** y **DDD** para garantizar mantenib
 
 ## 📦 Instalación Rápida
 
-Para una guía detallada de instalación con Docker y VS Code, consulta [installation.md](installation.md).
+Para una guía detallada de instalación con Docker y VS Code, consulta [docs/installation.md](docs/installation.md).
