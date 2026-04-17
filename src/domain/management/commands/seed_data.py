@@ -1,23 +1,21 @@
-# src/domain/management/commands/seed_data.py
-
 import random
+from decimal import Decimal
+from datetime import timedelta
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from datetime import timedelta
 from django.db import transaction
-from decimal import Decimal
 
 from src.domain.models import (
     Organization, Product, Category, Warehouse, 
     Stock, TaxConfiguration, Order, OrderItem,
-    Payment, Client  # Importamos el modelo Client
+    Payment, Client
 )
 from src.infrastructure.multitenancy.thread_local import (
     set_current_organization, clear_current_organization
 )
 
 class Command(BaseCommand):
-    help = 'Nexus Master Seed - Carga optimizada con persistencia financiera y clientes'
+    help = 'Nexus Master Seed - Versión Refactorizada (Tenant-Aware)'
 
     def add_arguments(self, parser):
         parser.add_argument('--orders', type=int, default=30)
@@ -33,56 +31,57 @@ class Command(BaseCommand):
             {'name': 'Nike', 'slug': 'nike', 'tax': 15.00, 'email': 'vende@nike.com', 'p_color': '#000000', 's_color': '#FFFFFF', 'ruc': '20555666777', 'addr': 'Jockey Plaza, Surco'},
             {'name': 'Adidas', 'slug': 'adidas', 'tax': 15.00, 'email': 'ventas@adidas.com', 'p_color': '#0070AC', 's_color': '#FFFFFF', 'ruc': '20999888777', 'addr': 'Real Plaza Salaverry'},
             {'name': 'Minorista', 'slug': 'minorista', 'tax': 12.00, 'email': 'contacto@minorista.com', 'p_color': '#059669', 's_color': '#ECFDF5', 'ruc': '10444555666', 'addr': 'Jr. Ucayali 456, Lima'},
-            {
-                'name': 'Mykonos Shop', 
-                'slug': 'mykonos-shop', 
-                'tax': 18.00, 
-                'email': 'sales@mykonos.pe', 
-                'p_color': '#4B5563', 
-                's_color': '#FFFBEB', 
-                'ruc': '20778899441', 
-                'addr': 'CC Camino Real, San Isidro'
-            },
+            {'name': 'Mykonos Shop', 'slug': 'mykonos-shop', 'tax': 18.00, 'email': 'sales@mykonos.pe', 'p_color': '#4B5563', 's_color': '#FFFBEB', 'ruc': '20778899441', 'addr': 'CC Camino Real, San Isidro'},
         ]
         
         for config in org_configs:
-            with transaction.atomic():
-                org, _ = Organization.objects.update_or_create(
-                    slug=config['slug'],
-                    defaults={
-                        'name': config['name'], 
-                        'admin_email': config['email'],
-                        'primary_color': config['p_color'],
-                        'secondary_color': config['s_color'],
-                        'ruc': config['ruc'],
-                        'address': config['addr']
-                    }
-                )
-                set_current_organization(org.id)
-                
-                # 1. Impuestos
-                tax_rate_dec = Decimal(str(config['tax']))
-                TaxConfiguration.objects.update_or_create(
-                    organization=org, is_default=True,
-                    defaults={'name': f'IGV/IVA {org.name}', 'rate': tax_rate_dec}
-                )
+            try:
+                with transaction.atomic():
+                    # Crear/Actualizar Organización (Global)
+                    org, _ = Organization.objects.update_or_create(
+                        slug=config['slug'],
+                        defaults={
+                            'name': config['name'], 
+                            'admin_email': config['email'],
+                            'primary_color': config['p_color'],
+                            'secondary_color': config['s_color'],
+                            'ruc': config['ruc'],
+                            'address': config['addr']
+                        }
+                    )
+                    
+                    # 🛡️ ACTIVAR CONTEXTO DE TENANT
+                    set_current_organization(org.id)
+                    
+                    # 1. Impuestos (Usando TenantManager implícito)
+                    tax_rate_dec = Decimal(str(config['tax']))
+                    TaxConfiguration.objects.update_or_create(
+                        organization=org, is_default=True,
+                        defaults={'name': f'IGV/IVA {org.name}', 'rate': tax_rate_dec}
+                    )
 
-                # 2. Infraestructura
-                warehouse, _ = Warehouse.objects.get_or_create(name=f"Bodega Central", organization=org)
-                
-                # 3. Catálogo
-                db_products = self._setup_catalog(org, warehouse)
+                    # 2. Infraestructura
+                    warehouse, _ = Warehouse.objects.get_or_create(name=f"Bodega Central", organization=org)
+                    
+                    # 3. Catálogo (Productos + Stock)
+                    db_products = self._setup_catalog(org, warehouse)
 
-                # 4. NUEVO: Generar pool de Clientes
-                db_clients = self._generate_clients(org, num_clients)
+                    # 4. Clientes (Ahora como TenantModel)
+                    db_clients = self._generate_clients(org, num_clients)
 
-                # 5. Órdenes vinculadas
-                if db_products and db_clients:
-                    self.stdout.write(f"🛒 Generando pedidos para {org.name}...")
-                    self._generate_orders(org, db_products, db_clients, num_orders, tax_rate_dec)
+                    # 5. Órdenes vinculadas
+                    if db_products and db_clients:
+                        self.stdout.write(f"🛒 Generando {num_orders} pedidos para {org.name}...")
+                        self._generate_orders(org, db_products, db_clients, num_orders, tax_rate_dec)
 
+                    self.stdout.write(self.style.SUCCESS(f"✅ {org.name} procesada correctamente."))
+            
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"❌ Error procesando {config['slug']}: {e}"))
+            
+            finally:
+                # 🧹 LIMPIEZA DE HILO: Vital para evitar contaminación entre organizaciones
                 clear_current_organization()
-                self.stdout.write(self.style.SUCCESS(f"✅ {org.name} procesada."))
 
     def _generate_clients(self, org, count):
         first_names = ['Juan', 'Maria', 'Luis', 'Ana', 'Carlos', 'Elena', 'Roberto', 'Lucia', 'Diego', 'Carmen']
@@ -93,6 +92,7 @@ class Command(BaseCommand):
             name = f"{random.choice(first_names)} {random.choice(last_names)}"
             doc = str(random.randint(10000000, 99999999))
             
+            # Client.objects ahora usa TenantManager
             client, _ = Client.objects.update_or_create(
                 organization=org,
                 document_number=doc,
@@ -127,11 +127,11 @@ class Command(BaseCommand):
         for name, sku, price in items:
             p, _ = Product.objects.update_or_create(
                 sku=sku.upper(),
+                organization=org, # Necesario para la restricción de base de datos
                 defaults={
                     'name': name,
                     'price': Decimal(str(price)),
                     'category': category,
-                    'organization': org
                 }
             )
             Stock.objects.update_or_create(
@@ -148,29 +148,33 @@ class Command(BaseCommand):
             order_date = now - timedelta(days=days_ago)
             client = random.choice(clients)
             
-            # Crear Orden con relación y denormalización
+            # Crear Orden (TenantModel implícito)
             order = Order.objects.create(
                 organization=org,
-                client=client,  # Relación FK
+                client=client,
                 customer_name=client.name,
                 customer_email=client.email,
                 status=random.choice(['PAID', 'DELIVERED', 'SHIPPED'])
             )
-            # Hack para created_at ya que auto_now_add no permite override directo en .create()
+            # Override de fecha (created_at es auto_now_add=True)
             Order.objects.filter(id=order.id).update(created_at=order_date)
             
             subtotal = Decimal('0.00')
+            items_to_create = []
             for _ in range(random.randint(1, 4)):
                 p = random.choice(products)
                 qty = random.randint(1, 3)
                 
-                OrderItem.objects.create(
+                items_to_create.append(OrderItem(
                     order=order, product=p, quantity=qty, 
                     price_at_order=p.price, organization=org
-                )
+                ))
                 subtotal += (p.price * qty)
             
-            # Cálculo de Impuestos (Asumiendo que price incluye IGV en Mykonos)
+            # Optimización: Bulk create para los items de la orden
+            OrderItem.objects.bulk_create(items_to_create)
+            
+            # Lógica Financiera Mykonos vs General
             if org.slug == 'mykonos-shop':
                 total = subtotal
                 order.subtotal = (total / (1 + (tax_rate / Decimal('100')))).quantize(Decimal('0.01'))
@@ -183,12 +187,9 @@ class Command(BaseCommand):
             
             order.save()
 
-            # Registrar el Pago
+            # Registrar Pago
             method = random.choice(['CASH', 'CARD', 'TRANSFER', 'WALLET'])
-            fee = Decimal('0.00')
-            if method == 'CARD':
-                fee = order.total_amount * Decimal('0.035') # Simulación de comisión 3.5%
-                fee = (order.total_amount * Decimal('0.035')).quantize(Decimal('0.01'))
+            fee = (order.total_amount * Decimal('0.035')).quantize(Decimal('0.01')) if method == 'CARD' else Decimal('0.00')
                 
             Payment.objects.create(
                 organization=org,

@@ -36,13 +36,15 @@ class OrganizationMiddleware:
         
         # 3. Seteamos la organización en el request para el Context Processor
         # Y en el thread_local para la base de datos
-        if org:
-            request.organization = org  # 👈 ESTO alimenta al context_processor
-            set_current_organization(org.id)
-        else:
-            request.organization = None
+        try:
+            if org:
+                request.organization = org  # 👈 ESTO alimenta al context_processor
+                set_current_organization(org.id)
+            else:
+                request.organization = None
 
-        response = self.get_response(request)
-        # ¡IMPORTANTE! Limpiar al terminar la petición
-        clear_current_organization()
-        return response
+            response = self.get_response(request)
+            return response
+        finally:
+            # ¡IMPORTANTE! Limpiar al terminar la petición
+            clear_current_organization()

@@ -23,7 +23,7 @@ class Organization(models.Model):
         return self.name
    
 
-class Client(models.Model):
+class Client(TenantModel):
     DOCUMENT_TYPES = (
         ('DNI', 'DNI'),
         ('RUC', 'RUC'),
