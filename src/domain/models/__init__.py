@@ -1,12 +1,14 @@
 from .base import Organization, Client
+from .users import CustomUser, UserRole
 from .sales import Order, OrderItem, OrderReturn, Payment
 from .inventory import Product, Warehouse, Stock, Supplier, PurchaseOrder, PurchaseOrderItem, Category, StockMovement
 from .config import TaxConfiguration, SalesReport, CashReconciliation
 from .finance import ExchangeRate
 
 __all__ = [
-    'Organization', 'Client', 'Product', 'Warehouse', 'Stock', 'Supplier', 
-    'PurchaseOrder', 'PurchaseOrderItem', 'Category', 'StockMovement', 'Order', 'OrderItem', 
-    'OrderReturn', 'Payment', 'TaxConfiguration', 'SalesReport',
-    'CashReconciliation', 'ExchangeRate'
+    'Organization', 'Client', 'CustomUser', 'UserRole',
+    'Product', 'Warehouse', 'Stock', 'Supplier',
+    'PurchaseOrder', 'PurchaseOrderItem', 'Category', 'StockMovement',
+    'Order', 'OrderItem', 'OrderReturn', 'Payment',
+    'TaxConfiguration', 'SalesReport', 'CashReconciliation', 'ExchangeRate',
 ]
