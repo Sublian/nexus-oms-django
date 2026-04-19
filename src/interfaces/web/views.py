@@ -11,6 +11,7 @@ from django.db.models import Sum, Count, F, ExpressionWrapper, DecimalField
 from django.template.loader import render_to_string
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 from src.domain.models import Order, OrderItem, Organization, Payment, Product, Client, Stock
 from src.domain.models.finance import ExchangeRate
@@ -283,6 +284,10 @@ def order_create_view(request, org_slug):
             
             return redirect('web:order-list', org_slug=org_slug)
 
+        except ValueError as e:
+            messages.error(request, f"Error de validación: {str(e)}")
+        except DjangoValidationError as e:
+            messages.error(request, f"Error en datos: {e.message}")
         except Exception as e:
             messages.error(request, f"Error al procesar el pedido: {str(e)}")
             # El rollback es automático por el @transaction.atomic

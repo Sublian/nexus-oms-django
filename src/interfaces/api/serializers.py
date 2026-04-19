@@ -10,15 +10,12 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.ReadOnlyField(source='category.name')
-    stock_total = serializers.SerializerMethodField()
+    stock_total = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Product
         fields = ['id', 'name', 'sku', 'price', 'category_name', 'stock_total', 'is_active']
 
-    def get_stock_total(self, obj):
-        # Sumamos el stock de todas las bodegas de este producto
-        return obj.stocks.aggregate(total=Sum('quantity'))['total'] or 0
     
 class OrderItemCreateSerializer(serializers.Serializer):
     product_id = serializers.UUIDField()

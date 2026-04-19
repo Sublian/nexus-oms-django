@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     'django_htmx',
     'widget_tweaks',
     'drf_spectacular',
+    'django_extensions',
 
     # Locales
     'src.domain',

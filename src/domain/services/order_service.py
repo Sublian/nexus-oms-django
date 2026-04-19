@@ -182,11 +182,21 @@ class OrderService:
         if quantity > (order_item.quantity - already_returned):
             raise ValidationError("La cantidad excede el disponible para devolución.")
 
-        return OrderReturn.objects.create(
-            organization=organization,
-            order=order,
-            product=product,
-            quantity=quantity,
-            reason=reason,
-            notes=notes
-        )
+        order_return = OrderReturn.objects.create(
+                organization=organization,
+                order=order,
+                product=product,
+                quantity=quantity,
+                reason=reason,
+                notes=notes
+            )
+        
+        from ..tasks.notification_tasks import alert_unusual_return_task
+        
+        if reason == 'OTHERS':
+            # Usamos on_commit para que la alerta solo se envíe si la DB guardó todo bien
+            transaction.on_commit(
+                lambda: alert_unusual_return_task.delay(order_return.id)
+            )
+
+        return order_return

@@ -4,6 +4,8 @@ from django.shortcuts import get_object_or_404, render
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
 
 from src.domain.models import Order, Product, Organization, SalesReport, OrderReturn
 from src.domain.services import OrderService
@@ -57,8 +59,15 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         # Si hay un tenant activo, 'objects' ya filtra automáticamente.
         # Si no lo hay (Admin Central), usamos 'all_objects'.
         if not org_id:
-            return Product.all_objects.all()
-        return Product.objects.all()
+            queryset = Product.all_objects.all()
+        else:
+            queryset = Product.objects.all()
+        
+        # 'stocks__quantity' es el camino desde Producto hasta el modelo Stock
+        # Coalesce sirve para que si no hay stock, devuelva 0 en lugar de None
+        return queryset.annotate(
+            stock_total=Coalesce(Sum('stocks__quantity'), 0)
+        )
 
 class OrderViewSet(viewsets.ModelViewSet):
     """
@@ -166,6 +175,13 @@ class OrderReturnViewSet(viewsets.ModelViewSet):
     )
     def create(self, request, *args, **kwargs):
         org_id = get_current_organization()
+
+        # Si org_id es None, el middleware no está haciendo su trabajo o falta contexto
+        if not org_id:
+            return Response(
+                {"error": "No se identificó una organización activa (Tenant missing)"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         organization = get_object_or_404(Organization, id=org_id)
 
         try:

@@ -28,12 +28,14 @@ class Supplier(TenantModel):
 
 class Product(TenantModel):
     name = models.CharField(max_length=255)
-    sku = models.CharField(max_length=50, unique=True)
+    sku = models.CharField(max_length=50)
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products')
     is_active = models.BooleanField(default=True)
-    
+
+    class Meta:
+      unique_together = ('organization', 'sku')    
 
     def __str__(self):
         return f"{self.name} - {self.sku}"    

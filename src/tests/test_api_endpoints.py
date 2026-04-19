@@ -47,7 +47,9 @@ class TestOrderAPI:
         response = api_client.post(url, data, HTTP_X_ORG_ID=str(organization.id))
         
         # Tu ViewSet devuelve 200 OK (según el decorador @extend_schema)
-        assert response.status_code == 200
+        # CAMBIO: Ahora esperamos 202 (Accepted) por ser proceso asíncrono
+        assert response.status_code == 202
+        assert response.data['task_id'] == "fake-task-id"
         assert "task_id" in response.data
         assert mock_task.called
 
