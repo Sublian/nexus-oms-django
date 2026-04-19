@@ -99,3 +99,25 @@
 - **HTMX Trigger Fix:** Ajuste de disparadores (`keyup changed`) para evitar múltiples peticiones innecesarias al backend.
 
 **Estado de Cobertura:** 88% Total (Pytest-cov) 🚀.
+
+---
+
+## [2026-04-18] - Refactorización de Pruebas y Monitoreo de Tareas
+
+### Añadido
+- Integración de **Celery Beat** en la infraestructura Docker para la orquestación de tareas programadas (reportes diarios/mensuales).
+- Integración de **Flower** para el monitoreo en tiempo real de workers y flujo de tareas en el puerto `5555`.
+- Tests de integración para `reporting_tasks` incluyendo generación de PDF con WeasyPrint y manejo de caché.
+- Tests para el flujo de alertas en `notification_tasks` (Telegram/WhatsApp).
+
+### Corregido
+- **Bug Crítico:** Corregido `NameError: name 'Q' is not defined` en `search_product_partial` dentro de `web.views`.
+- Corregido `IntegrityError` en modelos de Devolución al estandarizar campos obligatorios en el entorno de pruebas.
+- Ajustada firma del método `process_return` en `OrderService` para soportar parámetros de organización y notas.
+
+### Mejorado
+- El **Coverage Global** del proyecto subió del **77% al 83%**.
+- Se optimizó el tiempo de ejecución de las pruebas de notificación reduciendo los `time.sleep` en entorno de test.
+- Mejora en la estabilidad del middleware de Multitenancy bajo condiciones de test de integración.
+
+---

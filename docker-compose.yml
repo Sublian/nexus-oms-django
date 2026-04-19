@@ -28,23 +28,22 @@ services:
       retries: 5
 
   web:
-    build: .
-    container_name: nexus_web
-    command: python manage.py runserver 0.0.0.0:8000
-    volumes:
-      - .:/app
-      - /etc/localtime:/etc/localtime:ro
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    environment:
-      - TZ=America/Lima
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      build: .
+      container_name: nexus_web
+      command: python manage.py runserver 0.0.0.0:8000
+      volumes:
+        - .:/app
+        - /etc/localtime:/etc/localtime:ro
+      ports:
+        - "8000:8000"
+      env_file: .env
+      environment:
+        - TZ=America/Lima
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
 
   worker:
     build: .
@@ -53,8 +52,7 @@ services:
     volumes:
       - .:/app
       - /etc/localtime:/etc/localtime:ro
-    env_file:
-      - .env
+    env_file: .env
     environment:
       - TZ=America/Lima
     depends_on:
@@ -63,5 +61,43 @@ services:
       redis:
         condition: service_healthy
 
+  beat:
+    build: .
+    container_name: nexus_beat
+    # Añadimos -s para especificar la ruta del archivo de agenda en el volumen persistente
+    command: celery -A config beat --loglevel=info -s /app/celerybeat-schedule/celerybeat-schedule
+    volumes:
+      - .:/app
+      - beat_data:/app/celerybeat-schedule
+      - /etc/localtime:/etc/localtime:ro
+    env_file: .env
+    environment:
+      - TZ=America/Lima
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  flower:
+    build: .
+    container_name: nexus_flower
+    # Cambiamos el orden: primero la app, luego el comando flower y sus flags
+    command: celery -A config flower --port=5555
+    ports:
+      - "5555:5555"
+    volumes:
+      - .:/app
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env
+    environment:
+      - TZ=America/Lima
+      - CELERY_BROKER_URL=redis://nexus_redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+
 volumes:
   postgres_data:
+  beat_data: # Vital para que Beat no pierda el hilo de las tareas programadas

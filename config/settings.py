@@ -31,8 +31,8 @@ MIGO_API_TOKEN = env('MIGO_API_TOKEN', default='test_token_placeholder')
 REDIS_URL = env('REDIS_URL', default='redis://redis:6379/0')
 
 # ── Celery ────────────────────────────────────────────────────────────────────
-CELERY_BROKER_URL = REDIS_URL
-CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", REDIS_URL)
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", REDIS_URL)
 CELERY_TASK_ALWAYS_EAGER = env.bool('CELERY_TASK_ALWAYS_EAGER', default=False)
 CELERY_BEAT_SCHEDULE = {
     'generate-weekly-reports': {
@@ -44,6 +44,11 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(hour=6, minute=0),
     },
 }
+# Esto ayuda a Flower a no saturarse con tareas viejas
+CELERY_RESULT_EXPIRES = 3600  # Los resultados expiran en 1 hora
+CELERY_TIMEZONE = "America/Lima"
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutos máximo por tarea
 
 # ── Cache ─────────────────────────────────────────────────────────────────────
 CACHES = {
