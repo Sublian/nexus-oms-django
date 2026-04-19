@@ -1,7 +1,7 @@
 import pytest
 from django.urls import reverse
 from rest_framework import status
-from src.domain.models import Product, Order, Organization
+from src.domain.models import Product, Order, OrderReturn, Organization, Stock, Warehouse
 from src.infrastructure.multitenancy.middleware import set_current_organization
 
 @pytest.mark.django_db
@@ -53,3 +53,66 @@ class TestOrderAPI:
         set_current_organization(None)
         
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_product_list_includes_annotated_stock(self, api_client, organization, product):
+        
+        set_current_organization(organization.id)
+    
+        # 1. Preparación de datos
+        warehouse = Warehouse.objects.create(name="Principal", organization=organization)
+        Stock.objects.create(
+            product=product, 
+            warehouse=warehouse, 
+            quantity=7, 
+            organization=organization
+        )
+        
+        url = reverse('product-list')
+        response = api_client.get(url, HTTP_X_TENANT_ID=str(organization.id))
+        
+        assert response.status_code == 200
+
+        # 2. Manejo dinámico de Paginación vs Lista simple
+        if isinstance(response.data, dict) and 'results' in response.data:
+            data_list = response.data['results']
+        else:
+            data_list = response.data
+
+        # 3. Búsqueda del producto
+        product_data = next((p for p in data_list if p['id'] == product.id), None)
+        
+        assert product_data is not None, "El producto no se encontró en la respuesta de la API"
+        assert product_data['stock_total'] == 7
+        
+        set_current_organization(None)
+
+    
+    def test_get_order_return_detail(self, api_client, organization, product):
+        """Prueba el método 'retrieve' (GET /api/v1/order_returns/<id>/)"""
+        set_current_organization(organization.id)
+        
+        # Creamos una devolución previa directamente en la DB
+        order = Order.objects.create(organization=organization, customer_name="Test")
+        ret = OrderReturn.objects.create(
+            organization=organization, order=order, 
+            product=product, quantity=1, reason="DEFECTIVE"
+        )
+        
+        url = reverse('order_returns-detail', kwargs={'pk': ret.pk})
+        response = api_client.get(url, HTTP_X_TENANT_ID=str(organization.id))
+        
+        assert response.status_code == 200
+        assert response.data['quantity'] == 1
+        
+        set_current_organization(None)
+
+    def test_order_search_and_filter(self, client, organization, product):
+        # Testea el buscador dinámico (HTMX)
+        url = reverse('web:search-product', kwargs={'org_slug': organization.slug})
+        response = client.get(url, {'q': product.name})
+        assert response.status_code == 200
+        
+        # Testea filtros en la lista de órdenes
+        url_list = reverse('web:order-list', kwargs={'org_slug': organization.slug})
+        response_filter = client.get(url_list, {'status': 'PENDING'})
+        assert response_filter.status_code == 200

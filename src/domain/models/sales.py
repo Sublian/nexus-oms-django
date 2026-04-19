@@ -13,6 +13,7 @@ class Order(TenantModel):
         ('SHIPPED', 'Enviado'),
         ('DELIVERED', 'Entregado'),
         ('CANCELLED', 'Cancelado'),
+        ('COMPLETED', 'Completado'),
     ]
 
     client = models.ForeignKey('domain.Client', on_delete=models.PROTECT, related_name='orders', null=True)

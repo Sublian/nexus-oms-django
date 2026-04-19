@@ -12,6 +12,7 @@ from django.template.loader import render_to_string
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Q, Sum
 
 from src.domain.models import Order, OrderItem, Organization, Payment, Product, Client, Stock
 from src.domain.models.finance import ExchangeRate
