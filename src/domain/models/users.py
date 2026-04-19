@@ -1,3 +1,5 @@
+# src\domain\models\users.py
+
 import uuid
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
