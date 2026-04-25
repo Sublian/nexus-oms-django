@@ -80,6 +80,12 @@
                 <td class="font-bold">MONEDA:</td>
                 <td>{{ order.organization.currency_symbol }} ({{ order.currency|default:"PEN" }})</td>
             </tr>
+            {% if order.delivery_type == 'DELIVERY' and order.delivery_address %}
+            <tr>
+                <td class="font-bold">ENTREGA:</td>
+                <td colspan="3">{{ order.delivery_address }}</td>
+            </tr>
+            {% endif %}
         </table>
     </div>
 
@@ -125,6 +131,12 @@
                         <td>I.G.V. (18%):</td>
                         <td class="text-right">{{ order.organization.currency_symbol }}{{ order.tax_amount|floatformat:2 }}</td>
                     </tr>
+                    {% if order.shipping_fee > 0 %}
+                    <tr>
+                        <td>Envío (Delivery):</td>
+                        <td class="text-right">{{ order.organization.currency_symbol }}{{ order.shipping_fee|floatformat:2 }}</td>
+                    </tr>
+                    {% endif %}
                     <tr class="grand-total">
                         <td>TOTAL:</td>
                         <td class="text-right">{{ order.organization.currency_symbol }}{{ order.total_amount|floatformat:2 }}</td>

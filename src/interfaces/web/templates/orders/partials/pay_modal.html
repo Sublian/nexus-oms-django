@@ -7,6 +7,17 @@
         setMethod(m) {
             this.method = m;
             this.fee = (m === 'CARD') ? parseFloat((this.total * 0.035).toFixed(2)) : 0;
+            this.$refs.refError.classList.add('hidden');
+            if (m === 'CASH') this.$refs.reference.value = '';
+        },
+        validateAndSubmit(event) {
+            if (this.method !== 'CASH' && !this.$refs.reference.value.trim()) {
+                event.preventDefault();
+                this.$refs.refError.classList.remove('hidden');
+                this.$refs.reference.focus();
+            } else {
+                this.$refs.refError.classList.add('hidden');
+            }
         }
      }"
      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/50 backdrop-blur-sm">
@@ -32,7 +43,8 @@
 
         <form hx-post="{% url 'web:order-pay' tenant.slug order.id %}"
               hx-target="#modals-here"
-              hx-swap="outerHTML">
+              hx-swap="outerHTML"
+              @submit="validateAndSubmit($event)">
             {% csrf_token %}
             <input type="hidden" name="method" :value="method">
             <input type="hidden" name="fee_amount" :value="fee">
@@ -65,11 +77,15 @@
                 <!-- Referencia (CARD / TRANSFER / WALLET) -->
                 <div x-show="method === 'CARD' || method === 'TRANSFER' || method === 'WALLET'" x-transition>
                     <label class="block text-xs font-black uppercase tracking-widest text-gray-400 mb-2">
-                        N° Operación / Referencia
+                        N° Operación / Referencia <span class="text-red-500">*</span>
                     </label>
                     <input type="text" name="reference"
+                           x-ref="reference"
                            :placeholder="method === 'WALLET' ? 'Ej: Yape 987654321' : 'Ej: TXN-00123456'"
                            class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-tenant-primary/30 focus:border-tenant-primary transition-all">
+                    <p x-ref="refError" class="hidden mt-1.5 text-xs text-red-600 font-semibold">
+                        La referencia es obligatoria para este método de pago.
+                    </p>
                 </div>
 
                 <!-- Aviso comisión tarjeta -->
