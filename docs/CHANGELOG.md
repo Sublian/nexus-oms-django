@@ -1,3 +1,39 @@
+## [1.5.0] - 2026-04-19
+
+**📅 Seguridad Base, Modelo de Usuario y Autenticación JWT**
+
+### Hitos Alcanzados
+- **Settings por Entorno (P1-03):** El monolítico `config/settings.py` fue dividido en `base.py`, `local.py`, `testing.py` y `production.py`. Cada entorno tiene sus propias configuraciones de `DEBUG`, `ALLOWED_HOSTS` y `EMAIL_BACKEND`. Referencias actualizadas en `manage.py`, `wsgi.py`, `asgi.py`, `celery.py`, `docker-compose.yml` y `pytest.ini`.
+- **ALLOWED_HOSTS Restrictivo (P1-02):** Eliminado el comodín `'*'`. Cada entorno declara sus hosts válidos; producción los lee desde la variable de entorno `ALLOWED_HOSTS`.
+- **Modelo CustomUser:** Creado `src/domain/models/users.py` con `CustomUser(AbstractUser)` que usa email como identificador único (sin campo `username`), FK a `Organization` (nullable para superusuarios) y roles `ADMIN / STAFF / VIEWER`. `AUTH_USER_MODEL = 'domain.CustomUser'` configurado en `base.py`. Migración generada y superusuario de prueba verificado en base de datos.
+- **Autenticación JWT (P1-01):** Integrado `djangorestframework-simplejwt`. Endpoints de login, refresh y verify disponibles. El token incluye claims del tenant (`email`, `role`, `organization_id`). `TenantViewMixin` reemplaza el uso de thread-local en todos los ViewSets de la API — la organización se deriva de `request.user` con soporte especial para superusuarios via `X-Org-ID`.
+
+### Added
+- `config/settings/base.py` — configuración común, `SIMPLE_JWT`, `AUTH_USER_MODEL`
+- `config/settings/local.py` — desarrollo local
+- `config/settings/testing.py` — suite de pruebas con hasher rápido y Celery eager
+- `config/settings/production.py` — producción con SMTP y headers HTTPS
+- `src/domain/models/users.py` — `CustomUser`, `CustomUserManager`, `UserRole`
+- `POST /api/v1/auth/token/` — login con email + password → JWT
+- `POST /api/v1/auth/token/refresh/` — renovación de access token
+- `POST /api/v1/auth/token/verify/` — verificación de token
+- `CustomTokenObtainPairView` y `CustomTokenObtainPairSerializer` con claims de tenant
+- `TenantViewMixin` — mixin reutilizable para resolución de tenant en ViewSets
+- `postman/nexus_oms_collection.json` — colección completa de pruebas de API con variables y scripts automáticos
+
+### Changed
+- Todos los ViewSets de API usan `request.user.organization` en lugar del thread-local
+- `config/urls.py` — Swagger accesible sin auth (`AllowAny`) para facilitar desarrollo
+- `requirements.txt` convertido de UTF-16 a UTF-8 estándar
+- `src/domain/models/__init__.py` — exporta `CustomUser` y `UserRole`
+
+### Fixed
+- Conflicto de módulo vs paquete Python entre `config/settings.py` y `config/settings/` (eliminado el archivo monolítico)
+
+**Estado de Cobertura:** 83% Total (Pytest-cov).
+
+---
+
 ### 📅 Ajustes del 21 de Marzo, 2026
 **Hitos Alcanzados:**
 - **Arquitectura de Notificaciones:** Implementación del Patrón Strategy para envíos multi-canal (Email, Telegram, WhatsApp) desacoplados de la lógica de negocio.

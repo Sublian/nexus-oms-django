@@ -1,0 +1,565 @@
+{
+  "info": {
+    "name": "Nexus OMS API",
+    "description": "Colección completa de endpoints para Nexus OMS. \n\n**Inicio rápido:**\n1. Edita las variables `admin_email` y `admin_password` con tus credenciales.\n2. Ejecuta **Auth → Login** — los tokens se guardan automáticamente.\n3. Todos los demás requests usan `{{access_token}}` en el header Authorization.\n\n**Superusuarios:** Para filtrar por organización específica, pon el UUID en `org_id` y activa el header `X-Org-ID` en el request correspondiente.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "nexus-oms-v1.5.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "description": "URL base del servidor. Cambiar a la URL de producción cuando corresponda.",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "description": "Token JWT de acceso. Se llena automáticamente al ejecutar Login.",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "description": "Token JWT de refresco. Se llena automáticamente al ejecutar Login.",
+      "type": "string"
+    },
+    {
+      "key": "admin_email",
+      "value": "subliandev@gmail.com",
+      "description": "Email del usuario para autenticación.",
+      "type": "string"
+    },
+    {
+      "key": "admin_password",
+      "value": "",
+      "description": "Contraseña del usuario. Completar antes de ejecutar Login.",
+      "type": "string"
+    },
+    {
+      "key": "org_id",
+      "value": "",
+      "description": "UUID de la organización. Solo necesario para superusuarios via X-Org-ID.",
+      "type": "string"
+    },
+    {
+      "key": "product_id",
+      "value": "",
+      "description": "UUID de producto. Se llena automáticamente al listar productos.",
+      "type": "string"
+    },
+    {
+      "key": "order_id",
+      "value": "",
+      "description": "UUID de orden. Se llena automáticamente al crear una orden.",
+      "type": "string"
+    },
+    {
+      "key": "return_id",
+      "value": "",
+      "description": "UUID de devolución. Se llena automáticamente al crear una devolución.",
+      "type": "string"
+    },
+    {
+      "key": "report_id",
+      "value": "",
+      "description": "UUID del reporte generado.",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Auth",
+      "description": "Endpoints de autenticación JWT. Ejecuta Login primero para obtener tokens.",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', data.access);",
+                  "    pm.collectionVariables.set('refresh_token', data.refresh);",
+                  "    console.log('✅ Tokens guardados. Access token expira en 1h.');",
+                  "} else {",
+                  "    console.error('❌ Login fallido:', pm.response.json());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{admin_email}}\",\n    \"password\": \"{{admin_password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/token/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "token", ""]
+            },
+            "description": "Autenticación con email y password. Guarda automáticamente `access_token` y `refresh_token` en las variables de la colección."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', data.access);",
+                  "    console.log('✅ Access token renovado.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"refresh\": \"{{refresh_token}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/token/refresh/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "token", "refresh", ""]
+            },
+            "description": "Renueva el access token usando el refresh token. Útil cuando el access token expiró (1h) pero el refresh sigue válido (7 días)."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Token",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"token\": \"{{access_token}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/token/verify/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "token", "verify", ""]
+            },
+            "description": "Verifica si un token es válido. Responde 200 si es válido, 401 si expiró o es inválido."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📦 Productos",
+      "description": "Catálogo de productos del tenant autenticado. Solo lectura vía API.",
+      "item": [
+        {
+          "name": "Listar Productos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    if (Array.isArray(data) && data.length > 0) {",
+                  "        pm.collectionVariables.set('product_id', data[0].id);",
+                  "        console.log('✅ product_id guardado:', data[0].id, '|', data[0].name);",
+                  "    } else {",
+                  "        console.warn('⚠️ No hay productos en esta organización.');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "products", ""],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Filtrar por nombre o SKU",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Lista todos los productos del tenant. Incluye `stock_total` calculado por anotación.\n\nGuarda automáticamente el primer `product_id` en variables de colección."
+          },
+          "response": []
+        },
+        {
+          "name": "Detalle de Producto",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "products", "{{product_id}}", ""]
+            },
+            "description": "Devuelve el detalle de un producto específico. Usa `{{product_id}}` guardado por Listar Productos."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🧾 Órdenes",
+      "description": "Gestión completa del ciclo de vida de órdenes de venta.",
+      "item": [
+        {
+          "name": "Listar Órdenes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    if (Array.isArray(data) && data.length > 0) {",
+                  "        pm.collectionVariables.set('order_id', data[0].id);",
+                  "        console.log('✅ order_id guardado:', data[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "orders", ""]
+            },
+            "description": "Lista todas las órdenes del tenant. Guarda el primer `order_id`."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear Orden",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set('order_id', data.order_id);",
+                  "    console.log('✅ Orden creada. order_id guardado:', data.order_id);",
+                  "    console.log('   Total:', data.total);",
+                  "} else {",
+                  "    console.error('❌ Error al crear orden:', pm.response.json());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"customer_name\": \"Juan Pérez\",\n    \"customer_email\": \"juan.perez@ejemplo.com\",\n    \"items\": [\n        {\n            \"product_id\": \"{{product_id}}\",\n            \"quantity\": 2\n        }\n    ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "orders", ""]
+            },
+            "description": "Crea una nueva orden. Requiere `product_id` válido (ejecutar Listar Productos primero).\n\n- Valida stock disponible\n- Descuenta stock automáticamente via señal\n- Dispara generación de PDF en background\n- Guarda `order_id` automáticamente"
+          },
+          "response": []
+        },
+        {
+          "name": "Detalle de Orden",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders/{{order_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "orders", "{{order_id}}", ""]
+            },
+            "description": "Devuelve el detalle completo de una orden incluyendo items y montos."
+          },
+          "response": []
+        },
+        {
+          "name": "Cancelar Orden (Soft Delete)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders/{{order_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "orders", "{{order_id}}", ""]
+            },
+            "description": "Cancela una orden (borrado lógico — cambia estado a CANCELLED). El registro se mantiene para trazabilidad financiera."
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar Orden (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"customer_name\": \"Juan Pérez Actualizado\",\n    \"customer_email\": \"juan.nuevo@ejemplo.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders/{{order_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "orders", "{{order_id}}", ""]
+            },
+            "description": "Actualización parcial de datos de la orden."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "↩️ Devoluciones",
+      "description": "Gestión de devoluciones de productos. Actualiza stock automáticamente via señal.",
+      "item": [
+        {
+          "name": "Listar Devoluciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/order_returns/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "order_returns", ""]
+            },
+            "description": "Lista todas las devoluciones del tenant."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear Devolución",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set('return_id', data.id);",
+                  "    console.log('✅ Devolución creada. return_id:', data.id);",
+                  "    console.log('   Reingresado a stock:', data.reentered_to_stock);",
+                  "} else {",
+                  "    console.error('❌ Error en devolución:', pm.response.json());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"order\": \"{{order_id}}\",\n    \"product\": \"{{product_id}}\",\n    \"quantity\": 1,\n    \"reason\": \"DAMAGED\",\n    \"notes\": \"Producto llegó en mal estado\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/order_returns/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "order_returns", ""]
+            },
+            "description": "Registra una devolución de producto.\n\n**Razones válidas:** `DAMAGED`, `MISTAKE`, `DISSATISFIED`, `EXPIRED`, `OTHERS`\n\n- Valida que la cantidad no supere lo comprado originalmente\n- Re-ingresa el producto al stock automáticamente\n- Si la razón es `OTHERS`, dispara una alerta de notificación"
+          },
+          "response": []
+        },
+        {
+          "name": "Detalle de Devolución",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/order_returns/{{return_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "order_returns", "{{return_id}}", ""]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📊 Reportes",
+      "description": "Generación y consulta de reportes de ventas asíncronos via Celery.",
+      "item": [
+        {
+          "name": "Listar Reportes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/reports/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "reports", ""]
+            },
+            "description": "Lista los reportes de ventas generados para el tenant."
+          },
+          "response": []
+        },
+        {
+          "name": "Disparar Generación de Reporte",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "    const data = pm.response.json();",
+                  "    console.log('✅ Reporte en cola. task_id:', data.task_id);",
+                  "    console.log('   Estado:', data.status);",
+                  "    console.log('   Monitorear en Flower: http://localhost:5555');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"start_date\": \"2026-04-01T00:00:00Z\",\n    \"end_date\": \"2026-04-30T23:59:59Z\",\n    \"notes\": \"Reporte mensual abril 2026\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/reports/trigger_report/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "reports", "trigger_report", ""]
+            },
+            "description": "Dispara la generación asíncrona de un reporte de ventas via Celery.\n\nResponde HTTP 202 con el `task_id`. Monitorear progreso en Flower: http://localhost:5555\n\nCampos opcionales: `start_date`, `end_date`, `notes`."
+          },
+          "response": []
+        },
+        {
+          "name": "Detalle de Reporte",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/reports/{{report_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "reports", "{{report_id}}", ""]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🛠️ Utilidades",
+      "description": "Endpoints de documentación y diagnóstico.",
+      "item": [
+        {
+          "name": "Swagger UI",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/docs/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "docs", ""]
+            },
+            "description": "Documentación interactiva Swagger. Accesible sin autenticación en desarrollo."
+          },
+          "response": []
+        },
+        {
+          "name": "API Schema (OpenAPI)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/schema/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "schema", ""]
+            },
+            "description": "Descarga el schema OpenAPI 3.0 en formato YAML."
+          },
+          "response": []
+        },
+        {
+          "name": "Flower (Monitoreo Celery)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5555",
+              "raw": "http://localhost:5555"
+            },
+            "description": "Dashboard de Flower para monitoreo de workers y tareas Celery en tiempo real."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

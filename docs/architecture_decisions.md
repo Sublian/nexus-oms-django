@@ -28,6 +28,22 @@ Este documento registra las justificaciones técnicas, evolución de la infraest
 - **Service Layer (SRP):** La lógica reside en `services/`, evitando "Fat Models".
 - **Open/Closed:** El sistema permite añadir nuevos métodos de pago o estados de orden sin modificar el núcleo del dominio.
 
+### 6. Settings por Entorno (ADR-006)
+- **Decisión:** Dividir `config/settings.py` en un paquete `config/settings/` con cuatro módulos: `base`, `local`, `testing`, `production`.
+- **Justificación:** Un único settings file con `DEBUG=True` y `EMAIL_BACKEND=console` puede filtrarse accidentalmente a producción. La separación fuerza que cada entorno declare explícitamente sus overrides, elimina la posibilidad de `ALLOWED_HOSTS = ['*']` en producción, y permite que `pytest.ini` apunte directamente a `config.settings.testing` sin variables de entorno adicionales.
+- **Consecuencia:** `DJANGO_SETTINGS_MODULE` debe configurarse en `docker-compose.yml`, `Dockerfile` de producción y CI. El valor default en `manage.py`, `wsgi.py` y `celery.py` apunta a `local`.
+
+### 7. Modelo CustomUser con Email como Identificador (ADR-007)
+- **Decisión:** Crear `CustomUser(AbstractUser)` que elimina el campo `username` y usa `email` como `USERNAME_FIELD`. El modelo incluye FK a `Organization` (nullable para superusuarios) y un campo `role` con tres niveles: `ADMIN`, `STAFF`, `VIEWER`.
+- **Justificación:** El MVP no tenía modelo de usuario propio, usando el `auth.User` de Django sin personalización. Esto impedía implementar autenticación por tenant (un usuario debe pertenecer a una organización) y diferenciación de permisos por rol. Usar email como identificador es el estándar moderno de B2B SaaS; evita colisiones de username entre tenants.
+- **Consecuencia:** Requirió borrar y regenerar migraciones. Los superusuarios tienen `organization=None` — son administradores centrales sin tenant. El `CustomUserManager` implementa `create_user` y `create_superuser` compatibles con `manage.py createsuperuser`.
+
+### 8. Autenticación JWT para la API (ADR-008)
+- **Decisión:** Usar `djangorestframework-simplejwt` con tokens Bearer para proteger todos los endpoints DRF. El token embebe `email`, `role` y `organization_id` como claims adicionales.
+- **Justificación:** La API anterior era accesible con solo el header `X-Org-ID`, sin ninguna verificación de identidad. Cualquier actor que conociera un UUID de organización podía leer y escribir datos de ese tenant. JWT resuelve esto vinculando la sesión API al `CustomUser` autenticado. Se eligió JWT sobre Session Auth porque la API debe ser consumible por clientes externos (mobile, CLI, Postman) sin depender de cookies.
+- **Consecuencia:** La capa web (HTMX) mantiene el middleware de slug para resolución de tenant — no usa JWT, por lo que las vistas web no requieren autenticación en el MVP. El Swagger (`/api/docs/`) se configuró con `AllowAny` para facilitar el desarrollo. Los superusuarios conservan acceso cross-tenant via header `X-Org-ID`.
+- **`TenantViewMixin`:** Mixin reutilizable en todos los ViewSets que resuelve `organization` desde `request.user.organization`, eliminando la dependencia del thread-local en la capa de API.
+
 ---
 
 # 🎓 Lecciones Aprendidas y Mejores Prácticas
@@ -44,10 +60,12 @@ Este documento registra las justificaciones técnicas, evolución de la infraest
 ---
 
 ## 📈 Estado de Calidad del Proyecto
-- **Code Coverage:** 86% 🚀 (Superando el umbral de producción).
-- **Arquitectura:** Domain-Driven Design (DDD) modular.
+- **Code Coverage:** 83% (en progreso hacia 90%).
+- **Arquitectura:** Domain-Driven Design (DDD) modular con Clean Architecture.
+- **Autenticación:** JWT con claims de tenant — `djangorestframework-simplejwt`.
 - **Estándar de Código:** PEP8, principios SOLID y Clean Code.
 - **Estado UI:** Layout 100% responsivo con Sidebar dinámico y soporte para Modales.
+- **Seguridad API:** Todos los endpoints protegidos por `IsAuthenticated` + JWT.
 
 ---
-*Última actualización: 5 de Abril de 2026 - Cierre de fase: Módulo de Órdenes y Estructura Base.*
+*Última actualización: 19 de Abril de 2026 — Cierre de fase: Seguridad Base y Modelo de Usuario.*
