@@ -16,8 +16,12 @@ class Organization(models.Model):
     logo_image = models.ImageField(upload_to='organization_logos/', blank=True, null=True) # Imagen del logo de la empresa
     dashboard_batch_size = models.PositiveIntegerField(default=10, help_text="Registros por página en el dashboard")
     currency_symbol = models.CharField(max_length=5, default="$")
-    ruc = models.CharField(max_length=11, default="00000000000") # RUC para Perú, ajustable para otros países
+    ruc = models.CharField(max_length=11, default="00000000000")
     address = models.TextField(default="Dirección por defecto")
+    default_shipping_fee = models.DecimalField(
+        max_digits=8, decimal_places=2, default=10.00,
+        help_text="Costo de envío por defecto (S/)"
+    )
 
     def __str__(self):
         return self.name

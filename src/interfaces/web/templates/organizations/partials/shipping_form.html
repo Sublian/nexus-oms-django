@@ -1,0 +1,43 @@
+{% if message %}
+<div class="mb-4 p-3 rounded-xl text-sm font-bold
+     {% if 'actualizada' in message %}bg-green-50 text-green-700 border border-green-200
+     {% else %}bg-red-50 text-red-700 border border-red-200{% endif %}">
+    {{ message }}
+</div>
+{% endif %}
+
+<form hx-post="{% url 'web:org-settings-shipping' tenant.slug %}"
+      hx-target="#settings-content"
+      hx-swap="innerHTML">
+    {% csrf_token %}
+
+    <div class="space-y-6">
+        <div>
+            <label class="block text-sm font-bold text-gray-700 mb-1">
+                Tarifa de Envío por Defecto (S/)
+            </label>
+            <p class="text-xs text-gray-400 mb-3">
+                Se aplica automáticamente cuando el cliente elige <strong>Delivery</strong> en el formulario de pedido.
+            </p>
+            <div class="flex items-center gap-3 max-w-xs">
+                <span class="text-gray-500 font-bold">S/</span>
+                <input type="number" name="default_shipping_fee" step="0.50" min="0"
+                       value="{{ tenant.default_shipping_fee }}"
+                       class="border border-gray-300 rounded-xl px-4 py-2.5 text-sm w-full focus:ring-2 focus:ring-tenant-primary/30 focus:border-tenant-primary transition-all">
+            </div>
+        </div>
+
+        <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+            <p class="text-xs text-gray-500">
+                <strong>Valor actual:</strong>
+                S/ {{ tenant.default_shipping_fee }} por envío.
+                Los pedidos de <strong>Retiro en Tienda</strong> no generan este cargo.
+            </p>
+        </div>
+
+        <button type="submit"
+                class="btn-tenant">
+            Guardar Configuración
+        </button>
+    </div>
+</form>

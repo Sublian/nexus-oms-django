@@ -14,10 +14,16 @@
             Notificaciones
         </button>
         
-        <button hx-get="{% url 'web:org-settings-company' tenant.slug %}" 
+        <button hx-get="{% url 'web:org-settings-company' tenant.slug %}"
                 hx-on:click="updateActiveTab(this)"
                 class="tab-btn px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-tenant-primary transition">
             Información de Empresa
+        </button>
+
+        <button hx-get="{% url 'web:org-settings-shipping' tenant.slug %}"
+                hx-on:click="updateActiveTab(this)"
+                class="tab-btn px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-tenant-primary transition">
+            Envío & Delivery
         </button>
     </div>
 
