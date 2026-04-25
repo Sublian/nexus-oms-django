@@ -1,16 +1,41 @@
 import pytest
 from src.domain.models import Organization, Product, Order
 
-# Añade esto arriba de tus tests de tareas si no está en settings de test
 @pytest.fixture(autouse=True)
 def eager_celery(settings):
     settings.CELERY_TASK_ALWAYS_EAGER = True
     settings.CELERY_TASK_EAGER_PROPAGATES = True
-    
+
 @pytest.fixture
 def api_client():
     from rest_framework.test import APIClient
     return APIClient()
+
+@pytest.fixture
+def admin_user(db, organization):
+    from src.domain.models.users import CustomUser, UserRole
+    user = CustomUser(
+        email='admin@test.com',
+        organization=organization,
+        role=UserRole.ADMIN,
+        first_name='Admin',
+        last_name='Test',
+    )
+    user.set_password('testpass123')
+    user.save()
+    return user
+
+@pytest.fixture
+def auth_api_client(api_client, admin_user):
+    """APIClient autenticado; tenant resuelto desde user.organization."""
+    api_client.force_authenticate(user=admin_user)
+    return api_client
+
+@pytest.fixture
+def logged_in_client(client, admin_user):
+    """Django test client con sesión activa como admin_user."""
+    client.force_login(admin_user)
+    return client
 
 @pytest.fixture
 def org_factory(db):

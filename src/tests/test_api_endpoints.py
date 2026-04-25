@@ -8,27 +8,21 @@ from src.domain.models import Order
 
 @pytest.mark.django_db
 class TestOrderAPI:
-    def test_list_orders_only_returns_tenant_data(self, api_client, organization, org_factory):
-        # Usamos la factory para evitar el error de IntegrityError
+    def test_list_orders_only_returns_tenant_data(self, auth_api_client, organization, org_factory):
         other_org = org_factory("Competitor Corp")
-        
-        # Datos para el Tenant A
+
         Order.objects.create(organization=organization, customer_name="Cliente A")
-        # Datos para el Tenant B
         Order.objects.create(organization=other_org, customer_name="Cliente B")
 
         url = reverse('order-list')
-        
-        # Ejecución con el Header del Tenant A
-        response = api_client.get(url, HTTP_X_ORG_ID=str(organization.id))
-        
+        response = auth_api_client.get(url)
+
         assert response.status_code == status.HTTP_200_OK
-        # Solo debe ver 1 orden, la suya
         assert len(response.data) == 1
         assert response.data[0]['customer_name'] == "Cliente A"
 
 
-    def test_trigger_report_endpoint(self, api_client, organization, mocker):
+    def test_trigger_report_endpoint(self, auth_api_client, organization, mocker):
         """Sube cobertura en views.py disparando la acción trigger_report"""
         # Mock de la tarea de Celery
         mock_task = mocker.patch('src.domain.tasks.reporting_tasks.generate_sales_report_task.delay')
@@ -44,7 +38,7 @@ class TestOrderAPI:
             "end_date": "2026-03-15"
         }
 
-        response = api_client.post(url, data, HTTP_X_ORG_ID=str(organization.id))
+        response = auth_api_client.post(url, data)
         
         # Tu ViewSet devuelve 200 OK (según el decorador @extend_schema)
         # CAMBIO: Ahora esperamos 202 (Accepted) por ser proceso asíncrono

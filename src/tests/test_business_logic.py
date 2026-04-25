@@ -48,21 +48,19 @@ class TestBusinessEdgeCases:
             )
 
     @pytest.mark.django_db
-    def test_product_lifecycle_coverage(self, api_client, organization):
+    def test_product_lifecycle_coverage(self, auth_api_client, organization):
         """Cubre el listado y filtrado para asegurar el aislamiento de Tenant"""
         from src.domain.models import Product
-        
-        # Creamos el producto manualmente para asegurar que exista
+
         Product.objects.create(
             organization=organization,
             name="Producto Test",
             sku="TEST-123",
             price=50.00
         )
-        
+
         url = reverse('product-list')
-        # Probamos GET (List) que debería devolver 200
-        response = api_client.get(url, HTTP_X_ORG_ID=str(organization.id))
-        
+        response = auth_api_client.get(url)
+
         assert response.status_code == 200
-        assert len(response.data) >= 1     
+        assert len(response.data) >= 1
