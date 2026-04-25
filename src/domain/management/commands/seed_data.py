@@ -171,61 +171,88 @@ class Command(BaseCommand):
             products.append(p)
         return products
 
+    def _generate_reference(self, method):
+        """Genera referencias de pago realistas para métodos no-efectivo."""
+        if method == 'CARD':
+            # Niubiz/Izipay: 12 dígitos, puede tener ceros iniciales
+            num = str(random.randint(1, 10**12 - 1)).zfill(12)
+            if random.random() < 0.3:
+                return f"{num[:4]}.{num[4:8]}.{num[8:]}"
+            return num
+        elif method == 'TRANSFER':
+            # Número de operación bancaria: 10–14 dígitos
+            length = random.choice([10, 12, 14])
+            num = str(random.randint(1, 10**length - 1)).zfill(length)
+            if random.random() < 0.4:
+                return f"{num[:3]}.{num[3:]}"
+            return num
+        elif method == 'WALLET':
+            # Yape/Plin: código de operación de 9 dígitos
+            num = str(random.randint(100_000_000, 999_999_999))
+            if random.random() < 0.5:
+                return f"{num[:3]}.{num[3:6]}.{num[6:]}"
+            return num
+        return None
+
     def _generate_orders(self, org, products, clients, count, tax_rate):
         now = timezone.now()
+        shipping_fee = org.default_shipping_fee
         for i in range(count):
             days_ago = random.randint(0, 60)
             order_date = now - timedelta(days=days_ago)
             client = random.choice(clients)
-            
-            # Crear Orden (TenantModel implícito)
+
+            delivery_type = random.choice(['PICKUP', 'PICKUP', 'DELIVERY'])  # 1/3 delivery
+            order_shipping = shipping_fee if delivery_type == 'DELIVERY' else Decimal('0.00')
+            delivery_address = f"Av. {random.choice(['Lima', 'Larco', 'Javier Prado', 'Benavides'])} {random.randint(100, 999)}, {random.choice(['Miraflores', 'San Isidro', 'Surco', 'La Molina'])}" if delivery_type == 'DELIVERY' else ''
+
             order = Order.objects.create(
                 organization=org,
                 client=client,
                 customer_name=client.name,
                 customer_email=client.email,
-                status=random.choice(['PAID', 'DELIVERED', 'SHIPPED'])
+                status=random.choice(['PAID', 'DELIVERED', 'SHIPPED']),
+                delivery_type=delivery_type,
+                delivery_address=delivery_address,
+                shipping_fee=order_shipping,
             )
-            # Override de fecha (created_at es auto_now_add=True)
             Order.objects.filter(id=order.id).update(created_at=order_date)
-            
+
             subtotal = Decimal('0.00')
             items_to_create = []
             for _ in range(random.randint(1, 4)):
                 p = random.choice(products)
                 qty = random.randint(1, 3)
-                
                 items_to_create.append(OrderItem(
-                    order=order, product=p, quantity=qty, 
+                    order=order, product=p, quantity=qty,
                     price_at_order=p.price, organization=org
                 ))
                 subtotal += (p.price * qty)
-            
-            # Optimización: Bulk create para los items de la orden
+
             OrderItem.objects.bulk_create(items_to_create)
-            
-            # Lógica Financiera Mykonos vs General
+
             if org.slug == 'mykonos-shop':
-                total = subtotal
-                order.subtotal = (total / (1 + (tax_rate / Decimal('100')))).quantize(Decimal('0.01'))
-                order.tax_amount = (total - order.subtotal).quantize(Decimal('0.01'))
-                order.total_amount = total
+                items_total = subtotal
+                order.subtotal = (items_total / (1 + (tax_rate / Decimal('100')))).quantize(Decimal('0.01'))
+                order.tax_amount = (items_total - order.subtotal).quantize(Decimal('0.01'))
+                order.total_amount = items_total + order_shipping
             else:
                 order.subtotal = subtotal
                 order.tax_amount = (subtotal * (tax_rate / Decimal('100'))).quantize(Decimal('0.01'))
-                order.total_amount = subtotal + order.tax_amount
-            
+                order.total_amount = subtotal + order.tax_amount + order_shipping
+
             order.save()
 
-            # Registrar Pago
-            method = random.choice(['CASH', 'CARD', 'TRANSFER', 'WALLET'])
+            method = random.choice(['CASH', 'CASH', 'CARD', 'TRANSFER', 'WALLET'])  # efectivo más frecuente
             fee = (order.total_amount * Decimal('0.035')).quantize(Decimal('0.01')) if method == 'CARD' else Decimal('0.00')
-                
+            reference = self._generate_reference(method)
+
             Payment.objects.create(
                 organization=org,
                 order=order,
                 method=method,
                 fee_amount=fee,
                 amount=order.total_amount,
-                payment_date=order_date
+                transaction_reference=reference,
+                payment_date=order_date,
             )
