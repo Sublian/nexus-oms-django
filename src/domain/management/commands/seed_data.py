@@ -20,7 +20,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--orders', type=int, default=30)
-        parser.add_argument('--clients', type=int, default=10)
+        parser.add_argument('--clients', type=int, default=15)
 
     def handle(self, *args, **options):
         num_orders = options['orders']
@@ -114,23 +114,61 @@ class Command(BaseCommand):
             self.stdout.write(f"  👤 Usuario ya existe: {email}")
 
     def _generate_clients(self, org, count):
-        first_names = ['Juan', 'Maria', 'Luis', 'Ana', 'Carlos', 'Elena', 'Roberto', 'Lucia', 'Diego', 'Carmen']
-        last_names = ['Garcia', 'Rodriguez', 'Perez', 'Flores', 'Quispe', 'Mamani', 'Soto', 'Sanchez', 'Vargas', 'Reyes']
-        
+        first_names = [
+            'Juan', 'María', 'Luis', 'Ana', 'Carlos', 'Elena', 'Roberto', 'Lucía',
+            'Diego', 'Carmen', 'Jorge', 'Patricia', 'Andrés', 'Rosa', 'Miguel',
+            'Valeria', 'Fernando', 'Claudia', 'Oscar', 'Silvia',
+        ]
+        last_names = [
+            'García', 'Rodríguez', 'Pérez', 'Flores', 'Quispe', 'Mamani',
+            'Soto', 'Sánchez', 'Vargas', 'Reyes', 'Torres', 'Huanca',
+            'Chávez', 'Mendoza', 'Castro', 'Ramos', 'Cruz', 'Vega',
+        ]
+        districts = [
+            'Miraflores', 'San Isidro', 'Surco', 'La Molina', 'Barranco',
+            'Lince', 'San Borja', 'Jesús María', 'Pueblo Libre', 'Magdalena',
+        ]
+        streets = ['Av. Larco', 'Av. Benavides', 'Jr. Lima', 'Calle Los Pinos', 'Av. Javier Prado', 'Calle Las Flores']
+        companies = [
+            'Corporación', 'Inversiones', 'Servicios', 'Distribuidora', 'Importaciones',
+        ]
+
         clients = []
-        for _ in range(count):
-            name = f"{random.choice(first_names)} {random.choice(last_names)}"
-            doc = str(random.randint(10000000, 99999999))
-            
-            # Client.objects ahora usa TenantManager
+        seen_docs = set()
+
+        for i in range(count):
+            is_company = (i % 5 == 4)  # every 5th client is a company (RUC)
+
+            if is_company:
+                company_name = f"{random.choice(companies)} {random.choice(last_names)} S.A.C."
+                doc_type = 'RUC'
+                doc = str(random.randint(20_000_000_000, 20_999_999_999))
+                email_slug = company_name.lower().replace(' ', '').replace('.', '')[:15]
+            else:
+                first = random.choice(first_names)
+                last1 = random.choice(last_names)
+                last2 = random.choice(last_names)
+                company_name = f"{first} {last1} {last2}"
+                doc_type = random.choice(['DNI', 'DNI', 'DNI', 'CE'])  # mostly DNI
+                doc = str(random.randint(10_000_000, 99_999_999)) if doc_type == 'DNI' else str(random.randint(100_000, 999_999))
+                email_slug = f"{first.lower()}.{last1.lower()}"
+
+            # avoid duplicate doc numbers within the org
+            while doc in seen_docs:
+                doc = str(random.randint(10_000_000, 99_999_999))
+            seen_docs.add(doc)
+
+            address = f"{random.choice(streets)} {random.randint(100, 999)}, {random.choice(districts)}" if random.random() > 0.3 else None
+
             client, _ = Client.objects.update_or_create(
                 organization=org,
                 document_number=doc,
                 defaults={
-                    'document_type': 'DNI',
-                    'name': name.upper(),
-                    'email': f"{name.lower().replace(' ', '.')}@example.com",
-                    'phone': f"9{random.randint(10000000, 99999999)}"
+                    'document_type': doc_type,
+                    'name': company_name.upper(),
+                    'email': f"{email_slug}@example.com",
+                    'phone': f"9{random.randint(10_000_000, 99_999_999)}",
+                    'address': address,
                 }
             )
             clients.append(client)

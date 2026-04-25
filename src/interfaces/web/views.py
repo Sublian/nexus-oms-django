@@ -568,6 +568,39 @@ def settings_shipping_partial(request, org_slug):
     return render(request, 'organizations/settings.html', {**context, 'active_tab': 'shipping'})
 
 
+def client_list_view(request, org_slug):
+    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    set_current_organization(tenant.id)
+
+    query = request.GET.get('q', '').strip()
+
+    clients = (
+        Client.objects.filter(organization=tenant)
+        .annotate(order_count=Count('orders'))
+        .order_by('name')
+    )
+
+    if query:
+        clients = clients.filter(
+            Q(name__icontains=query) |
+            Q(document_number__icontains=query) |
+            Q(email__icontains=query) |
+            Q(phone__icontains=query)
+        )
+
+    total_count = clients.count()
+    paginator = Paginator(clients, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'clients/client_list.html', {
+        'tenant': tenant,
+        'page_obj': page_obj,
+        'query': query,
+        'total_count': total_count,
+    })
+
+
 def _restore_order_stock(order):
     """Restores stock for all items on a cancelled order."""
     for item in order.items.select_related('product'):

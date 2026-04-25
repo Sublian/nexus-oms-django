@@ -21,6 +21,7 @@ from .views import (
     order_pay_modal_view,
     order_status_modal_view,
     settings_shipping_partial,
+    client_list_view,
 )
 
 app_name = 'web'
@@ -49,6 +50,9 @@ urlpatterns = [
     path('orders/<int:order_id>/pay/', _ta(order_pay_modal_view), name='order-pay'),
     path('orders/<int:order_id>/confirm-status/', _ta(order_status_modal_view), name='order-confirm-status'),
     path('settings/shipping/', _ta(settings_shipping_partial), name='org-settings-shipping'),
+
+    # --- Clientes ---
+    path('clients/', _ta(client_list_view), name='client-list'),
 
     # --- Tipo de cambio ---
     path('finance/exchange-history/', _ta(exchange_history_view), name='exchange-history'),
