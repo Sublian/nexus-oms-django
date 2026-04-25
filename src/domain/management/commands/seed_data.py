@@ -6,10 +6,11 @@ from django.utils import timezone
 from django.db import transaction
 
 from src.domain.models import (
-    Organization, Product, Category, Warehouse, 
+    Organization, Product, Category, Warehouse,
     Stock, TaxConfiguration, Order, OrderItem,
     Payment, Client
 )
+from src.domain.models.users import CustomUser, UserRole
 from src.infrastructure.multitenancy.thread_local import (
     set_current_organization, clear_current_organization
 )
@@ -26,6 +27,7 @@ class Command(BaseCommand):
         num_clients = options['clients']
         self.stdout.write(self.style.MIGRATE_HEADING("🚀 Iniciando Nexus Master Seed..."))
 
+        self._create_superuser()
         org_configs = [
             {'name': 'Tienda Principal', 'slug': 'tienda-principal', 'tax': 18.00, 'email': 'admin@main.com', 'p_color': '#4F46E5', 's_color': '#F8FAFC', 'ruc': '20123456789', 'addr': 'Av. Larco 123, Miraflores'},
             {'name': 'Nike', 'slug': 'nike', 'tax': 15.00, 'email': 'vende@nike.com', 'p_color': '#000000', 's_color': '#FFFFFF', 'ruc': '20555666777', 'addr': 'Jockey Plaza, Surco'},
@@ -74,6 +76,7 @@ class Command(BaseCommand):
                         self.stdout.write(f"🛒 Generando {num_orders} pedidos para {org.name}...")
                         self._generate_orders(org, db_products, db_clients, num_orders, tax_rate_dec)
 
+                    self._create_org_user(org)
                     self.stdout.write(self.style.SUCCESS(f"✅ {org.name} procesada correctamente."))
             
             except Exception as e:
@@ -82,6 +85,33 @@ class Command(BaseCommand):
             finally:
                 # 🧹 LIMPIEZA DE HILO: Vital para evitar contaminación entre organizaciones
                 clear_current_organization()
+
+    def _create_superuser(self):
+        email = 'superadmin@nexus.com'
+        if not CustomUser.objects.filter(email=email).exists():
+            user = CustomUser.objects.create_superuser(email=email, password='nexus_super1234')
+            self.stdout.write(self.style.SUCCESS(f"  👑 Superuser creado: {email} / nexus_super1234"))
+        else:
+            self.stdout.write(f"  👑 Superuser ya existe: {email}")
+
+    def _create_org_user(self, org):
+        email = f'admin@{org.slug}.com'
+        user, created = CustomUser.objects.get_or_create(
+            email=email,
+            defaults={
+                'organization': org,
+                'role': UserRole.ADMIN,
+                'first_name': 'Admin',
+                'last_name': org.name,
+                'is_staff': False,
+            }
+        )
+        if created:
+            user.set_password('nexus1234')
+            user.save()
+            self.stdout.write(f"  👤 Usuario creado: {email} / nexus1234")
+        else:
+            self.stdout.write(f"  👤 Usuario ya existe: {email}")
 
     def _generate_clients(self, org, count):
         first_names = ['Juan', 'Maria', 'Luis', 'Ana', 'Carlos', 'Elena', 'Roberto', 'Lucia', 'Diego', 'Carmen']

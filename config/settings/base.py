@@ -1,4 +1,5 @@
 import environ
+from datetime import timedelta
 from pathlib import Path
 from celery.schedules import crontab
 
@@ -79,6 +80,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
+LOGIN_URL = '/auth/login/'
+LOGIN_REDIRECT_URL = '/auth/login/'
+
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'America/Lima'
 USE_I18N = True
@@ -124,6 +128,22 @@ CACHES = {
 
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': False,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
 }
 
 SPECTACULAR_SETTINGS = {
@@ -133,13 +153,13 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
     'APPEND_COMPONENTS': {
         'securitySchemes': {
-            'OrgIdAuth': {
-                'type': 'apiKey',
-                'in': 'header',
-                'name': 'X-Org-ID',
-                'description': 'ID de la Organización para el aislamiento de datos',
+            'BearerAuth': {
+                'type': 'http',
+                'scheme': 'bearer',
+                'bearerFormat': 'JWT',
+                'description': 'Token JWT obtenido en /api/v1/auth/token/',
             }
         }
     },
-    'SECURITY': [{'OrgIdAuth': []}],
+    'SECURITY': [{'BearerAuth': []}],
 }
