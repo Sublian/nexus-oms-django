@@ -25,6 +25,11 @@ from .views import (
     client_detail_view,
     client_create_view,
     client_edit_view,
+    product_list_view,
+    product_detail_view,
+    product_create_view,
+    product_edit_view,
+    product_toggle_active_view,
 )
 
 app_name = 'web'
@@ -59,6 +64,13 @@ urlpatterns = [
     path('clients/new/', _ta(client_create_view), name='client-create'),
     path('clients/<int:client_id>/', _ta(client_detail_view), name='client-detail'),
     path('clients/<int:client_id>/edit/', _ta(client_edit_view), name='client-edit'),
+
+    # --- Productos ---
+    path('products/', _ta(product_list_view), name='product-list'),
+    path('products/new/', _ta(product_create_view), name='product-create'),
+    path('products/<int:product_id>/', _ta(product_detail_view), name='product-detail'),
+    path('products/<int:product_id>/edit/', _ta(product_edit_view), name='product-edit'),
+    path('products/<int:product_id>/toggle/', _ta(product_toggle_active_view), name='product-toggle'),
 
     # --- Tipo de cambio ---
     path('finance/exchange-history/', _ta(exchange_history_view), name='exchange-history'),

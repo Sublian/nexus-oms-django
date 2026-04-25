@@ -16,7 +16,7 @@ from django.db.models import Q, Sum
 
 from decimal import Decimal
 
-from src.domain.models import Order, OrderItem, Organization, Payment, Product, Client, Stock
+from src.domain.models import Order, OrderItem, Organization, Payment, Product, Client, Stock, Category, Warehouse
 from src.domain.models.finance import ExchangeRate
 from src.domain.services.finance_service import ExchangeService
 from src.domain.tasks.reporting_tasks import generate_order_pdf_task
@@ -729,6 +729,257 @@ def client_edit_view(request, org_slug, client_id):
 
     ctx = _client_form_context(tenant, error, post_data, client=client, is_edit=True, org_slug=org_slug)
     return render(request, 'clients/client_form.html', ctx)
+
+
+def _product_form_context(tenant, error, post_data, product=None, is_edit=False, org_slug=''):
+    from django.urls import reverse
+    categories = Category.objects.filter(organization=tenant).order_by('name')
+    warehouses = Warehouse.objects.filter(organization=tenant).order_by('name')
+
+    if is_edit and product:
+        cancel_url = reverse('web:product-detail', kwargs={'org_slug': org_slug, 'product_id': product.id})
+        current = {
+            'name': post_data.get('name', product.name),
+            'sku': post_data.get('sku', product.sku),
+            'description': post_data.get('description', product.description),
+            'price': post_data.get('price', str(product.price)),
+            'category_name': post_data.get('category_name', product.category.name if product.category else ''),
+            'is_active': product.is_active,
+        }
+    else:
+        cancel_url = reverse('web:product-list', kwargs={'org_slug': org_slug})
+        current = {
+            'name': post_data.get('name', ''),
+            'sku': post_data.get('sku', ''),
+            'description': post_data.get('description', ''),
+            'price': post_data.get('price', ''),
+            'category_name': post_data.get('category_name', ''),
+            'is_active': True,
+        }
+
+    return {
+        'tenant': tenant,
+        'org_slug': org_slug,
+        'product': product,
+        'error': error,
+        'current': current,
+        'categories': categories,
+        'warehouses': warehouses,
+        'is_edit': is_edit,
+        'cancel_url': cancel_url,
+    }
+
+
+def product_list_view(request, org_slug):
+    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    set_current_organization(tenant.id)
+
+    query = request.GET.get('q', '').strip()
+    status_filter = request.GET.get('status', 'active')
+    category_id = request.GET.get('category', '')
+
+    qs = (
+        Product.objects.filter(organization=tenant)
+        .select_related('category')
+        .annotate(stock_total=Sum('stocks__quantity'))
+        .order_by('name')
+    )
+
+    if query:
+        qs = qs.filter(Q(name__icontains=query) | Q(sku__icontains=query) | Q(description__icontains=query))
+
+    if status_filter == 'active':
+        qs = qs.filter(is_active=True)
+    elif status_filter == 'inactive':
+        qs = qs.filter(is_active=False)
+
+    if category_id:
+        qs = qs.filter(category_id=category_id)
+
+    categories = Category.objects.filter(organization=tenant).order_by('name')
+    total_count = qs.count()
+
+    paginator = Paginator(qs, 20)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+
+    return render(request, 'products/product_list.html', {
+        'tenant': tenant,
+        'org_slug': org_slug,
+        'page_obj': page_obj,
+        'total_count': total_count,
+        'query': query,
+        'status_filter': status_filter,
+        'categories': categories,
+        'category_id': category_id,
+    })
+
+
+def product_detail_view(request, org_slug, product_id):
+    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    set_current_organization(tenant.id)
+    product = get_object_or_404(Product, id=product_id, organization=tenant)
+
+    stocks = Stock.objects.filter(product=product).select_related('warehouse').order_by('warehouse__name')
+    stock_total = stocks.aggregate(total=Sum('quantity'))['total'] or 0
+
+    orders = (
+        Order.objects.filter(items__product=product, organization=tenant)
+        .distinct()
+        .annotate(
+            product_qty=Sum('items__quantity', filter=Q(items__product=product)),
+            product_subtotal=Sum(
+                ExpressionWrapper(
+                    F('items__quantity') * F('items__price_at_order'),
+                    output_field=DecimalField(max_digits=12, decimal_places=2),
+                ),
+                filter=Q(items__product=product),
+            ),
+        )
+        .order_by('-created_at')
+    )
+
+    return render(request, 'products/product_detail.html', {
+        'tenant': tenant,
+        'org_slug': org_slug,
+        'product': product,
+        'stocks': stocks,
+        'stock_total': stock_total,
+        'orders': orders,
+    })
+
+
+def product_create_view(request, org_slug):
+    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    set_current_organization(tenant.id)
+
+    error = None
+    post_data = request.POST if request.method == 'POST' else {}
+
+    if request.method == 'POST':
+        name = post_data.get('name', '').strip()
+        sku = post_data.get('sku', '').strip().upper()
+        price_raw = post_data.get('price', '').strip()
+        description = post_data.get('description', '').strip()
+        category_name = post_data.get('category_name', '').strip()
+        warehouse_id = post_data.get('warehouse_id', '').strip()
+        initial_qty_raw = post_data.get('initial_qty', '').strip()
+
+        if not name or not sku or not price_raw:
+            error = 'Nombre, SKU y precio son obligatorios.'
+        else:
+            try:
+                price = Decimal(price_raw)
+                if price <= 0:
+                    raise ValueError
+            except Exception:
+                error = 'El precio debe ser un número positivo.'
+
+        if not error and Product.objects.filter(organization=tenant, sku=sku).exists():
+            error = f'Ya existe un producto con el SKU {sku}.'
+
+        if not error:
+            category = None
+            if category_name:
+                category = Category.objects.filter(organization=tenant, name__iexact=category_name).first()
+                if not category:
+                    category = Category.objects.create(organization=tenant, name=category_name)
+
+            product = Product.objects.create(
+                organization=tenant,
+                name=name,
+                sku=sku,
+                price=price,
+                description=description,
+                category=category,
+                is_active=True,
+            )
+
+            if warehouse_id and initial_qty_raw:
+                try:
+                    initial_qty = int(initial_qty_raw)
+                    warehouse = Warehouse.objects.get(id=warehouse_id, organization=tenant)
+                    Stock.objects.create(
+                        organization=tenant,
+                        product=product,
+                        warehouse=warehouse,
+                        quantity=max(0, initial_qty),
+                    )
+                except Exception:
+                    pass
+
+            messages.success(request, f'Producto {product.name} creado correctamente.')
+            return redirect('web:product-detail', org_slug=org_slug, product_id=product.id)
+
+    ctx = _product_form_context(tenant, error, post_data, is_edit=False, org_slug=org_slug)
+    return render(request, 'products/product_form.html', ctx)
+
+
+def product_edit_view(request, org_slug, product_id):
+    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    set_current_organization(tenant.id)
+    product = get_object_or_404(Product, id=product_id, organization=tenant)
+
+    error = None
+    post_data = request.POST if request.method == 'POST' else {}
+
+    if request.method == 'POST':
+        name = post_data.get('name', '').strip()
+        sku = post_data.get('sku', '').strip().upper()
+        price_raw = post_data.get('price', '').strip()
+        description = post_data.get('description', '').strip()
+        category_name = post_data.get('category_name', '').strip()
+
+        if not name or not sku or not price_raw:
+            error = 'Nombre, SKU y precio son obligatorios.'
+        else:
+            try:
+                price = Decimal(price_raw)
+                if price <= 0:
+                    raise ValueError
+            except Exception:
+                error = 'El precio debe ser un número positivo.'
+
+        if not error and Product.objects.filter(organization=tenant, sku=sku).exclude(id=product_id).exists():
+            error = f'Ya existe otro producto con el SKU {sku}.'
+
+        if not error:
+            category = None
+            if category_name:
+                category = Category.objects.filter(organization=tenant, name__iexact=category_name).first()
+                if not category:
+                    category = Category.objects.create(organization=tenant, name=category_name)
+
+            product.name = name
+            product.sku = sku
+            product.price = price
+            product.description = description
+            product.category = category
+            product.save()
+
+            messages.success(request, f'Producto {product.name} actualizado correctamente.')
+            return redirect('web:product-detail', org_slug=org_slug, product_id=product.id)
+
+    ctx = _product_form_context(tenant, error, post_data, product=product, is_edit=True, org_slug=org_slug)
+    return render(request, 'products/product_form.html', ctx)
+
+
+@require_POST
+def product_toggle_active_view(request, org_slug, product_id):
+    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    set_current_organization(tenant.id)
+    product = get_object_or_404(Product, id=product_id, organization=tenant)
+
+    product.is_active = not product.is_active
+    product.save()
+
+    label = 'activado' if product.is_active else 'suspendido'
+    messages.success(request, f'Producto {product.name} {label} correctamente.')
+    return redirect('web:product-detail', org_slug=org_slug, product_id=product.id)
 
 
 def _restore_order_stock(order):
