@@ -4,8 +4,10 @@
 <div class="space-y-6">
     <div class="flex justify-between items-center">
         <h1 class="text-2xl font-bold text-gray-800">Historial de Pedidos</h1>
-        <a href="{% url 'web:order-create' tenant.slug %}" class="btn-tenant-primary flex items-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"></path></svg>
+        <a href="{% url 'web:order-create' tenant.slug %}" class="btn-tenant flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+            </svg>
             Nuevo Pedido
         </a>
     </div>
@@ -18,7 +20,9 @@
             <select name="status" class="border-gray-300 rounded-lg text-sm focus:ring-tenant-primary">
                 <option value="">Todos los estados</option>
                 {% for code, label in status_choices %}
-                    <option value="{{ code }}" {% if request.GET.status == code %}selected{% endif %}>{{ label }}</option>
+                    <option value="{{ code }}" {% if request.GET.status == code %}selected{% endif %}>
+                        {{ label }}
+                    </option>
                 {% endfor %}
             </select>
 

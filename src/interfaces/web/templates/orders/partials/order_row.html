@@ -1,48 +1,134 @@
-<tr id="order-row-{{ order.id }}" 
-    class="hover:bg-gray-50/50 transition-colors {% if order.status == 'CANCELLED' %}bg-gray-50 opacity-75{% endif %}">
-    
+<tr id="order-row-{{ order.id }}"
+    class="hover:bg-gray-50/50 transition-colors
+           {% if order.status == 'CANCELLED' %}bg-gray-50 opacity-60
+           {% elif order.status == 'RETURNED' %}bg-orange-50/40{% endif %}">
+
     <td class="px-6 py-4 font-mono text-sm {% if order.status == 'CANCELLED' %}line-through text-gray-400{% else %}text-tenant-primary font-bold{% endif %}">
         #{{ order.id }}
     </td>
-    
+
     <td class="px-6 py-4 text-sm text-gray-600">{{ order.created_at|date:"d/m/Y H:i" }}</td>
-    
+
     <td class="px-6 py-4">
         <div class="text-sm font-medium {% if order.status == 'CANCELLED' %}line-through text-gray-400{% else %}text-gray-900{% endif %}">
             {{ order.customer_name }}
         </div>
-        <div class="text-xs text-gray-500">{{ order.client.document_number|default:"S/D" }}</div>
+        <div class="flex items-center gap-1.5 mt-0.5">
+            <span class="text-xs text-gray-400">{{ order.client.document_number|default:"S/D" }}</span>
+            {% if order.delivery_type == 'DELIVERY' %}
+            <span class="text-[9px] px-1.5 py-0.5 bg-sky-100 text-sky-600 rounded font-bold uppercase">Delivery</span>
+            {% else %}
+            <span class="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded font-bold uppercase">Tienda</span>
+            {% endif %}
+        </div>
     </td>
 
-    <td class="px-6 py-4 font-bold text-gray-900">S/ {{ order.total_amount }}</td>
-    
     <td class="px-6 py-4">
-        <span class="px-2 py-1 rounded-full text-[10px] font-black uppercase 
+        <span class="font-bold text-gray-900">S/ {{ order.total_amount }}</span>
+        {% if order.shipping_fee > 0 %}
+        <div class="text-[9px] text-sky-500 font-bold">+S/ {{ order.shipping_fee }} envío</div>
+        {% endif %}
+    </td>
+
+    <td class="px-6 py-4">
+        <span class="px-2 py-1 rounded-full text-[10px] font-black uppercase
             {% if order.status == 'CANCELLED' %}bg-red-100 text-red-700
+            {% elif order.status == 'RETURNED' %}bg-orange-100 text-orange-700
+            {% elif order.status == 'COMPLETED' %}bg-blue-100 text-blue-700
             {% elif order.status == 'PAID' %}bg-green-100 text-green-700
+            {% elif order.status == 'DELIVERED' %}bg-emerald-100 text-emerald-700
+            {% elif order.status == 'SHIPPED' %}bg-sky-100 text-sky-700
+            {% elif order.status == 'COURTESY' %}bg-purple-100 text-purple-700
             {% else %}bg-yellow-100 text-yellow-700{% endif %}">
             {{ order.get_status_display }}
         </span>
     </td>
 
-    <td class="px-6 py-4 text-right space-x-2">
-        <button hx-get="{% url 'web:order_detail' tenant.slug order.id %}" hx-target="#modals-here"
-                class="text-gray-400 hover:text-tenant-primary">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-        </button>
+    <td class="px-6 py-4 text-right">
+        <div class="flex items-center justify-end gap-1.5">
 
-        {% if order.status != 'CANCELLED' %}
-            <button hx-post="{% url 'web:order-cancel' tenant.slug order.id %}" 
-                    hx-confirm="¿Deseas anular este pedido?"
-                    hx-target="#order-row-{{ order.id }}"
-                    hx-swap="outerHTML"
-                    class="text-gray-400 hover:text-red-600">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
+            {# Ver detalle #}
+            <button hx-get="{% url 'web:order_detail' tenant.slug order.id %}"
+                    hx-target="#modals-here"
+                    title="Ver detalle"
+                    class="p-1.5 text-gray-400 hover:text-tenant-primary hover:bg-gray-100 rounded-lg transition-all">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
             </button>
-        {% else %}
-            <span class="text-gray-300 inline-block px-1" title="Pedido Anulado">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path></svg>
-            </span>
-        {% endif %}
+
+            {# Transiciones contextuales — abren modal #}
+            {% if order.status == 'DRAFT' %}
+                <button hx-get="{% url 'web:order-confirm-status' tenant.slug order.id %}?to=PENDING"
+                        hx-target="#modals-here"
+                        class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-yellow-100 text-yellow-700 hover:bg-yellow-200 transition-all">
+                    Confirmar
+                </button>
+                <button hx-get="{% url 'web:order-confirm-status' tenant.slug order.id %}?to=COURTESY"
+                        hx-target="#modals-here"
+                        class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 transition-all">
+                    Cortesía
+                </button>
+
+            {% elif order.status == 'PENDING' %}
+                <button hx-get="{% url 'web:order-pay' tenant.slug order.id %}"
+                        hx-target="#modals-here"
+                        class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all">
+                    Pagar
+                </button>
+
+            {% elif order.status == 'COURTESY' %}
+                <button hx-get="{% url 'web:order-confirm-status' tenant.slug order.id %}?to=SHIPPED"
+                        hx-target="#modals-here"
+                        class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-sky-100 text-sky-700 hover:bg-sky-200 transition-all">
+                    Enviar
+                </button>
+
+            {% elif order.status == 'PAID' %}
+                <button hx-get="{% url 'web:order-confirm-status' tenant.slug order.id %}?to=SHIPPED"
+                        hx-target="#modals-here"
+                        class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-sky-100 text-sky-700 hover:bg-sky-200 transition-all">
+                    Enviar
+                </button>
+
+            {% elif order.status == 'SHIPPED' %}
+                <button hx-get="{% url 'web:order-confirm-status' tenant.slug order.id %}?to=DELIVERED"
+                        hx-target="#modals-here"
+                        class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-all">
+                    Entregar
+                </button>
+
+            {% elif order.status == 'DELIVERED' %}
+                <button hx-get="{% url 'web:order-confirm-status' tenant.slug order.id %}?to=COMPLETED"
+                        hx-target="#modals-here"
+                        class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-all">
+                    Completar
+                </button>
+                <button hx-get="{% url 'web:order-confirm-status' tenant.slug order.id %}?to=RETURNED"
+                        hx-target="#modals-here"
+                        class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-orange-100 text-orange-700 hover:bg-orange-200 transition-all">
+                    Retornar
+                </button>
+            {% endif %}
+
+            {# Anular (pre-DELIVERED) #}
+            {% if order.status in 'DRAFT,PENDING,COURTESY,PAID,SHIPPED' %}
+                <button hx-get="{% url 'web:order-confirm-status' tenant.slug order.id %}?to=CANCELLED"
+                        hx-target="#modals-here"
+                        title="Anular pedido"
+                        class="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636"/>
+                    </svg>
+                </button>
+            {% else %}
+                <span class="p-1.5 text-gray-200" title="Estado final">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+                    </svg>
+                </span>
+            {% endif %}
+
+        </div>
     </td>
 </tr>

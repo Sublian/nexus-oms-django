@@ -14,11 +14,23 @@ from django.views.decorators.http import require_POST
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q, Sum
 
+from decimal import Decimal
+
 from src.domain.models import Order, OrderItem, Organization, Payment, Product, Client, Stock
 from src.domain.models.finance import ExchangeRate
 from src.domain.services.finance_service import ExchangeService
 from src.domain.tasks.reporting_tasks import generate_order_pdf_task
 from src.infrastructure.services.apimigo import APIMigoClient
+
+
+def _modal_success(request, order, tenant):
+    """Returns updated order row + OOB clear of the modal container."""
+    row_html = render_to_string(
+        'orders/partials/order_row.html',
+        {'order': order, 'tenant': tenant},
+        request=request,
+    )
+    return HttpResponse(row_html + '<div id="modals-here" hx-swap-oob="true"></div>')
 
 # --- VISTAS DE CONFIGURACIÓN (TABS) ---
 
@@ -215,6 +227,13 @@ def order_create_view(request, org_slug):
             product_ids = request.POST.getlist('product_ids[]')
             quantities = request.POST.getlist('quantities[]')
 
+            if not product_ids:
+                raise ValueError("Debes agregar al menos un producto al pedido.")
+
+            delivery_type = request.POST.get('delivery_type', 'PICKUP')
+            delivery_address = request.POST.get('delivery_address', '').strip()
+            shipping_fee = tenant.default_shipping_fee if delivery_type == 'DELIVERY' else Decimal('0.00')
+
             # 2. Obtener/Crear Cliente
             # Nota: document_type lo pondremos como DNI/RUC según el largo o un default
             doc_type = 'RUC' if len(doc_number) == 11 else 'DNI'
@@ -230,13 +249,16 @@ def order_create_view(request, org_slug):
             # 3. Crear la Orden (Usando los nombres exactos de tu modelo)
             order = Order.objects.create(
                 organization=tenant,
-                client=client, # Solo si agregaste la FK, si no, quita esta línea
+                client=client,
                 customer_name=client.name,
                 customer_email=client.email or "sin@correo.com",
                 status='DRAFT',
+                delivery_type=delivery_type,
+                delivery_address=delivery_address if delivery_type == 'DELIVERY' else '',
+                shipping_fee=shipping_fee,
                 subtotal=0,
                 tax_amount=0,
-                total_amount=0
+                total_amount=0,
             )
 
             total_subtotal = 0
@@ -269,11 +291,10 @@ def order_create_view(request, org_slug):
                 )
                 total_subtotal += item_subtotal
 
-            # 5. Cálculos Finales (IGV 18%)
-            # Si el precio ya incluye IGV:
-            order.total_amount = total_subtotal
-            order.subtotal = float(total_subtotal) / 1.18
-            order.tax_amount = float(total_subtotal) - order.subtotal
+            # 5. Cálculos Finales (precio incluye IGV 18%)
+            order.subtotal = (total_subtotal / Decimal('1.18')).quantize(Decimal('0.01'))
+            order.tax_amount = (total_subtotal - order.subtotal).quantize(Decimal('0.01'))
+            order.total_amount = total_subtotal + shipping_fee
             order.save()
 
             messages.success(request, f"Pedido #{order.id} creado correctamente.")
@@ -449,14 +470,117 @@ def order_list_view(request, org_slug):
 def order_cancel_view(request, org_slug, order_id):
     tenant = get_object_or_404(Organization, slug=org_slug)
     order = get_object_or_404(Order, id=order_id, organization=tenant)
-    
-    # Solo cancelar si no está ya cancelada o entregada (regla de negocio)
-    if order.status != 'CANCELLED':
+
+    if 'CANCELLED' in Order.VALID_TRANSITIONS.get(order.status, []):
+        _restore_order_stock(order)
         order.status = 'CANCELLED'
         order.save()
-    
-    # Devolvemos un partial de la fila o simplemente disparamos un evento de refresco
-    # Para este ejemplo, devolvemos la fila actualizada para que se vea el "tachado"
+
+    return render(request, 'orders/partials/order_row.html', {'order': order, 'tenant': tenant})
+
+
+def order_pay_modal_view(request, org_slug, order_id):
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    order = get_object_or_404(Order, id=order_id, organization=tenant)
+
+    if 'PAID' not in Order.VALID_TRANSITIONS.get(order.status, []):
+        return HttpResponse('Transición no permitida', status=400)
+
+    if request.method == 'POST':
+        method = request.POST.get('method', '').strip()
+        reference = request.POST.get('reference', '').strip() or None
+        fee = (order.total_amount * Decimal('0.035')).quantize(Decimal('0.01')) if method == 'CARD' else Decimal('0.00')
+
+        Payment.objects.get_or_create(
+            order=order,
+            defaults={
+                'organization': tenant,
+                'method': method,
+                'amount': order.total_amount,
+                'transaction_reference': reference,
+                'fee_amount': fee,
+                'payment_date': timezone.now(),
+            },
+        )
+        order.status = 'PAID'
+        order.save()
+        return _modal_success(request, order, tenant)
+
+    return render(request, 'orders/partials/pay_modal.html', {
+        'order': order,
+        'tenant': tenant,
+        'payment_methods': Payment.PaymentMethod.choices,
+    })
+
+
+def order_status_modal_view(request, org_slug, order_id):
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    order = get_object_or_404(Order, id=order_id, organization=tenant)
+
+    if request.method == 'POST':
+        new_status = request.POST.get('status', '').strip()
+        valid_next = Order.VALID_TRANSITIONS.get(order.status, [])
+        if new_status not in valid_next:
+            return HttpResponse('Transición no válida', status=400)
+        if new_status == 'CANCELLED':
+            _restore_order_stock(order)
+        order.status = new_status
+        order.save()
+        return _modal_success(request, order, tenant)
+
+    new_status = request.GET.get('to', '')
+    return render(request, 'orders/partials/status_confirm_modal.html', {
+        'order': order,
+        'tenant': tenant,
+        'new_status': new_status,
+        'new_status_display': dict(Order.STATUS_CHOICES).get(new_status, new_status),
+    })
+
+
+def settings_shipping_partial(request, org_slug):
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    message = None
+    if request.method == 'POST':
+        try:
+            tenant.default_shipping_fee = Decimal(request.POST.get('default_shipping_fee', '10'))
+            tenant.save()
+            message = 'Tarifa de envío actualizada.'
+        except Exception:
+            message = 'Valor no válido.'
+
+    context = {'tenant': tenant, 'message': message}
+    if request.headers.get('HX-Request'):
+        return render(request, 'organizations/partials/shipping_form.html', context)
+    return render(request, 'organizations/settings.html', {**context, 'active_tab': 'shipping'})
+
+
+def _restore_order_stock(order):
+    """Restores stock for all items on a cancelled order."""
+    for item in order.items.select_related('product'):
+        stock = Stock.objects.filter(
+            product=item.product,
+            organization=order.organization
+        ).first()
+        if stock:
+            stock.quantity += item.quantity
+            stock.save()
+
+
+@require_POST
+def order_change_status_view(request, org_slug, order_id):
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    order = get_object_or_404(Order, id=order_id, organization=tenant)
+    new_status = request.POST.get('status', '').strip()
+
+    valid_next = Order.VALID_TRANSITIONS.get(order.status, [])
+    if new_status not in valid_next:
+        return HttpResponse(status=400)
+
+    if new_status == 'CANCELLED':
+        _restore_order_stock(order)
+
+    order.status = new_status
+    order.save()
     return render(request, 'orders/partials/order_row.html', {'order': order, 'tenant': tenant})
 
 

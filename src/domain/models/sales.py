@@ -7,19 +7,38 @@ from src.infrastructure.models import TenantModel
 
 class Order(TenantModel):
     STATUS_CHOICES = [
-        ('PENDING', 'Pendiente'),
-        ('DRAFT', 'Borrador'),
-        ('PAID', 'Pagado'),
-        ('SHIPPED', 'Enviado'),
-        ('DELIVERED', 'Entregado'),
-        ('CANCELLED', 'Cancelado'),
-        ('COMPLETED', 'Completado'),
+        ('DRAFT',      'Borrador'),
+        ('PENDING',    'Pendiente'),
+        ('COURTESY',   'Cortesía'),
+        ('PAID',       'Pagado'),
+        ('SHIPPED',    'Enviado'),
+        ('DELIVERED',  'Entregado'),
+        ('COMPLETED',  'Completado'),
+        ('RETURNED',   'Retornado'),
+        ('CANCELLED',  'Cancelado'),
     ]
+
+    # Valid forward transitions. Terminal states (COMPLETED, RETURNED, CANCELLED) have no entry.
+    VALID_TRANSITIONS = {
+        'DRAFT':     ['PENDING', 'COURTESY', 'CANCELLED'],
+        'PENDING':   ['PAID', 'CANCELLED'],
+        'COURTESY':  ['SHIPPED', 'DELIVERED', 'CANCELLED'],
+        'PAID':      ['SHIPPED', 'CANCELLED'],
+        'SHIPPED':   ['DELIVERED', 'CANCELLED'],
+        'DELIVERED': ['COMPLETED', 'RETURNED'],
+    }
+
+    class DeliveryType(models.TextChoices):
+        PICKUP   = 'PICKUP',   'Retiro en Tienda'
+        DELIVERY = 'DELIVERY', 'Delivery'
 
     client = models.ForeignKey('domain.Client', on_delete=models.PROTECT, related_name='orders', null=True)
     customer_name = models.CharField(max_length=255)
     customer_email = models.EmailField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DRAFT')
+    delivery_type = models.CharField(max_length=10, choices=DeliveryType.choices, default='PICKUP')
+    delivery_address = models.TextField(blank=True, default='')
+    shipping_fee = models.DecimalField(max_digits=8, decimal_places=2, default=0)
 
     # CAMPOS REALES EN DB (Se llenan al crear la orden)
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
