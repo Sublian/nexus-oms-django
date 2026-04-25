@@ -1,0 +1,99 @@
+<div id="status-modal"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/50 backdrop-blur-sm">
+
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-gray-100 animate-in fade-in zoom-in duration-200">
+
+        <!-- Header -->
+        <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+            <h2 class="text-lg font-extrabold text-gray-900">Cambio de Estado</h2>
+            <button onclick="document.getElementById('modals-here').innerHTML=''"
+                    class="p-2 hover:bg-gray-100 rounded-full text-gray-400 transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="p-6">
+            <!-- Transición visual -->
+            <div class="flex items-center justify-center gap-4 mb-6">
+                <span class="px-3 py-1.5 rounded-full text-xs font-black uppercase
+                    {% if order.status == 'DRAFT' %}bg-yellow-100 text-yellow-700
+                    {% elif order.status == 'PENDING' %}bg-yellow-100 text-yellow-700
+                    {% elif order.status == 'PAID' %}bg-green-100 text-green-700
+                    {% elif order.status == 'SHIPPED' %}bg-sky-100 text-sky-700
+                    {% elif order.status == 'COURTESY' %}bg-purple-100 text-purple-700
+                    {% elif order.status == 'DELIVERED' %}bg-emerald-100 text-emerald-700
+                    {% else %}bg-gray-100 text-gray-700{% endif %}">
+                    {{ order.get_status_display }}
+                </span>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                </svg>
+                <span class="px-3 py-1.5 rounded-full text-xs font-black uppercase
+                    {% if new_status == 'PENDING' %}bg-yellow-100 text-yellow-700
+                    {% elif new_status == 'SHIPPED' %}bg-sky-100 text-sky-700
+                    {% elif new_status == 'DELIVERED' %}bg-emerald-100 text-emerald-700
+                    {% elif new_status == 'COMPLETED' %}bg-blue-100 text-blue-700
+                    {% elif new_status == 'RETURNED' %}bg-orange-100 text-orange-700
+                    {% elif new_status == 'CANCELLED' %}bg-red-100 text-red-700
+                    {% elif new_status == 'COURTESY' %}bg-purple-100 text-purple-700
+                    {% else %}bg-gray-100 text-gray-700{% endif %}">
+                    {{ new_status_display }}
+                </span>
+            </div>
+
+            <!-- Info contextual -->
+            {% if new_status == 'CANCELLED' %}
+            <div class="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 flex gap-2 items-start">
+                <svg class="w-4 h-4 text-red-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+                <p class="text-xs text-red-700 font-medium">Se restaurará el stock de todos los productos del pedido.</p>
+            </div>
+            {% elif new_status == 'RETURNED' %}
+            <div class="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4 flex gap-2 items-start">
+                <svg class="w-4 h-4 text-orange-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                </svg>
+                <p class="text-xs text-orange-700 font-medium">Devolución post-entrega. Gestiona el reingreso de stock desde el módulo de Devoluciones.</p>
+            </div>
+            {% elif new_status == 'COURTESY' %}
+            <div class="bg-purple-50 border border-purple-200 rounded-xl p-3 mb-4">
+                <p class="text-xs text-purple-700 font-medium">Pedido de cortesía: no se generará cobro. El flujo salta directamente a Enviado.</p>
+            </div>
+            {% endif %}
+
+            <p class="text-sm text-gray-600 text-center">
+                Pedido <span class="font-mono font-bold">#{{ order.id }}</span> · {{ order.customer_name }}
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-6 border-t border-gray-100 flex gap-3">
+            <form hx-post="{% url 'web:order-confirm-status' tenant.slug order.id %}"
+                  hx-target="#order-row-{{ order.id }}"
+                  hx-swap="outerHTML"
+                  class="flex-1">
+                {% csrf_token %}
+                <input type="hidden" name="status" value="{{ new_status }}">
+                <button type="submit"
+                        class="w-full btn-tenant py-3 justify-center text-sm font-black uppercase tracking-wider
+                               {% if new_status == 'CANCELLED' %}!bg-red-600 !text-white hover:!bg-red-700{% endif %}">
+                    Confirmar
+                </button>
+            </form>
+            <button type="button"
+                    onclick="document.getElementById('modals-here').innerHTML=''"
+                    class="px-6 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-all text-sm">
+                Cancelar
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') document.getElementById('modals-here').innerHTML = '';
+    }, { once: true });
+</script>

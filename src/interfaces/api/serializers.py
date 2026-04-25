@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from src.domain.models import OrderReturn, Product, Category, SalesReport
 from django.db.models import Sum
@@ -51,3 +52,15 @@ class OrderReturnSerializer(serializers.ModelSerializer):
         model = OrderReturn
         fields = ['id', 'order', 'product', 'quantity', 'reason', 'notes', 'created_at']
         read_only_fields = ['id', 'created_at']
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Extiende el token JWT con claims del tenant y rol del usuario."""
+
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['email'] = user.email
+        token['role'] = user.role
+        token['organization_id'] = str(user.organization_id) if user.organization_id else None
+        return token
