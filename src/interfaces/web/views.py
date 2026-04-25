@@ -601,6 +601,136 @@ def client_list_view(request, org_slug):
     })
 
 
+def client_detail_view(request, org_slug, client_id):
+    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    set_current_organization(tenant.id)
+    client = get_object_or_404(Client, id=client_id, organization=tenant)
+
+    orders = (
+        Order.objects.filter(organization=tenant, client=client)
+        .annotate(
+            items_count=Count('items'),
+            total_qty=Sum('items__quantity'),
+        )
+        .order_by('-created_at')
+    )
+
+    stats = orders.aggregate(
+        total_orders=Count('id'),
+        total_spent=Sum('total_amount'),
+    )
+
+    return render(request, 'clients/client_detail.html', {
+        'tenant': tenant,
+        'client': client,
+        'orders': orders,
+        'stats': stats,
+    })
+
+
+def _client_form_context(tenant, error, post_data, client=None, is_edit=False, org_slug=''):
+    from django.urls import reverse
+    doc_types = Client.DOCUMENT_TYPES
+    if is_edit:
+        cancel_url = reverse('web:client-detail', kwargs={'org_slug': org_slug, 'client_id': client.id})
+        current = {
+            'document_type': post_data.get('document_type', client.document_type),
+            'document_number': post_data.get('document_number', client.document_number),
+            'name': post_data.get('name', client.name),
+            'email': post_data.get('email', client.email or ''),
+            'phone': post_data.get('phone', client.phone or ''),
+            'address': post_data.get('address', client.address or ''),
+        }
+    else:
+        cancel_url = reverse('web:client-list', kwargs={'org_slug': org_slug})
+        current = {k: post_data.get(k, '') for k in ['document_type', 'document_number', 'name', 'email', 'phone', 'address']}
+        if not current['document_type']:
+            current['document_type'] = 'DNI'
+
+    return {
+        'tenant': tenant,
+        'client': client,
+        'error': error,
+        'current': current,
+        'doc_types': doc_types,
+        'cancel_url': cancel_url,
+        'form_title': f'Editar — {client.name}' if is_edit else 'Nuevo Cliente',
+        'submit_label': 'Guardar Cambios' if is_edit else 'Crear Cliente',
+    }
+
+
+def client_create_view(request, org_slug):
+    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    set_current_organization(tenant.id)
+
+    error = None
+    post_data = request.POST if request.method == 'POST' else {}
+
+    if request.method == 'POST':
+        doc_type = post_data.get('document_type', '').strip()
+        doc_number = post_data.get('document_number', '').strip()
+        name = post_data.get('name', '').strip()
+
+        if not doc_type or not doc_number or not name:
+            error = 'Tipo de documento, número y nombre son obligatorios.'
+        elif Client.objects.filter(organization=tenant, document_number=doc_number).exists():
+            error = f'Ya existe un cliente con el documento {doc_number}.'
+        else:
+            Client.objects.create(
+                organization=tenant,
+                document_type=doc_type,
+                document_number=doc_number,
+                name=name.upper(),
+                email=post_data.get('email', '').strip() or None,
+                phone=post_data.get('phone', '').strip() or None,
+                address=post_data.get('address', '').strip() or None,
+            )
+            messages.success(request, f'Cliente {name.upper()} creado correctamente.')
+            return redirect('web:client-list', org_slug=org_slug)
+
+    ctx = _client_form_context(tenant, error, post_data, is_edit=False, org_slug=org_slug)
+    return render(request, 'clients/client_form.html', ctx)
+
+
+def client_edit_view(request, org_slug, client_id):
+    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    set_current_organization(tenant.id)
+    client = get_object_or_404(Client, id=client_id, organization=tenant)
+
+    error = None
+    post_data = request.POST if request.method == 'POST' else {}
+
+    if request.method == 'POST':
+        doc_type = post_data.get('document_type', '').strip()
+        doc_number = post_data.get('document_number', '').strip()
+        name = post_data.get('name', '').strip()
+
+        if not doc_type or not doc_number or not name:
+            error = 'Tipo de documento, número y nombre son obligatorios.'
+        elif (
+            Client.objects.filter(organization=tenant, document_number=doc_number)
+            .exclude(id=client_id)
+            .exists()
+        ):
+            error = f'Ya existe otro cliente con el documento {doc_number}.'
+        else:
+            client.document_type = doc_type
+            client.document_number = doc_number
+            client.name = name.upper()
+            client.email = post_data.get('email', '').strip() or None
+            client.phone = post_data.get('phone', '').strip() or None
+            client.address = post_data.get('address', '').strip() or None
+            client.save()
+            messages.success(request, f'Cliente {client.name} actualizado correctamente.')
+            return redirect('web:client-detail', org_slug=org_slug, client_id=client_id)
+
+    ctx = _client_form_context(tenant, error, post_data, client=client, is_edit=True, org_slug=org_slug)
+    return render(request, 'clients/client_form.html', ctx)
+
+
 def _restore_order_stock(order):
     """Restores stock for all items on a cancelled order."""
     for item in order.items.select_related('product'):

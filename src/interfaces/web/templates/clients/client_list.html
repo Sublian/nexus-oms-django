@@ -15,6 +15,12 @@
                 {% endif %}
             </p>
         </div>
+        <a href="{% url 'web:client-create' tenant.slug %}" class="btn-tenant flex items-center gap-2 text-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Nuevo Cliente
+        </a>
     </div>
 
     <!-- Search -->
@@ -65,7 +71,10 @@
                                 {{ client.name|first|upper }}
                             </div>
                             <div>
-                                <p class="font-bold text-gray-900 text-sm leading-tight">{{ client.name }}</p>
+                                <a href="{% url 'web:client-detail' tenant.slug client.id %}"
+                                   class="font-bold text-gray-900 text-sm leading-tight hover:text-tenant-primary transition-colors">
+                                    {{ client.name }}
+                                </a>
                                 {% if client.address %}
                                 <p class="text-xs text-gray-400 mt-0.5 truncate max-w-[200px]">{{ client.address }}</p>
                                 {% endif %}

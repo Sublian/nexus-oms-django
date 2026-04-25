@@ -11,7 +11,12 @@
 
     <td class="px-6 py-4">
         <div class="text-sm font-medium {% if order.status == 'CANCELLED' %}line-through text-gray-400{% else %}text-gray-900{% endif %}">
+            {% if order.client %}
+            <a href="{% url 'web:client-detail' tenant.slug order.client.id %}"
+               class="hover:text-tenant-primary transition-colors">{{ order.customer_name }}</a>
+            {% else %}
             {{ order.customer_name }}
+            {% endif %}
         </div>
         <div class="flex items-center gap-1.5 mt-0.5">
             <span class="text-xs text-gray-400">{{ order.client.document_number|default:"S/D" }}</span>

@@ -75,8 +75,10 @@
                 <td style="width: 20%;">{{ order.created_at|date:"d/m/Y" }}</td>
             </tr>
             <tr>
-                <td class="font-bold">DNI/RUC:</td>
-                <td>{{ order.customer_document|default:"-" }}</td>
+                <td class="font-bold">{% if order.client %}{{ order.client.document_type }}{% else %}DOC{% endif %}:</td>
+                <td style="font-weight: bold; font-size: 13px;">
+                    {% if order.client %}{{ order.client.document_number }}{% else %}—{% endif %}
+                </td>
                 <td class="font-bold">MONEDA:</td>
                 <td>{{ order.organization.currency_symbol }} ({{ order.currency|default:"PEN" }})</td>
             </tr>
