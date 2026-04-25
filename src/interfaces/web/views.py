@@ -24,13 +24,29 @@ from src.infrastructure.services.apimigo import APIMigoClient
 
 
 def _modal_success(request, order, tenant):
-    """Returns updated order row + OOB clear of the modal container."""
+    """
+    Closes the modal (main swap on #modals-here) and updates the order row in-place (OOB).
+
+    Why the table wrapper:
+    DOMParser promotes bare <tr> into an implicit <table><tbody> structure, so HTMX's
+    outerHTML swap would replace the row with a full nested table.  Wrapping the row in
+    <table><tbody> keeps the <tr> as a proper DOM node; hx-swap-oob="outerHTML:#id" then
+    locates the existing row by CSS selector and replaces only that element.
+    """
     row_html = render_to_string(
         'orders/partials/order_row.html',
         {'order': order, 'tenant': tenant},
         request=request,
     )
-    return HttpResponse(row_html + '<div id="modals-here" hx-swap-oob="true"></div>')
+    row_oob = row_html.replace(
+        f'<tr id="order-row-{order.id}"',
+        f'<tr id="order-row-{order.id}" hx-swap-oob="outerHTML:#order-row-{order.id}"',
+        1,
+    )
+    return HttpResponse(
+        f'<div id="modals-here"></div>'
+        f'<table><tbody>{row_oob}</tbody></table>'
+    )
 
 # --- VISTAS DE CONFIGURACIÓN (TABS) ---
 
@@ -261,27 +277,25 @@ def order_create_view(request, org_slug):
                 total_amount=0,
             )
 
-            total_subtotal = 0
-            
+            total_subtotal = Decimal('0')
+
             # 4. Procesar Items
             for p_id, qty in zip(product_ids, quantities):
                 qty = int(qty)
                 if qty <= 0: continue
-                
+
                 product = Product.objects.select_for_update().get(id=p_id, organization=tenant)
-                
-                # Descuento de stock simple (puedes mejorar la lógica de bodega luego)
+
                 stock_record = Stock.objects.filter(product=product, quantity__gte=qty).first()
                 if not stock_record:
                     raise ValueError(f"No hay stock suficiente para: {product.name}")
-                
+
                 stock_record.quantity -= qty
                 stock_record.save()
 
-                # Cálculo de montos del item
-                price = float(product.price)
+                price = product.price  # already Decimal
                 item_subtotal = price * qty
-                
+
                 OrderItem.objects.create(
                     order=order,
                     product=product,

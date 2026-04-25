@@ -93,7 +93,8 @@
                     deliveryType: 'PICKUP',
                     shippingFee: {{ tenant.default_shipping_fee }},
                     get fee() { return this.deliveryType === 'DELIVERY' ? this.shippingFee : 0; }
-                 }">
+                 }"
+                 x-init="$watch('deliveryType', () => calculateGrandTotal())">
 
                 <h2 class="text-xl font-bold mb-6 border-b border-tenant-secondary/20 pb-4">Resumen</h2>
 
@@ -167,15 +168,15 @@
 </form>
 
 <script>
-// Guardamos el TC de la vista para el JS
 const EXCHANGE_RATE = {{ exchange_rate|default:3.80 }};
+const DEFAULT_SHIPPING_FEE = parseFloat('{{ tenant.default_shipping_fee }}') || 0;
 
 function updateRowSubtotal(input, price) {
     const row = input.closest('tr');
     const subtotalEl = row.querySelector('.row-subtotal');
     const quantity = parseFloat(input.value) || 0;
     const newSubtotal = (quantity * price).toFixed(2);
-    
+
     subtotalEl.innerText = `S/ ${newSubtotal}`;
     calculateGrandTotal();
 }
@@ -195,11 +196,8 @@ function calculateGrandTotal() {
         itemsTotal += parseFloat(el.innerText.replace('S/ ', '')) || 0;
     });
 
-    // Shipping fee from Alpine component
-    const alpineEl = document.querySelector('[x-data*="deliveryType"]');
-    const shippingFee = alpineEl && alpineEl._x_dataStack
-        ? (alpineEl._x_dataStack[0].deliveryType === 'DELIVERY' ? alpineEl._x_dataStack[0].shippingFee : 0)
-        : 0;
+    const deliveryChecked = document.querySelector('[name="delivery_type"]:checked');
+    const shippingFee = deliveryChecked?.value === 'DELIVERY' ? DEFAULT_SHIPPING_FEE : 0;
 
     const subtotal = itemsTotal / 1.18;
     const tax = itemsTotal - subtotal;
