@@ -1,5 +1,5 @@
 # Nexus OMS — Resumen de Avances del Proyecto
-**Fecha de corte:** 26 de Abril, 2026 (v2.0.0)
+**Fecha de corte:** 26 de Abril, 2026 (v2.0.1)
 
 ---
 
@@ -12,8 +12,8 @@
 | Web Dashboard (HTMX) | ✅ En producción |
 | Autenticación Web + JWT | ✅ Completo |
 | Gestión de Órdenes (Block 1) | ✅ **Completamente funcional** |
-| Edit inline de items | ✅ Completo con validación de stock |
-| Delete items + auto-cancelación | ✅ Completo con nota obligatoria |
+| Edit inline de items | ✅ Completo + tabla principal se actualiza |
+| Delete items + auto-cancelación | ✅ Completo + modal personalizado |
 | Directorio de Clientes | ✅ Completo |
 | Gestión de Productos & SKUs | ✅ Completo |
 | CI/CD (GitHub Actions) | ✅ Estable |
@@ -40,8 +40,8 @@
 - **Modal de pago:** Selección de método (EFECTIVO / CARD / TRANSFER / WALLET). Comisión bancaria (3.5%) absorbida por la empresa. Referencia obligatoria para métodos no-efectivo con validación client-side. Valida stock antes de PAID.
 - **PDF/Factura:** Diseño estilo SUNAT. Muestra RUC/DNI del cliente, fee de envío en totales, dirección de entrega, QR, monto en letras.
 - **Tabla de pedidos:** Búsqueda full-text, filtro por estado, paginación, modales HTMX para ver detalle y gestionar transiciones desde la misma fila.
-- **Edit inline de items:** Pencil icon en modal de detalle permite editar cantidad en DRAFT/PENDING. Valida stock, recalcula totales automático. Solo items+totales se actualizan (partial modal refresh).
-- **Delete de items:** Trash icon con confirmación. Si es último item: requiere nota obligatoria, auto-cancela orden, restaura stock, pone totales en 0. Si hay más items: recalcula totales sin cancelar.
+- **Edit inline de items:** Pencil icon en modal de detalle permite editar cantidad en DRAFT/PENDING. Valida stock, recalcula totales automático. Items+totales+fila de tabla se actualizan (partial modal refresh + OOB row swap).
+- **Delete de items:** Trash icon abre modal de confirmación personalizado. Si es último item: requiere nota obligatoria, auto-cancela orden, restaura stock, pone totales en 0. Si hay más items: recalcula totales sin cancelar. Row se actualiza automático.
 - **Control de inventario:** Stock se decrementa al crear orden (DRAFT), se restaura al cancelar. Signal con `select_for_update()` asegura atomicidad.
 
 ### 👥 Directorio de Clientes
@@ -98,6 +98,8 @@
 - ✅ Control de inventario automático: stock se decrementa en DRAFT, se restaura si se cancela
 - ✅ Edit inline de items con validación de stock
 - ✅ Delete de items con restauración de stock y auto-cancelación si orden queda vacía
+- ✅ Edit item: Fila de tabla principal se actualiza al cerrar modal (OOB swap)
+- ✅ Delete item: Modal personalizado en lugar de `hx-confirm` nativo del navegador
 
 ---
 

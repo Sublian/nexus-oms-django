@@ -1087,17 +1087,48 @@ def order_item_edit_view(request, org_slug, order_id, item_id):
             })
 
         items = order.items.select_related('product').all()
-        # Render partial update: only items + totals section
-        return render(request, 'orders/partials/order_items_summary.html', {
-            'order': order,
-            'items': items
-        })
+        # Render partial update: items + totals + OOB order row refresh
+        summary_html = render_to_string(
+            'orders/partials/order_items_summary.html',
+            {'order': order, 'items': items},
+            request=request,
+        )
+        row_html = render_to_string(
+            'orders/partials/order_row.html',
+            {'order': order, 'tenant': order.organization},
+            request=request,
+        )
+        row_oob = row_html.replace(
+            f'<tr id="order-row-{order.id}"',
+            f'<tr id="order-row-{order.id}" hx-swap-oob="outerHTML:#order-row-{order.id}"',
+            1,
+        )
+        return HttpResponse(
+            f'{summary_html}'
+            f'<table><tbody>{row_oob}</tbody></table>'
+        )
 
     # GET — render inline edit form
     return render(request, 'orders/partials/item_edit_form.html', {
         'order': order,
         'item': item,
         'org_slug': org_slug,
+    })
+
+
+def order_item_delete_confirm_view(request, org_slug, order_id, item_id):
+    """Show delete confirmation modal for an order item."""
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    order = get_object_or_404(Order, id=order_id, organization=tenant)
+    item = get_object_or_404(OrderItem, id=item_id, order=order)
+
+    is_last_item = order.items.count() == 1
+
+    return render(request, 'orders/partials/item_delete_modal.html', {
+        'order': order,
+        'item': item,
+        'item_id': item_id,
+        'is_last_item': is_last_item,
     })
 
 
@@ -1163,11 +1194,26 @@ def order_item_delete_view(request, org_slug, order_id, item_id):
     order.save()
 
     items = order.items.select_related('product').all()
-    # Render partial update: only items + totals section
-    return render(request, 'orders/partials/order_items_summary.html', {
-        'order': order,
-        'items': items
-    })
+    # Render partial update: items + totals + OOB order row refresh
+    summary_html = render_to_string(
+        'orders/partials/order_items_summary.html',
+        {'order': order, 'items': items},
+        request=request,
+    )
+    row_html = render_to_string(
+        'orders/partials/order_row.html',
+        {'order': order, 'tenant': order.organization},
+        request=request,
+    )
+    row_oob = row_html.replace(
+        f'<tr id="order-row-{order.id}"',
+        f'<tr id="order-row-{order.id}" hx-swap-oob="outerHTML:#order-row-{order.id}"',
+        1,
+    )
+    return HttpResponse(
+        f'{summary_html}'
+        f'<table><tbody>{row_oob}</tbody></table>'
+    )
 
 
 ## tipo de cambio
