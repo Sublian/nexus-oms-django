@@ -1087,7 +1087,11 @@ def order_item_edit_view(request, org_slug, order_id, item_id):
             })
 
         items = order.items.select_related('product').all()
-        return render(request, 'partials/order_detail_modal.html', {'order': order, 'items': items})
+        # Render partial update: only items + totals section
+        return render(request, 'orders/partials/order_items_summary.html', {
+            'order': order,
+            'items': items
+        })
 
     # GET — render inline edit form
     return render(request, 'orders/partials/item_edit_form.html', {
@@ -1121,10 +1125,43 @@ def order_item_delete_view(request, org_slug, order_id, item_id):
         )
 
     item.delete()
-    _recalculate_order_totals(order)
+
+    # Check if order is now empty
+    remaining_items = order.items.count()
+    if remaining_items == 0:
+        # Require nota when deleting all items
+        nota = request.POST.get('nota', '').strip()
+        if not nota:
+            items = order.items.select_related('product').all()
+            return render(
+                request,
+                'orders/partials/item_delete_confirm.html',
+                {
+                    'order': order,
+                    'items': items,
+                    'item_id': item_id,
+                    'error': 'La nota es obligatoria al eliminar todos los productos'
+                }
+            )
+
+        # Auto-cancel and clear totals
+        order.status = 'CANCELLED'
+        order.nota = nota
+        order.subtotal = Decimal('0.00')
+        order.tax_amount = Decimal('0.00')
+        order.total_amount = Decimal('0.00')
+    else:
+        # Recalculate if items remain
+        _recalculate_order_totals(order)
+
+    order.save()
 
     items = order.items.select_related('product').all()
-    return render(request, 'partials/order_detail_modal.html', {'order': order, 'items': items})
+    # Render partial update: only items + totals section
+    return render(request, 'orders/partials/order_items_summary.html', {
+        'order': order,
+        'items': items
+    })
 
 
 ## tipo de cambio

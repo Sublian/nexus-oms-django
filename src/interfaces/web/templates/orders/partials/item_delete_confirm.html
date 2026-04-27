@@ -1,0 +1,51 @@
+<div class="p-6 bg-red-50 rounded-2xl border-2 border-red-200 space-y-4">
+    <div class="flex items-start gap-3">
+        <svg class="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2m0-12a9 9 0 110 18 9 9 0 010-18z"></path>
+        </svg>
+        <div>
+            <h3 class="font-bold text-red-900 text-sm">⚠️ Última compra será eliminada</h3>
+            <p class="text-xs text-red-700 mt-1">Al eliminar este producto, la orden quedará vacía y se cancelará automáticamente.</p>
+            <p class="text-xs text-red-700 mt-1 font-semibold">Debes proporcionar una nota explicando por qué se eliminó.</p>
+        </div>
+    </div>
+
+    <form hx-post="{% url 'web:order-item-delete' org_slug=order.organization.slug order_id=order.id item_id=item_id %}"
+          hx-target="#order-items-section"
+          hx-swap="outerHTML"
+          class="space-y-3">
+        {% csrf_token %}
+
+        <div>
+            <label class="block text-xs font-black text-gray-700 uppercase tracking-widest mb-2">
+                Nota (obligatoria)
+            </label>
+            <textarea name="nota"
+                      placeholder="Ej: Cliente canceló compra, error en cantidad, cliente cambió de opinión..."
+                      required
+                      class="w-full border-2 border-red-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500 resize-vertical min-h-24"
+                      maxlength="500"></textarea>
+            <p class="text-[10px] text-gray-500 mt-1">Max 500 caracteres</p>
+        </div>
+
+        {% if error %}
+        <div class="p-3 bg-red-200 text-red-800 text-xs rounded-lg font-semibold">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <div class="flex gap-2 pt-2">
+            <button type="submit"
+                    class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-black uppercase tracking-wide hover:bg-red-700 transition-colors">
+                Confirmar Eliminación
+            </button>
+            <button type="button"
+                    hx-get="{% url 'web:order_detail' org_slug=order.organization.slug order_id=order.id %}"
+                    hx-target="#order-modal"
+                    hx-swap="outerHTML"
+                    class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-xs font-bold uppercase hover:bg-gray-300 transition-colors">
+                Cancelar
+            </button>
+        </div>
+    </form>
+</div>

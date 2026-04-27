@@ -1,0 +1,87 @@
+<!-- Items section with OOB update -->
+<div id="order-items-section" hx-swap-oob="innerHTML">
+    <h4 class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 text-center">Detalle de Mercadería</h4>
+    <div class="space-y-3">
+        {% for item in items %}
+        <div id="item-{{ item.id }}" class="flex justify-between items-center p-4 bg-gray-50/50 rounded-xl border border-gray-100 hover:border-tenant-primary/20 transition-all group">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 bg-white border border-gray-200 rounded-lg flex items-center justify-center shadow-sm">
+                    <span class="font-black text-tenant-primary text-sm">x{{ item.quantity }}</span>
+                </div>
+                <div>
+                    <p class="font-bold text-gray-900 text-sm group-hover:text-tenant-primary transition-colors">{{ item.product.name }}</p>
+                    <span class="text-[10px] px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded font-mono font-bold uppercase tracking-tighter">
+                        SKU: {{ item.product.sku }}
+                    </span>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="text-right">
+                    <p class="font-bold text-gray-900 text-sm">${{ item.price_at_order }}</p>
+                    <p class="text-[10px] text-gray-400 font-medium">Precio Unit.</p>
+                </div>
+                {% if order.status == 'DRAFT' or order.status == 'PENDING' %}
+                <button hx-get="{% url 'web:order-item-edit' org_slug=order.organization.slug order_id=order.id item_id=item.id %}"
+                        hx-target="#item-{{ item.id }}"
+                        hx-swap="outerHTML"
+                        title="Editar cantidad"
+                        class="p-1.5 text-gray-400 hover:text-tenant-primary hover:bg-tenant-primary/10 rounded-lg transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                </button>
+                <button hx-post="{% url 'web:order-item-delete' org_slug=order.organization.slug order_id=order.id item_id=item.id %}"
+                        hx-target="#order-items-section"
+                        hx-swap="outerHTML"
+                        hx-confirm="¿Eliminar {{ item.product.name }} del pedido?"
+                        title="Eliminar ítem"
+                        class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="p-4 text-center bg-amber-50 rounded-xl border border-amber-200">
+            <p class="text-sm text-amber-700 font-semibold">No hay productos en esta orden</p>
+            {% if order.status == 'CANCELLED' %}
+            <p class="text-xs text-amber-600 mt-1">{{ order.nota }}</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Totals section with OOB update -->
+<div id="order-totals-section" hx-swap-oob="innerHTML" class="grid grid-cols-1 gap-4">
+    <div class="bg-white rounded-2xl p-5 border-2 border-gray-100">
+        <div class="flex justify-between text-[10px] text-gray-400 mb-4 uppercase font-black tracking-widest">
+            <span>Resumen de Cobro</span>
+            <span class="flex items-center gap-1">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414L14.586 2H9z"></path></svg>
+                Ticket
+            </span>
+        </div>
+        <div class="space-y-2 text-sm">
+            <div class="flex justify-between text-gray-600">
+                <span>Subtotal</span>
+                <span class="font-semibold">${{ order.subtotal }}</span>
+            </div>
+            <div class="flex justify-between text-gray-600">
+                <span>Impuestos ({{ order.active_tax_rate|default:18 }}%)</span>
+                <span class="font-semibold">${{ order.tax_amount }}</span>
+            </div>
+            {% if order.shipping_fee > 0 %}
+            <div class="flex justify-between text-blue-600">
+                <span class="flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path></svg>
+                    Envío
+                </span>
+                <span class="font-semibold">${{ order.shipping_fee }}</span>
+            </div>
+            {% endif %}
+            <div class="pt-3 mt-1 border-t border-gray-100 flex justify-between items-center">
+                <span class="font-black text-gray-950 text-xs uppercase">Total Bruto</span>
+                <span class="text-2xl font-black text-gray-950 tracking-tighter">${{ order.total_amount }}</span>
+            </div>
+        </div>
+    </div>
+</div>

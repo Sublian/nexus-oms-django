@@ -47,6 +47,7 @@ class Order(TenantModel):
     created_at = models.DateTimeField(auto_now_add=True)
 
     pdf_report = models.FileField(upload_to='orders/pdfs/', null=True, blank=True)
+    nota = models.TextField(blank=True, default='', help_text='Nota de cambios en la orden (por qué se incrementó, decrementó o borró productos)')
 
     def __str__(self):
         return f"Pedido {self.id} - {self.customer_name} ({self.organization.name})"
