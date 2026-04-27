@@ -1028,6 +1028,7 @@ def order_change_status_view(request, org_slug, order_id):
     return render(request, 'orders/partials/order_row.html', {'order': order, 'tenant': tenant})
 
 
+@transaction.atomic
 def order_item_edit_view(request, org_slug, order_id, item_id):
     tenant = get_object_or_404(Organization, slug=org_slug)
     order = get_object_or_404(Order, id=order_id, organization=tenant)
@@ -1097,6 +1098,7 @@ def order_item_edit_view(request, org_slug, order_id, item_id):
 
 
 @require_POST
+@transaction.atomic
 def order_item_delete_view(request, org_slug, order_id, item_id):
     tenant = get_object_or_404(Organization, slug=org_slug)
     order = get_object_or_404(Order, id=order_id, organization=tenant)
