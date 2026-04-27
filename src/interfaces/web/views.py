@@ -16,7 +16,7 @@ from django.db.models import Q, Sum
 
 from decimal import Decimal
 
-from src.domain.models import Order, OrderItem, Organization, Payment, Product, Client, Stock, Category, Warehouse
+from src.domain.models import Order, OrderItem, Organization, Payment, Product, Client, Stock, StockMovement, Category, Warehouse
 from src.domain.models.finance import ExchangeRate
 from src.domain.services.finance_service import ExchangeService
 from src.domain.tasks.reporting_tasks import generate_order_pdf_task
@@ -290,9 +290,6 @@ def order_create_view(request, org_slug):
                 if not stock_record:
                     raise ValueError(f"No hay stock suficiente para: {product.name}")
 
-                stock_record.quantity -= qty
-                stock_record.save()
-
                 price = product.price  # already Decimal
                 item_subtotal = price * qty
 
@@ -501,6 +498,15 @@ def order_pay_modal_view(request, org_slug, order_id):
         return HttpResponse('Transición no permitida', status=400)
 
     if request.method == 'POST':
+        # Sanity check: verify stock hasn't gone negative
+        for item in order.items.select_related('product'):
+            stock = Stock.objects.filter(product=item.product, organization=tenant).first()
+            if not stock or stock.quantity < 0:
+                return HttpResponse(
+                    f'Stock insuficiente para {item.product.name}. Contacta a administración.',
+                    status=400
+                )
+
         method = request.POST.get('method', '').strip()
         reference = request.POST.get('reference', '').strip() or None
         fee = (order.total_amount * Decimal('0.035')).quantize(Decimal('0.01')) if method == 'CARD' else Decimal('0.00')
@@ -994,6 +1000,16 @@ def _restore_order_stock(order):
             stock.save()
 
 
+def _recalculate_order_totals(order):
+    """Recalculates subtotal/tax/total from current items (prices include 18% IGV)."""
+    items = list(order.items.all())
+    total_with_tax = sum(item.price_at_order * item.quantity for item in items)
+    order.subtotal = (total_with_tax / Decimal('1.18')).quantize(Decimal('0.01'))
+    order.tax_amount = (total_with_tax - order.subtotal).quantize(Decimal('0.01'))
+    order.total_amount = (total_with_tax + order.shipping_fee).quantize(Decimal('0.01'))
+    order.save()
+
+
 @require_POST
 def order_change_status_view(request, org_slug, order_id):
     tenant = get_object_or_404(Organization, slug=org_slug)
@@ -1010,6 +1026,103 @@ def order_change_status_view(request, org_slug, order_id):
     order.status = new_status
     order.save()
     return render(request, 'orders/partials/order_row.html', {'order': order, 'tenant': tenant})
+
+
+def order_item_edit_view(request, org_slug, order_id, item_id):
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    order = get_object_or_404(Order, id=order_id, organization=tenant)
+    item = get_object_or_404(OrderItem, id=item_id, order=order)
+
+    if order.status not in ('DRAFT', 'PENDING'):
+        return HttpResponse('Edición no permitida en este estado', status=400)
+
+    if request.method == 'POST':
+        error = None
+        try:
+            new_qty = int(request.POST.get('quantity', 0))
+            if new_qty <= 0:
+                raise ValueError('La cantidad debe ser mayor a 0')
+
+            diff = new_qty - item.quantity
+            if diff > 0:
+                stock = Stock.objects.select_for_update().filter(
+                    product=item.product,
+                    organization=tenant,
+                    quantity__gte=diff,
+                ).first()
+                if not stock:
+                    raise ValueError(f'Stock insuficiente para {item.product.name}')
+                stock.quantity -= diff
+                stock.save()
+                StockMovement.objects.create(
+                    organization=tenant,
+                    stock=stock,
+                    quantity=diff,
+                    movement_type=StockMovement.MovementType.OUTPUT,
+                    reason=f'Ajuste cantidad: Pedido #{order.id}',
+                    order=order,
+                )
+            elif diff < 0:
+                stock = Stock.objects.filter(product=item.product, organization=tenant).first()
+                if stock:
+                    stock.quantity += abs(diff)
+                    stock.save()
+                    StockMovement.objects.create(
+                        organization=tenant,
+                        stock=stock,
+                        quantity=abs(diff),
+                        movement_type=StockMovement.MovementType.RETURN,
+                        reason=f'Ajuste cantidad: Pedido #{order.id}',
+                        order=order,
+                    )
+
+            item.quantity = new_qty
+            item.save()
+            _recalculate_order_totals(order)
+        except (ValueError, TypeError) as e:
+            error = str(e)
+            return render(request, 'orders/partials/item_edit_form.html', {
+                'order': order, 'item': item, 'org_slug': org_slug, 'error': error,
+            })
+
+        items = order.items.select_related('product').all()
+        return render(request, 'partials/order_detail_modal.html', {'order': order, 'items': items})
+
+    # GET — render inline edit form
+    return render(request, 'orders/partials/item_edit_form.html', {
+        'order': order,
+        'item': item,
+        'org_slug': org_slug,
+    })
+
+
+@require_POST
+def order_item_delete_view(request, org_slug, order_id, item_id):
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    order = get_object_or_404(Order, id=order_id, organization=tenant)
+    item = get_object_or_404(OrderItem, id=item_id, order=order)
+
+    if order.status not in ('DRAFT', 'PENDING'):
+        return HttpResponse('Eliminación no permitida en este estado', status=400)
+
+    stock = Stock.objects.filter(product=item.product, organization=tenant).first()
+    if stock:
+        stock.quantity += item.quantity
+        stock.save()
+        StockMovement.objects.create(
+            organization=tenant,
+            stock=stock,
+            quantity=item.quantity,
+            movement_type=StockMovement.MovementType.RETURN,
+            reason=f'Eliminación de ítem: Pedido #{order.id}',
+            order=order,
+        )
+
+    item.delete()
+    _recalculate_order_totals(order)
+
+    items = order.items.select_related('product').all()
+    return render(request, 'partials/order_detail_modal.html', {'order': order, 'items': items})
 
 
 ## tipo de cambio

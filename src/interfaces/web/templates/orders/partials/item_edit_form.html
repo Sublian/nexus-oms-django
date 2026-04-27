@@ -1,0 +1,32 @@
+<div id="item-{{ item.id }}" class="flex justify-between items-center p-4 bg-amber-50 rounded-xl border-2 border-amber-300">
+    <div class="flex items-center gap-4">
+        <div>
+            <p class="font-bold text-gray-900 text-sm">{{ item.product.name }}</p>
+            <span class="text-[10px] px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded font-mono font-bold uppercase tracking-tighter">
+                SKU: {{ item.product.sku }}
+            </span>
+            {% if error %}
+            <p class="text-red-500 text-xs mt-1 font-semibold">{{ error }}</p>
+            {% endif %}
+        </div>
+    </div>
+    <form hx-post="{% url 'web:order-item-edit' org_slug=item.order.organization.slug order_id=item.order.id item_id=item.id %}"
+          hx-target="#order-modal"
+          hx-swap="outerHTML"
+          class="flex items-center gap-2">
+        {% csrf_token %}
+        <input type="number" name="quantity" value="{{ item.quantity }}" min="1"
+               class="w-20 text-center border-2 border-amber-300 rounded-lg px-2 py-1.5 text-sm font-bold focus:outline-none focus:border-tenant-primary">
+        <button type="submit"
+                class="px-3 py-1.5 bg-tenant-primary text-tenant-secondary rounded-lg text-xs font-black uppercase tracking-wide hover:opacity-90 transition-opacity">
+            Guardar
+        </button>
+        <button type="button"
+                hx-get="{% url 'web:order-detail' org_slug=item.order.organization.slug order_id=item.order.id %}"
+                hx-target="#order-modal"
+                hx-swap="outerHTML"
+                class="px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold uppercase hover:bg-gray-200 transition-colors">
+            Cancelar
+        </button>
+    </form>
+</div>

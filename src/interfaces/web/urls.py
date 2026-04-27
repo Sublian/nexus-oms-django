@@ -20,6 +20,8 @@ from .views import (
     order_change_status_view,
     order_pay_modal_view,
     order_status_modal_view,
+    order_item_edit_view,
+    order_item_delete_view,
     settings_shipping_partial,
     client_list_view,
     client_detail_view,
@@ -57,6 +59,8 @@ urlpatterns = [
     path('orders/<int:order_id>/status/', _ta(order_change_status_view), name='order-status'),
     path('orders/<int:order_id>/pay/', _ta(order_pay_modal_view), name='order-pay'),
     path('orders/<int:order_id>/confirm-status/', _ta(order_status_modal_view), name='order-confirm-status'),
+    path('orders/<int:order_id>/items/<int:item_id>/edit/', _ta(order_item_edit_view), name='order-item-edit'),
+    path('orders/<int:order_id>/items/<int:item_id>/delete/', _ta(order_item_delete_view), name='order-item-delete'),
     path('settings/shipping/', _ta(settings_shipping_partial), name='org-settings-shipping'),
 
     # --- Clientes ---
