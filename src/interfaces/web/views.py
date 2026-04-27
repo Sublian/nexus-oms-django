@@ -1111,25 +1111,11 @@ def order_item_delete_view(request, org_slug, order_id, item_id):
     if order.status not in ('DRAFT', 'PENDING'):
         return HttpResponse('Eliminación no permitida en este estado', status=400)
 
-    stock = Stock.objects.filter(product=item.product, organization=tenant).first()
-    if stock:
-        stock.quantity += item.quantity
-        stock.save()
-        StockMovement.objects.create(
-            organization=tenant,
-            stock=stock,
-            quantity=item.quantity,
-            movement_type=StockMovement.MovementType.RETURN,
-            reason=f'Eliminación de ítem: Pedido #{order.id}',
-            order=order,
-        )
+    # Check if this is the last item BEFORE deleting
+    is_last_item = order.items.count() == 1
 
-    item.delete()
-
-    # Check if order is now empty
-    remaining_items = order.items.count()
-    if remaining_items == 0:
-        # Require nota when deleting all items
+    if is_last_item:
+        # Require nota when deleting the last item
         nota = request.POST.get('nota', '').strip()
         if not nota:
             items = order.items.select_related('product').all()
@@ -1144,7 +1130,27 @@ def order_item_delete_view(request, org_slug, order_id, item_id):
                 }
             )
 
+    # Restore stock
+    stock = Stock.objects.filter(product=item.product, organization=tenant).first()
+    if stock:
+        stock.quantity += item.quantity
+        stock.save()
+        StockMovement.objects.create(
+            organization=tenant,
+            stock=stock,
+            quantity=item.quantity,
+            movement_type=StockMovement.MovementType.RETURN,
+            reason=f'Eliminación de ítem: Pedido #{order.id}',
+            order=order,
+        )
+
+    # Delete the item
+    item.delete()
+
+    # Handle post-deletion state
+    if is_last_item:
         # Auto-cancel and clear totals
+        nota = request.POST.get('nota', '').strip()
         order.status = 'CANCELLED'
         order.nota = nota
         order.subtotal = Decimal('0.00')

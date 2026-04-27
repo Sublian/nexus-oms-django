@@ -189,7 +189,7 @@ class TestOrderWebViews:
         assert item.quantity == 2
 
     def test_order_item_delete(self, logged_in_client, organization, product):
-        """Delete item: should remove item and restore stock"""
+        """Delete item (non-last): should remove item and restore stock"""
         from src.domain.models.inventory import Stock, Warehouse
         from src.domain.models.sales import OrderItem
         from decimal import Decimal
@@ -201,35 +201,45 @@ class TestOrderWebViews:
             organization=organization,
             customer_name="Delete Test",
             status='DRAFT',
-            subtotal=Decimal('50.00'),
-            tax_amount=Decimal('9.00'),
-            total_amount=Decimal('59.00')
+            subtotal=Decimal('100.00'),
+            tax_amount=Decimal('18.00'),
+            total_amount=Decimal('118.00')
         )
-        item = OrderItem.objects.create(
+        # Create TWO items so deletion of one doesn't trigger "empty order" check
+        item1 = OrderItem.objects.create(
             order=order,
             product=product,
             quantity=5,
             price_at_order=Decimal('10.00'),
             organization=organization
         )
-        # After creating OrderItem, signal decrements stock: 95 - 5 = 90
+        item2 = OrderItem.objects.create(
+            order=order,
+            product=product,
+            quantity=5,
+            price_at_order=Decimal('10.00'),
+            organization=organization
+        )
+        # After creating items, signal decrements stock: 95 - 5 - 5 = 85
 
         url = reverse('web:order-item-delete', kwargs={
             'org_slug': organization.slug,
             'order_id': order.id,
-            'item_id': item.id
+            'item_id': item1.id
         })
 
-        # POST to delete
+        # POST to delete (no nota needed since item2 remains)
         response = logged_in_client.post(url)
         assert response.status_code == 200
 
-        # Verify item was deleted
-        assert not OrderItem.objects.filter(id=item.id).exists()
+        # Verify item1 was deleted
+        assert not OrderItem.objects.filter(id=item1.id).exists()
+        # Verify item2 still exists
+        assert OrderItem.objects.filter(id=item2.id).exists()
 
-        # Verify stock was restored: 90 + 5 (restored) = 95
+        # Verify stock was restored: 85 + 5 (restored) = 90
         stock = Stock.objects.get(product=product, organization=organization)
-        assert stock.quantity == 95
+        assert stock.quantity == 90
 
     def test_order_item_edit_not_allowed_in_paid_status(self, logged_in_client, organization, product):
         """Edit item: should not allow editing when order status is PAID"""
@@ -265,3 +275,146 @@ class TestOrderWebViews:
         # Try to edit
         response = logged_in_client.post(url, {'quantity': 8})
         assert response.status_code == 400  # Not permitted
+
+    def test_delete_last_item_requires_nota(self, logged_in_client, organization, product):
+        """Delete last item: should require 'nota' field when order becomes empty"""
+        from src.domain.models.inventory import Stock, Warehouse
+        from src.domain.models.sales import OrderItem
+        from decimal import Decimal
+
+        warehouse = Warehouse.objects.create(name="Principal", organization=organization)
+        Stock.objects.create(product=product, warehouse=warehouse, quantity=100, organization=organization)
+
+        order = Order.objects.create(
+            organization=organization,
+            customer_name="Delete Last Item Test",
+            status='DRAFT',
+            subtotal=Decimal('50.00'),
+            tax_amount=Decimal('9.00'),
+            total_amount=Decimal('59.00')
+        )
+        # Create single item (will be last)
+        item = OrderItem.objects.create(
+            order=order,
+            product=product,
+            quantity=5,
+            price_at_order=Decimal('10.00'),
+            organization=organization
+        )
+
+        url = reverse('web:order-item-delete', kwargs={
+            'org_slug': organization.slug,
+            'order_id': order.id,
+            'item_id': item.id
+        })
+
+        # Try DELETE without nota
+        response = logged_in_client.post(url, {})
+        assert response.status_code == 200
+        assert 'La nota es obligatoria' in response.content.decode()
+
+        # Item should still exist (not deleted yet)
+        assert OrderItem.objects.filter(id=item.id).exists()
+
+    def test_delete_last_item_with_nota_auto_cancels_order(self, logged_in_client, organization, product):
+        """Delete last item + nota: should auto-cancel order and zero totals"""
+        from src.domain.models.inventory import Stock, Warehouse
+        from src.domain.models.sales import OrderItem
+        from decimal import Decimal
+
+        warehouse = Warehouse.objects.create(name="Principal", organization=organization)
+        Stock.objects.create(product=product, warehouse=warehouse, quantity=100, organization=organization)
+
+        order = Order.objects.create(
+            organization=organization,
+            customer_name="Auto Cancel Test",
+            status='DRAFT',
+            subtotal=Decimal('50.00'),
+            tax_amount=Decimal('9.00'),
+            total_amount=Decimal('59.00')
+        )
+        item = OrderItem.objects.create(
+            order=order,
+            product=product,
+            quantity=5,
+            price_at_order=Decimal('10.00'),
+            organization=organization
+        )
+
+        url = reverse('web:order-item-delete', kwargs={
+            'org_slug': organization.slug,
+            'order_id': order.id,
+            'item_id': item.id
+        })
+
+        # DELETE with nota
+        response = logged_in_client.post(url, {'nota': 'Cliente canceló la compra'})
+        assert response.status_code == 200
+
+        # Item should be deleted
+        assert not OrderItem.objects.filter(id=item.id).exists()
+
+        # Order should be auto-cancelled with nota
+        order.refresh_from_db()
+        assert order.status == 'CANCELLED'
+        assert order.nota == 'Cliente canceló la compra'
+        assert order.subtotal == Decimal('0.00')
+        assert order.tax_amount == Decimal('0.00')
+        assert order.total_amount == Decimal('0.00')
+
+    def test_delete_non_last_item_recalculates_totals(self, logged_in_client, organization, product):
+        """Delete one item (but not last): should recalculate totals, not auto-cancel"""
+        from src.domain.models.inventory import Stock, Warehouse
+        from src.domain.models.sales import OrderItem
+        from decimal import Decimal
+
+        warehouse = Warehouse.objects.create(name="Principal", organization=organization)
+        Stock.objects.create(product=product, warehouse=warehouse, quantity=100, organization=organization)
+
+        order = Order.objects.create(
+            organization=organization,
+            customer_name="Delete One of Many",
+            status='DRAFT',
+            subtotal=Decimal('100.00'),
+            tax_amount=Decimal('18.00'),
+            total_amount=Decimal('118.00')
+        )
+
+        # Create two items
+        item1 = OrderItem.objects.create(
+            order=order,
+            product=product,
+            quantity=5,
+            price_at_order=Decimal('10.00'),
+            organization=organization
+        )
+        item2 = OrderItem.objects.create(
+            order=order,
+            product=product,
+            quantity=5,
+            price_at_order=Decimal('10.00'),
+            organization=organization
+        )
+
+        url = reverse('web:order-item-delete', kwargs={
+            'org_slug': organization.slug,
+            'order_id': order.id,
+            'item_id': item1.id
+        })
+
+        # DELETE first item (second still remains)
+        response = logged_in_client.post(url, {})
+        assert response.status_code == 200
+
+        # First item deleted
+        assert not OrderItem.objects.filter(id=item1.id).exists()
+
+        # Second item still exists
+        assert OrderItem.objects.filter(id=item2.id).exists()
+
+        # Order should NOT be cancelled (has remaining items)
+        order.refresh_from_db()
+        assert order.status == 'DRAFT'  # Not cancelled
+        assert order.nota == ''  # No nota needed
+        # Recalculated: 1 item (qty=5, price=10) = 50 total_with_tax
+        assert order.total_amount == Decimal('50.00')
