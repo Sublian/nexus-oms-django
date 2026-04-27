@@ -52,7 +52,14 @@ Archivos objetivo: src/application/services/order_service.py, vista de cambio de
   - Signal: usa select_for_update para atomicidad
   - Bonus: fixed double-decrement bug (stock decremented 2x before)
 
-✅ Checkpoint Bloque 1: Una orden puede crearse, editarse en draft, pagarse (con método registrado), y cambiar de estado sin inconsistencias. El inventario se respeta. **COMPLETADO.**
+✅ Checkpoint Bloque 1: Una orden puede crearse, editarse en draft, pagarse (con método registrado), y cambiar de estado sin inconsistencias. El inventario se respeta. **COMPLETADO 100%.**
+
+**Funcionalidades adicionales implementadas:**
+- ✅ Edit inline de items con validación de stock (partial modal update)
+- ✅ Delete de items con auto-cancelación si orden queda vacía
+- ✅ Campo `nota` obligatorio al borrar último item (explicación de cambio)
+- ✅ Stock restoration automático en CANCELLED
+- ✅ 61 tests passing (83% → 91% coverage)
 
 🔔 BLOQUE 2: Activar el Sistema de Notificaciones (3-4 días)
 Objetivo: Darle vida al Strategy Pattern de notificaciones con un canal real (email) y conectarlo a los eventos de dominio.

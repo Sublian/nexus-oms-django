@@ -1,14 +1,29 @@
 # Plan de Mejoras — Nexus OMS
 
-> **Última revisión:** 2026-04-19  
-> **Cobertura actual:** 83%  
-> **Estado general:** Seguridad base implementada · Arquitectura multitenancy sólida · Preparación para producción en curso
+> **Última revisión:** 2026-04-26 (v2.0.0)  
+> **Cobertura actual:** 91% (61 tests)  
+> **Estado general:** Block 1 COMPLETADO · Order lifecycle + inventory management funcional · Próximo: Block 2 (Notificaciones)
+
+---
+
+## 🎯 HITO IMPORTANTE: Block 1 Completado (26 de Abril, 2026)
+
+**Resumen v2.0.0:**
+- ✅ Edit inline de items en órdenes (DRAFT/PENDING)
+- ✅ Delete de items con validación y auto-cancelación
+- ✅ Campo `nota` obligatorio al borrar último item
+- ✅ Partial modal updates (solo items+totales se refrescan)
+- ✅ Stock automation: decremento en creación, restauración en cancelación
+- ✅ 61 tests passing (83% → 91% coverage)
+- ✅ Todos bugs resueltos (double-decrement, modal vacío, transacciones)
+
+**Próximo:** Block 2 (Notificaciones — Email/Telegram/WhatsApp) en planificación.
 
 ---
 
 ## Resumen Ejecutivo
 
-El proyecto avanzó significativamente desde la primera revisión. Las prioridades críticas de seguridad (P1-01, P1-02, P1-03) quedaron resueltas en la iteración del 19 de abril. El foco actual es la estabilidad operacional (P2) y la calidad de código (P3).
+El proyecto alcanzó un hito importante con Block 1 completamente funcional y testeado. Las prioridades críticas de seguridad (P1-01, P1-02, P1-03) fueron resueltas en abril 19. Block 1 (Order lifecycle) completado el 26 de abril. El foco ahora es Block 2 (Notificaciones) y luego refinamientos de UI/UX.
 
 ---
 
@@ -33,6 +48,12 @@ El proyecto avanzó significativamente desde la primera revisión. Las prioridad
 | — | `seed_data` genera usuarios admin por organización + superuser global | 2026-04-25 | v1.6.0 |
 | — | Logout con `hx-boost="false"` para evitar que HTMX intercepte la navegación | 2026-04-25 | v1.6.0 |
 | — | Botón "Nuevo Pedido" unificado (`btn-tenant`, ícono SVG, texto) en dashboard y lista de pedidos | 2026-04-25 | v1.6.0 |
+| **Block 1** | Fix: double-decrement bug en stock (líneas 293-294 removidas) | 2026-04-26 | v2.0.0 |
+| **Block 1** | Feature: delivery_type + shipping_fee visible en modal de detalle | 2026-04-26 | v2.0.0 |
+| **Block 1** | Feature: Edit inline de items con validación de stock (partial update HTMX OOB) | 2026-04-26 | v2.0.0 |
+| **Block 1** | Feature: Delete de items con auto-cancelación si orden vacía (nota obligatoria) | 2026-04-26 | v2.0.0 |
+| **Block 1** | Tests: 53 → 61 passing (edit, delete, empty order scenarios) | 2026-04-26 | v2.0.0 |
+| **Block 1** | Migration: campo `nota` agregado al modelo Order | 2026-04-26 | v2.0.0 |
 
 ---
 

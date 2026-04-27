@@ -1,6 +1,6 @@
 ## [2.0.0] - 2026-04-26
 
-**🎯 Block 1 Complete: Core Order Lifecycle + Inventory Management**
+**🎯 Block 1 COMPLETE: Core Order Lifecycle + Inventory Management + Edge Cases**
 
 ### Hitos Alcanzados
 - **Deuda técnica resuelta:** Fixed double-decrement bug donde stock se restaba 2x al crear orden (decrement directo en view + signal). Ahora solo signal maneja stock.
