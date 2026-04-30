@@ -31,6 +31,12 @@ class Order(TenantModel):
     pdf_report = models.FileField(upload_to='orders/pdfs/', null=True, blank=True)
     nota = models.TextField(blank=True, default='', help_text='Nota de cambios en la orden (por qué se incrementó, decrementó o borró productos)')
     workflow_processed = models.BooleanField(default=False, help_text='Flag que indica si el flujo post-pago ya fue ejecutado')
+    workflow_status = models.CharField(
+        max_length=20,
+        choices=[('pending', 'Pendiente'), ('processing', 'Procesando'), ('completed', 'Completado'), ('failed', 'Fallido')],
+        default='pending',
+        help_text='Estado del workflow post-pago: pending | processing | completed | failed'
+    )
 
     def __str__(self):
         return f"Pedido {self.id} - {self.customer_name} ({self.organization.name})"

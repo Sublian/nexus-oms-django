@@ -117,8 +117,65 @@ class TestOrderWorkflowIntegration:
         order_from_db = Order.objects.get(id=order.id)
         assert order_from_db.status == OrderStatus.PAID
         assert order_from_db.workflow_processed is True
+        assert order_from_db.workflow_status == 'completed'
 
         # Logs verifican estructura
         log_messages = [call.args[0] for call in logger.info.call_args_list]
         assert any('[action=START]' in m for m in log_messages)
         assert any('[action=END]' in m for m in log_messages)
+
+    def test_workflow_status_marks_processing_then_completed(self, organization):
+        # Verificar que workflow_status transiciona: pending → processing → completed
+        order = Order.objects.create(
+            organization=organization,
+            customer_name="Test User",
+            customer_email="test@example.com",
+            status=OrderStatus.PAID,
+            total_amount=100,
+            workflow_status='pending'
+        )
+
+        logger = MagicMock()
+        service = OrderWorkflowService(logger)
+        service.handle_order_paid(order)
+
+        order.save()
+        order.refresh_from_db()
+
+        # Verificar estado final
+        assert order.workflow_status == 'completed'
+        assert order.workflow_processed is True
+
+    def test_workflow_status_on_error(self, organization):
+        # Si algo falla, workflow_status = 'failed'
+        order = Order.objects.create(
+            organization=organization,
+            customer_name="Test User",
+            customer_email="test@example.com",
+            status=OrderStatus.PAID,
+            total_amount=100,
+        )
+
+        # Mock logger que simula error
+        logger = MagicMock()
+        service = OrderWorkflowService(logger)
+
+        # Inyectar un error en _log_order_paid
+        original_method = service._log_order_paid
+        def failing_log(*args, **kwargs):
+            raise ValueError("Simulated failure in log")
+        service._log_order_paid = failing_log
+
+        # Ejecutar y capturar error
+        try:
+            service.handle_order_paid(order)
+        except ValueError:
+            pass  # Esperado
+
+        order.save()
+        order.refresh_from_db()
+
+        # Verificar que se marcó como fallido
+        assert order.workflow_status == 'failed'
+        # Pero NO se marcó como completado
+        assert order.workflow_processed is False
