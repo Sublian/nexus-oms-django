@@ -11,6 +11,7 @@ from src.domain.models import (
     Payment, Client
 )
 from src.domain.models.users import CustomUser, UserRole
+from src.domain.models.order_constants import OrderStatus
 from src.infrastructure.multitenancy.thread_local import (
     set_current_organization, clear_current_organization
 )
@@ -249,7 +250,7 @@ class Command(BaseCommand):
                 client=client,
                 customer_name=client.name,
                 customer_email=client.email,
-                status=random.choice(['PAID', 'DELIVERED', 'SHIPPED']),
+                status=random.choice([OrderStatus.PAID, OrderStatus.DELIVERED, OrderStatus.SHIPPED]),
                 delivery_type=delivery_type,
                 delivery_address=delivery_address,
                 shipping_fee=order_shipping,

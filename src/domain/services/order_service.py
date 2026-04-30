@@ -7,9 +7,10 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 
 from ..models import (
-    Order, OrderItem, Stock, Product, OrderReturn, 
+    Order, OrderItem, Stock, Product, OrderReturn,
     Payment, PurchaseOrderItem, ExchangeRate
 )
+from ..models.order_constants import OrderStatus
 from ...infrastructure.services.apimigo import APIMigoClient
 from ..tasks.reporting_tasks import generate_order_pdf_task
 
@@ -120,7 +121,7 @@ class OrderService:
             organization=organization,
             customer_name=customer_data['name'],
             customer_email=customer_data['email'],
-            status='PENDING'
+            status=OrderStatus.PENDING
         )
 
         running_subtotal = Decimal('0.00')

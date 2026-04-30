@@ -11,6 +11,7 @@ from django.db.models import Sum
 from django.db.models.functions import Coalesce
 
 from src.domain.models import Order, Product, Organization, SalesReport, OrderReturn
+from src.domain.models.order_constants import OrderStatus
 from src.domain.services import OrderService
 from src.domain.tasks import generate_sales_report_task
 from src.infrastructure.multitenancy.thread_local import set_current_organization
