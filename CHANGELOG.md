@@ -1,5 +1,49 @@
 # CHANGELOG
 
+## [2.3.0-WIP] - 2026-04-29 (Fase 2 Operabilidad) 🔜 EN PROGRESO
+
+### SPRINT 1 ✅ — Configuración Tenant-Aware + Provider Architecture
+- `CompanyInvoiceConfig` model: endpoint, token, enabled flag por tenant
+- `InvoiceProvider` interface (ABC): contrato para todos los proveedores
+- `MockNubefactClient`: implementación mock para desarrollo sin credenciales
+- Factory pattern: `get_invoice_provider(config)` resuelve dinámicamente
+- `CreateInvoiceUseCase` actualizado: resolve tenant → config → provider → execute
+- Order fields: `invoice_status` (pending|issued|failed) + `invoice_external_id`
+- Tests: 5 nuevos tests para config resolution, provider injection, mock ID generation
+- Total tests: 85/85 pass ✅
+
+### BLOQUE 1 ✅ — Resiliencia del Workflow
+- `Order.workflow_status` field (pending | processing | completed | failed)
+- Try/except en `handle_order_paid()` — captura errores sin romper
+- Estados: procesando ANTES de ejecutar, completado SOLO si éxito
+- Fallos marcados como 'failed' para visibilidad + retry manual
+- Adición 2 tests: workflow_status transitions + error handling
+
+### BLOQUE 2 ✅ — Aislamiento del Side Effect
+- `CreateInvoiceUseCase` en `src/application/usecases/`
+- Desacoplamiento total: Workflow → UseCase → Nubefact (Fase 2)
+- Inyectable para testing, preparado para cliente externo
+- Sin cambios en servicio central si cambia implementación
+
+### BLOQUE 5 ✅ — Trazabilidad Real (Auditoría Persistente)
+- `OrderWorkflowLog` modelo: action, status, timestamp, metadata
+- `_audit_log()` registra cada evento en DB (no solo logs efímeros)
+- Hechos históricos reconstruibles para compliance + debugging
+- No rompe workflow si auditoría falla (graceful degradation)
+
+### PENDIENTE (Sprints 2-4)
+- **SPRINT 2**: Celery integration + async _trigger_invoicing()
+- **SPRINT 3**: Retry strategy + exception hierarchy (NubefactTemporaryError vs NubefactPermanentError)
+- **SPRINT 4**: NubefactClient real + production payload builder
+- Ver: `docs/ROADMAP_FASE2.md` para arquitectura unificada y orden de implementación
+
+### Status
+- Tests: 85/85 pass ✅ (incluye Sprint 1 tests)
+- Migrations: 0006 (workflow_status), 0007 (OrderWorkflowLog), 0008 (CompanyInvoiceConfig + Order fields)
+- Sistema: Resiliente ✅ | Aislado ✅ | Observable ✅ | Tenant-aware ✅ | Async 🔜 (Sprint 2)
+
+---
+
 ## [2.2.0] - 2026-04-29 (Fase 1.5 Hardening) ✅ VALIDADO
 
 ### Validación final (guia2.md) — 4 preguntas críticas

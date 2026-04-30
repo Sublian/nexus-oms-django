@@ -11,6 +11,8 @@ def _make_order(status, workflow_processed=False):
     order.id = 42
     order.status = status
     order.workflow_processed = workflow_processed
+    order.organization = MagicMock()
+    order.organization.id = 1
     return order
 
 
@@ -18,7 +20,8 @@ class TestOrderWorkflowService:
 
     def setup_method(self):
         self.logger = MagicMock()
-        self.service = OrderWorkflowService(self.logger)
+        self.mock_usecase = MagicMock()
+        self.service = OrderWorkflowService(self.logger, self.mock_usecase)
 
     def test_happy_path_logs_start_action_end(self):
         # Caso 1 (guia.md): flujo correcto emite START, ACTION_EXECUTED, INVOICING_TRIGGERED, END

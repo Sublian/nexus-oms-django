@@ -37,6 +37,18 @@ class Order(TenantModel):
         default='pending',
         help_text='Estado del workflow post-pago: pending | processing | completed | failed'
     )
+    invoice_status = models.CharField(
+        max_length=20,
+        choices=[('pending', 'Pendiente'), ('issued', 'Emitida'), ('failed', 'Fallida')],
+        default='pending',
+        help_text='Estado de facturación: pending | issued | failed'
+    )
+    invoice_external_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text='ID externo de factura de Nubefact o Mock'
+    )
 
     def __str__(self):
         return f"Pedido {self.id} - {self.customer_name} ({self.organization.name})"

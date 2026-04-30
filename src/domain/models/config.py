@@ -44,3 +44,31 @@ class CashReconciliation(TenantModel):
     def __str__(self):
         return f"Arqueo {self.organization.name} - {self.closed_at.date()}"
 
+
+class CompanyInvoiceConfig(TenantModel):
+    # Configuración de facturación Nubefact por tenant
+    # Cada organización tiene su endpoint, token y credenciales aisladas
+    api_base_url = models.URLField(
+        help_text="URL base de API Nubefact (ej: https://api.nubefact.com/api)"
+    )
+    endpoint_url = models.CharField(
+        max_length=255,
+        help_text="Endpoint específico (ej: invoices, documents)"
+    )
+    token = models.CharField(
+        max_length=255,
+        help_text="Token/API key para autenticación"
+    )
+    enabled = models.BooleanField(
+        default=True,
+        help_text="Si está deshabilitado, usa MockNubefactClient"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuración de Facturación"
+        verbose_name_plural = "Configuraciones de Facturación"
+
+    def __str__(self):
+        return f"Config Facturación - {self.organization.name}"

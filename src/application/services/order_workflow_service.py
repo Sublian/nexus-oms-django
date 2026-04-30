@@ -12,8 +12,9 @@ from ..usecases.create_invoice import CreateInvoiceUseCase
 
 class OrderWorkflowService:
 
-    def __init__(self, logger):
+    def __init__(self, logger, create_invoice_usecase=None):
         self.logger = logger
+        self.create_invoice_usecase = create_invoice_usecase
 
     def handle_order_paid(self, order):
         # 1. Guardia: solo procesar órdenes en estado PAID
@@ -69,7 +70,8 @@ class OrderWorkflowService:
         # CreateInvoiceUseCase es el punto de inyección para Fase 2.
         self.logger.info(f"[OrderWorkflow][order_id={order.id}][action=INVOICING_TRIGGERED][status=pending]")
         self._audit_log(order, 'invoicing_triggered', order.workflow_status)
-        usecase = CreateInvoiceUseCase()
+        # Usar usecase inyectable (para tests) o crear uno nuevo (producción)
+        usecase = self.create_invoice_usecase or CreateInvoiceUseCase()
         usecase.execute(order)
 
     def _audit_log(self, order, action, status, metadata=None):
