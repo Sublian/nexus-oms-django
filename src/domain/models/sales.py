@@ -3,30 +3,12 @@
 from django.db import models
 
 from src.infrastructure.models import TenantModel
+from .order_constants import OrderStatus
 
 
 class Order(TenantModel):
-    STATUS_CHOICES = [
-        ('DRAFT',      'Borrador'),
-        ('PENDING',    'Pendiente'),
-        ('COURTESY',   'Cortesía'),
-        ('PAID',       'Pagado'),
-        ('SHIPPED',    'Enviado'),
-        ('DELIVERED',  'Entregado'),
-        ('COMPLETED',  'Completado'),
-        ('RETURNED',   'Retornado'),
-        ('CANCELLED',  'Cancelado'),
-    ]
-
-    # Valid forward transitions. Terminal states (COMPLETED, RETURNED, CANCELLED) have no entry.
-    VALID_TRANSITIONS = {
-        'DRAFT':     ['PENDING', 'COURTESY', 'CANCELLED'],
-        'PENDING':   ['PAID', 'CANCELLED'],
-        'COURTESY':  ['SHIPPED', 'DELIVERED', 'CANCELLED'],
-        'PAID':      ['SHIPPED', 'CANCELLED'],
-        'SHIPPED':   ['DELIVERED', 'CANCELLED'],
-        'DELIVERED': ['COMPLETED', 'RETURNED'],
-    }
+    STATUS_CHOICES = OrderStatus.CHOICES
+    VALID_TRANSITIONS = OrderStatus.VALID_TRANSITIONS
 
     class DeliveryType(models.TextChoices):
         PICKUP   = 'PICKUP',   'Retiro en Tienda'
@@ -35,7 +17,7 @@ class Order(TenantModel):
     client = models.ForeignKey('domain.Client', on_delete=models.PROTECT, related_name='orders', null=True)
     customer_name = models.CharField(max_length=255)
     customer_email = models.EmailField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DRAFT')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=OrderStatus.DRAFT)
     delivery_type = models.CharField(max_length=10, choices=DeliveryType.choices, default='PICKUP')
     delivery_address = models.TextField(blank=True, default='')
     shipping_fee = models.DecimalField(max_digits=8, decimal_places=2, default=0)
@@ -48,6 +30,7 @@ class Order(TenantModel):
 
     pdf_report = models.FileField(upload_to='orders/pdfs/', null=True, blank=True)
     nota = models.TextField(blank=True, default='', help_text='Nota de cambios en la orden (por qué se incrementó, decrementó o borró productos)')
+    workflow_processed = models.BooleanField(default=False, help_text='Flag que indica si el flujo post-pago ya fue ejecutado')
 
     def __str__(self):
         return f"Pedido {self.id} - {self.customer_name} ({self.organization.name})"

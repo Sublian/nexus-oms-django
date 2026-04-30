@@ -18,9 +18,12 @@ from decimal import Decimal
 
 from src.domain.models import Order, OrderItem, Organization, Payment, Product, Client, Stock, StockMovement, Category, Warehouse
 from src.domain.models.finance import ExchangeRate
+from src.domain.models.order_constants import OrderStatus
 from src.domain.services.finance_service import ExchangeService
 from src.domain.tasks.reporting_tasks import generate_order_pdf_task
 from src.infrastructure.services.apimigo import APIMigoClient
+from src.application.services.order_workflow_service import OrderWorkflowService
+from src.infrastructure.logger import logger as workflow_logger
 
 
 def _modal_success(request, order, tenant):
@@ -268,7 +271,7 @@ def order_create_view(request, org_slug):
                 client=client,
                 customer_name=client.name,
                 customer_email=client.email or "sin@correo.com",
-                status='DRAFT',
+                status=OrderStatus.DRAFT,
                 delivery_type=delivery_type,
                 delivery_address=delivery_address if delivery_type == 'DELIVERY' else '',
                 shipping_fee=shipping_fee,
@@ -482,9 +485,9 @@ def order_cancel_view(request, org_slug, order_id):
     tenant = get_object_or_404(Organization, slug=org_slug)
     order = get_object_or_404(Order, id=order_id, organization=tenant)
 
-    if 'CANCELLED' in Order.VALID_TRANSITIONS.get(order.status, []):
+    if OrderStatus.CANCELLED in Order.VALID_TRANSITIONS.get(order.status, []):
         _restore_order_stock(order)
-        order.status = 'CANCELLED'
+        order.status = OrderStatus.CANCELLED
         order.save()
 
     return render(request, 'orders/partials/order_row.html', {'order': order, 'tenant': tenant})
@@ -494,7 +497,7 @@ def order_pay_modal_view(request, org_slug, order_id):
     tenant = get_object_or_404(Organization, slug=org_slug)
     order = get_object_or_404(Order, id=order_id, organization=tenant)
 
-    if 'PAID' not in Order.VALID_TRANSITIONS.get(order.status, []):
+    if OrderStatus.PAID not in Order.VALID_TRANSITIONS.get(order.status, []):
         return HttpResponse('Transición no permitida', status=400)
 
     if request.method == 'POST':
@@ -522,7 +525,14 @@ def order_pay_modal_view(request, org_slug, order_id):
                 'payment_date': timezone.now(),
             },
         )
-        order.status = 'PAID'
+        order.status = OrderStatus.PAID
+
+        # Orquestar flujo post-pago ANTES de persistir.
+        # Regla: workflow siempre después del cambio de estado, antes del save().
+        # No mover este bloque — el orden es intencional.
+        workflow = OrderWorkflowService(workflow_logger)
+        workflow.handle_order_paid(order)
+
         order.save()
         return _modal_success(request, order, tenant)
 
@@ -542,7 +552,7 @@ def order_status_modal_view(request, org_slug, order_id):
         valid_next = Order.VALID_TRANSITIONS.get(order.status, [])
         if new_status not in valid_next:
             return HttpResponse('Transición no válida', status=400)
-        if new_status == 'CANCELLED':
+        if new_status == OrderStatus.CANCELLED:
             _restore_order_stock(order)
         order.status = new_status
         order.save()
@@ -1020,7 +1030,7 @@ def order_change_status_view(request, org_slug, order_id):
     if new_status not in valid_next:
         return HttpResponse(status=400)
 
-    if new_status == 'CANCELLED':
+    if new_status == OrderStatus.CANCELLED:
         _restore_order_stock(order)
 
     order.status = new_status
@@ -1034,7 +1044,7 @@ def order_item_edit_view(request, org_slug, order_id, item_id):
     order = get_object_or_404(Order, id=order_id, organization=tenant)
     item = get_object_or_404(OrderItem, id=item_id, order=order)
 
-    if order.status not in ('DRAFT', 'PENDING'):
+    if order.status not in (OrderStatus.DRAFT, OrderStatus.PENDING):
         return HttpResponse('Edición no permitida en este estado', status=400)
 
     if request.method == 'POST':
@@ -1139,7 +1149,7 @@ def order_item_delete_view(request, org_slug, order_id, item_id):
     order = get_object_or_404(Order, id=order_id, organization=tenant)
     item = get_object_or_404(OrderItem, id=item_id, order=order)
 
-    if order.status not in ('DRAFT', 'PENDING'):
+    if order.status not in (OrderStatus.DRAFT, OrderStatus.PENDING):
         return HttpResponse('Eliminación no permitida en este estado', status=400)
 
     # Check if this is the last item BEFORE deleting
@@ -1182,7 +1192,7 @@ def order_item_delete_view(request, org_slug, order_id, item_id):
     if is_last_item:
         # Auto-cancel and clear totals
         nota = request.POST.get('nota', '').strip()
-        order.status = 'CANCELLED'
+        order.status = OrderStatus.CANCELLED
         order.nota = nota
         order.subtotal = Decimal('0.00')
         order.tax_amount = Decimal('0.00')

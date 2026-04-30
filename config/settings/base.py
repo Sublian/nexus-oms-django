@@ -146,6 +146,22 @@ SIMPLE_JWT = {
     'USER_ID_CLAIM': 'user_id',
 }
 
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "loggers": {
+        "order_workflow": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
+    },
+}
+
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Nexus OMS API',
     'DESCRIPTION': 'Sistema de Gestión de Órdenes Multitenant',
