@@ -1,4 +1,7 @@
 ﻿# Sprint 2 — Diagnóstico de Riesgos y Plan de Acción
+## ✅ SPRINT 2 FINALIZADO — 17 Mayo 2026
+> Todos los pasos implementados, testeados y commiteados. Ver Sprint 3 en guia6.md + guia7.md.
+> Hallazgo crítico post-Sprint 2: Nubefact NO tiene webhooks → arquitectura de reconciliación eventual en Sprint 3.
 
 ## Tabla de Riesgos (actualizada 17 Mayo 2026 — Sprint 2 COMPLETO: Pasos 1-5)
 

@@ -40,20 +40,33 @@ class Order(TenantModel):
     invoice_status = models.CharField(
         max_length=20,
         choices=[
-            ('pending',    'Pendiente'),
-            ('processing', 'Procesando'),
-            ('issued',     'Emitida'),
-            ('retrying',   'Reintentando'),
-            ('failed',     'Fallida'),
+            ('pending',         'Pendiente'),
+            ('queued',          'En cola de emision'),
+            ('processing',      'Procesando emision'),
+            ('submitted',       'Enviado a Nubefact'),   # hash recibido, esperando SUNAT
+            ('sync_pending',    'Esperando confirmacion SUNAT'),
+            ('sync_processing', 'Consultando SUNAT'),
+            ('accepted',        'Aceptado por SUNAT'),
+            ('observed',        'Observado por SUNAT'),
+            ('rejected',        'Rechazado por SUNAT'),
+            ('retrying',        'Reintentando'),
+            ('failed',          'Fallo permanente'),
+            ('cancelled',       'Cancelada'),
         ],
         default='pending',
-        help_text='Estado de facturación: pending | processing | issued | retrying | failed'
+        help_text='Estado del ciclo de facturacion: emision → Nubefact → SUNAT reconciliacion'
     )
     invoice_external_id = models.CharField(
         max_length=255,
         blank=True,
         null=True,
-        help_text='ID externo de factura de Nubefact o Mock'
+        help_text='ID externo de factura: serie-numero (ej. B001-42)'
+    )
+    invoice_hash = models.CharField(
+        max_length=512,
+        blank=True,
+        null=True,
+        help_text='Hash CDR recibido de Nubefact — confirma que Nubefact acepto el comprobante'
     )
     invoice_attempts = models.IntegerField(
         default=0,

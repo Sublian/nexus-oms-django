@@ -5,6 +5,7 @@ from .inventory import Product, Warehouse, Stock, Supplier, PurchaseOrder, Purch
 from .config import TaxConfiguration, SalesReport, CashReconciliation, CompanyInvoiceConfig
 from .finance import ExchangeRate
 from .workflow_audit import OrderWorkflowLog
+from .invoicing import InvoiceSyncQueue
 
 __all__ = [
     'Organization', 'Client', 'CustomUser', 'UserRole',
@@ -13,4 +14,5 @@ __all__ = [
     'Order', 'OrderItem', 'OrderReturn', 'Payment',
     'TaxConfiguration', 'SalesReport', 'CashReconciliation', 'ExchangeRate',
     'OrderWorkflowLog', 'CompanyInvoiceConfig',
+    'InvoiceSyncQueue',
 ]
