@@ -1,22 +1,19 @@
-# Interfaz abstracta para proveedores de facturación
-# Implementaciones concretas: MockNubefactClient, NubefactClient (Fase 2.5)
-
 from abc import ABC, abstractmethod
 
 
 class InvoiceProvider(ABC):
-    # Contrato que todo proveedor debe cumplir
+    """
+    Contrato para proveedores de facturación electronica.
+
+    Contrato de excepciones:
+      - NubefactTemporaryError: timeout, 502, 503 — el caller puede reintentar
+      - NubefactPermanentError: 400, auth error, payload invalido — no reintentar
+      - Exito: retorna dict {'status': 'issued', 'external_id': str, 'error': None}
+    """
 
     def __init__(self, config):
-        # config: CompanyInvoiceConfig (tenant-aware)
         self.config = config
 
     @abstractmethod
-    def create_invoice(self, order):
-        # Crear factura. Retorna dict con:
-        # {
-        #   'status': 'issued' | 'failed',
-        #   'external_id': 'MOCK-xxx' | 'NFE-xxx',
-        #   'error': None | 'error message'
-        # }
+    def create_invoice(self, order) -> dict:
         pass

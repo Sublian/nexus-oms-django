@@ -1,6 +1,6 @@
 ﻿# Sprint 2 — Diagnóstico de Riesgos y Plan de Acción
 
-## Tabla de Riesgos (actualizada 17 Mayo 2026 — Pasos 1, 2 y 3 completados)
+## Tabla de Riesgos (actualizada 17 Mayo 2026 — Pasos 1-4 completados)
 
 | ID | Riesgo | Descripción | Estado actual | Solución |
 |----|--------|-------------|---------------|----------|
@@ -73,7 +73,7 @@ Celery Worker (async)
 ✅ Paso 1 — Campos en modelo     migration 0009 (invoice_attempts, invoice_last_error, estados ampliados)
 ✅ Paso 2 — Lock + idempotencia  _claim_workflow_lock() en OrderWorkflowService + guardia en CreateInvoiceUseCase
 ✅ Paso 3 — Celery task          create_invoice_task: lock, idempotencia, retry, estados processing/retrying/failed
-🔜 Paso 4 — Exception hierarchy  NubefactTemporaryError vs NubefactPermanentError (Sprint 3)
+✅ Paso 4 — Exception hierarchy  NubefactPermanentError en UseCase (DoesNotExist) + contrato en InvoiceProvider ABC
 🔜 Paso 5 — NubefactClient real  HTTP real + idempotency_key + factory robusta (Sprint 4)
 ```
 

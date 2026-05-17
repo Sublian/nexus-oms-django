@@ -113,3 +113,27 @@ class TestCreateInvoiceTask:
         order.refresh_from_db()
         assert order.invoice_status == 'failed'
         assert 'unexpected' in order.invoice_last_error
+
+    def test_permanent_error_marks_failed_without_retry(self, organization):
+        # NubefactPermanentError: el task marca failed y retorna — no re-raise
+        from src.domain.exceptions import NubefactPermanentError
+        order = _make_order(organization)
+
+        with patch.object(CreateInvoiceUseCase, 'execute', side_effect=NubefactPermanentError("bad payload")):
+            create_invoice_task.delay(order.id)  # no debe raise
+
+        order.refresh_from_db()
+        assert order.invoice_status == 'failed'
+        assert order.invoice_attempts == 1
+        assert 'bad payload' in order.invoice_last_error
+
+    def test_no_config_raises_permanent_error_and_marks_failed(self, organization):
+        # Paso 4: UseCase ahora levanta NubefactPermanentError — task lo captura
+        order = _make_order(organization)  # sin CompanyInvoiceConfig
+
+        create_invoice_task.delay(order.id)
+
+        order.refresh_from_db()
+        assert order.invoice_status == 'failed'
+        assert order.invoice_attempts == 1
+        assert 'CompanyInvoiceConfig not found' in order.invoice_last_error
