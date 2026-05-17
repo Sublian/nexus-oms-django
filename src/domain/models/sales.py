@@ -39,15 +39,30 @@ class Order(TenantModel):
     )
     invoice_status = models.CharField(
         max_length=20,
-        choices=[('pending', 'Pendiente'), ('issued', 'Emitida'), ('failed', 'Fallida')],
+        choices=[
+            ('pending',    'Pendiente'),
+            ('processing', 'Procesando'),
+            ('issued',     'Emitida'),
+            ('retrying',   'Reintentando'),
+            ('failed',     'Fallida'),
+        ],
         default='pending',
-        help_text='Estado de facturación: pending | issued | failed'
+        help_text='Estado de facturación: pending | processing | issued | retrying | failed'
     )
     invoice_external_id = models.CharField(
         max_length=255,
         blank=True,
         null=True,
         help_text='ID externo de factura de Nubefact o Mock'
+    )
+    invoice_attempts = models.IntegerField(
+        default=0,
+        help_text='Número de intentos de facturación realizados'
+    )
+    invoice_last_error = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Último error de facturación (para debugging y retry manual)'
     )
 
     def __str__(self):
