@@ -121,3 +121,20 @@ class TestCreateInvoiceUseCase(TestCase):
         assert result1['external_id'] != result2['external_id']
         assert result1['external_id'].startswith('MOCK-')
         assert result2['external_id'].startswith('MOCK-')
+
+    def test_idempotency_guard_skips_if_already_issued(self):
+        # Guardia de idempotencia: si invoice_external_id ya existe, no crear factura nueva
+        self.order.invoice_status = 'issued'
+        self.order.invoice_external_id = 'MOCK-EXISTING'
+        self.order.save()
+
+        usecase = CreateInvoiceUseCase()
+        result = usecase.execute(self.order)
+
+        assert result['status'] == 'issued'
+        assert result['external_id'] == 'MOCK-EXISTING'
+        assert result['error'] is None
+
+        # Verificar que el external_id en DB no cambio
+        self.order.refresh_from_db()
+        assert self.order.invoice_external_id == 'MOCK-EXISTING'

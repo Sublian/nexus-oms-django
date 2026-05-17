@@ -1,12 +1,12 @@
-# Sprint 2 — Diagnóstico de Riesgos y Plan de Acción
+﻿# Sprint 2 — Diagnóstico de Riesgos y Plan de Acción
 
-## Tabla de Riesgos (actualizada 17 Mayo 2026)
+## Tabla de Riesgos (actualizada 17 Mayo 2026 — Paso 2 completado)
 
 | ID | Riesgo | Descripción | Estado actual | Solución |
 |----|--------|-------------|---------------|----------|
 | R1 | **Todo síncrono** | `_trigger_invoicing` bloquea el HTTP request completo | ❌ `handle_order_paid` se llama en la view, sin Celery | Mover a `create_invoice_task.delay(order.id)` en Sprint 2 |
-| R2 | **Race condition** | 2 requests simultáneos pasan el check `workflow_processed` sin lock | ❌ No hay `select_for_update()` en ningún lado del flujo | `select_for_update()` al leer order antes del check de idempotencia |
-| R3 | **Duplicación por retry** | `CreateInvoiceUseCase` no verifica `invoice_external_id` antes de ejecutar | ❌ Cero guardia — cada llamada genera factura nueva | Guardia en UseCase: `if order.invoice_external_id: return` |
+| R2 | **Race condition** | 2 requests simultáneos pasan el check `workflow_processed` sin lock | ✅ RESUELTO — `_claim_workflow_lock()` con `select_for_update()` en `OrderWorkflowService` | `_claim_workflow_lock`: atomic block + lock DB + sync in-memory object |
+| R3 | **Duplicación por retry** | `CreateInvoiceUseCase` no verifica `invoice_external_id` antes de ejecutar | ✅ RESUELTO — guardia al inicio de `execute()`: `if order.invoice_external_id: return` | Retorna el `external_id` existente sin crear factura nueva |
 | R4 | **Sin idempotency key** | `MockNubefactClient` genera UUID nuevo en cada llamada | ❌ `MOCK-{uuid4()[:8]}` siempre distinto — duplicación silenciosa | `idempotency_key = f"ORDER-{order.id}"` en el payload |
 | R5 | **Campos faltantes en Order** | Sin `invoice_attempts` ni `invoice_last_error`, no hay trazabilidad de fallos | ✅ RESUELTO — migration 0009 agrega ambos campos + estados `processing`/`retrying` | Ver migration 0009 |
 | R6 | **Factory débil** | `enabled=True` y `enabled=False` devuelven el mismo Mock — lógica ambigua | ⚠️ Funcional hoy, riesgo cuando llegue NubefactClient real | Reemplazar `enabled` por `provider_type = "nubefact" \| "mock"` en Sprint 4 |
@@ -30,16 +30,17 @@ invoice_last_error   TextField      null=True  ← NUEVO
 
 ---
 
-## Flujo actual (SÍNCRONO — pre Sprint 2)
+## Flujo actual (SÍNCRONO — post Paso 2: con lock + idempotencia)
 
 ```
 HTTP Request
   │
   ├─ order.status = PAID  (en memoria)
   ├─ OrderWorkflowService.handle_order_paid(order)  ← BLOQUEA HTTP
-  │    ├─ check workflow_processed  ← SIN lock DB  (R2)
+  │    ├─ fast-path check workflow_processed (memoria)
+  │    ├─ _claim_workflow_lock()  ← select_for_update (R2 resuelto)
   │    ├─ _trigger_invoicing(order)
-  │    │    └─ CreateInvoiceUseCase.execute()  ← SYNC, sin guardia  (R3)
+  │    │    └─ CreateInvoiceUseCase.execute()  ← guardia invoice_external_id (R3 resuelto)
   │    │         └─ order.save()  ← SAVE #1  (R7)
   │    └─ order.workflow_processed = True
   └─ order.save()  ← SAVE #2
@@ -70,7 +71,7 @@ Celery Worker (async)
 
 ```
 ✅ Paso 1 — Campos en modelo     migration 0009 (invoice_attempts, invoice_last_error, estados ampliados)
-🔜 Paso 2 — Lock + idempotencia  select_for_update() en workflow + guardia en UseCase
+✅ Paso 2 — Lock + idempotencia  _claim_workflow_lock() en OrderWorkflowService + guardia en CreateInvoiceUseCase
 🔜 Paso 3 — Celery task          create_invoice_task con retry inteligente
 🔜 Paso 4 — Exception hierarchy  NubefactTemporaryError vs NubefactPermanentError (Sprint 3)
 🔜 Paso 5 — NubefactClient real  HTTP real + idempotency_key + factory robusta (Sprint 4)

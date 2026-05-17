@@ -15,6 +15,14 @@ class CreateInvoiceUseCase:
         self.provider = provider
 
     def execute(self, order):
+        # Idempotencia: si ya existe un external_id, la factura fue emitida — no duplicar
+        if order.invoice_external_id:
+            return {
+                'status': order.invoice_status,
+                'external_id': order.invoice_external_id,
+                'error': None,
+            }
+
         # Si provider está inyectado, usarlo directamente (tests unitarios)
         if self.provider is not None:
             result = self.provider.create_invoice(order)
