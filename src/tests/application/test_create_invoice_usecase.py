@@ -1,4 +1,4 @@
-import pytest
+﻿import pytest
 from django.test import TestCase
 from src.domain.models import Order, Organization, CompanyInvoiceConfig
 from src.domain.exceptions import NubefactPermanentError
@@ -71,13 +71,14 @@ class TestCreateInvoiceUseCase(TestCase):
         assert result['status'] == 'issued'
         assert len(result['external_id']) > 5
 
-    def test_provider_resolves_dynamically_by_enabled(self):
+    def test_provider_resolves_by_provider_type(self):
+        # provider_type='mock' (default) -> MockNubefactClient
         config = CompanyInvoiceConfig.objects.create(
             organization=self.org,
             api_base_url="https://api.nubefact.test",
             endpoint_url="invoices",
             token="test-token",
-            enabled=False
+            provider_type='mock'
         )
 
         from src.application.providers.factory import get_invoice_provider

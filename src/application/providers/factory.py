@@ -1,20 +1,15 @@
-# Factory para resolver el provider dinámico por tenant
-# Punto crítico: evitar contaminación entre tenants
-
 from .mock_nubefact_client import MockNubefactClient
 
 
 def get_invoice_provider(config):
-    # config: CompanyInvoiceConfig (tenant-aware)
-    # Si enabled=False, siempre Mock (desarrollo)
-    # Si enabled=True e implementamos NubefactClient en Fase 2.5, usaremos ese
+    """
+    Resuelve el provider de facturacion para un tenant dado su config.
 
-    if not config.enabled:
-        return MockNubefactClient(config)
+    provider_type='nubefact' -> NubefactClient (HTTP real, produccion)
+    provider_type='mock'     -> MockNubefactClient (sin HTTP, desarrollo/tests)
+    """
+    if config.provider_type == 'nubefact':
+        from .nubefact_client import NubefactClient
+        return NubefactClient(config)
 
-    # Fase 2.5: Aquí iría NubefactClient real
-    # from .nubefact_client import NubefactClient
-    # return NubefactClient(config)
-
-    # Por ahora, usar Mock incluso con enabled=True hasta tener NubefactClient
     return MockNubefactClient(config)

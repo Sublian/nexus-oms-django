@@ -63,6 +63,12 @@ class CompanyInvoiceConfig(TenantModel):
         default=True,
         help_text="Si está deshabilitado, usa MockNubefactClient"
     )
+    provider_type = models.CharField(
+        max_length=20,
+        choices=[('mock', 'Mock (desarrollo)'), ('nubefact', 'Nubefact (producción)')],
+        default='mock',
+        help_text="Proveedor activo: mock (desarrollo) | nubefact (producción)"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

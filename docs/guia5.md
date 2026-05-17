@@ -1,6 +1,6 @@
 ﻿# Sprint 2 — Diagnóstico de Riesgos y Plan de Acción
 
-## Tabla de Riesgos (actualizada 17 Mayo 2026 — Pasos 1-4 completados)
+## Tabla de Riesgos (actualizada 17 Mayo 2026 — Sprint 2 COMPLETO: Pasos 1-5)
 
 | ID | Riesgo | Descripción | Estado actual | Solución |
 |----|--------|-------------|---------------|----------|
@@ -9,7 +9,7 @@
 | R3 | **Duplicación por retry** | `CreateInvoiceUseCase` no verifica `invoice_external_id` antes de ejecutar | ✅ RESUELTO — guardia al inicio de `execute()`: `if order.invoice_external_id: return` | Retorna el `external_id` existente sin crear factura nueva |
 | R4 | **Sin idempotency key** | `MockNubefactClient` genera UUID nuevo en cada llamada | ❌ `MOCK-{uuid4()[:8]}` siempre distinto — duplicación silenciosa | `idempotency_key = f"ORDER-{order.id}"` en el payload |
 | R5 | **Campos faltantes en Order** | Sin `invoice_attempts` ni `invoice_last_error`, no hay trazabilidad de fallos | ✅ RESUELTO — migration 0009 agrega ambos campos + estados `processing`/`retrying` | Ver migration 0009 |
-| R6 | **Factory débil** | `enabled=True` y `enabled=False` devuelven el mismo Mock — lógica ambigua | ⚠️ Funcional hoy, riesgo cuando llegue NubefactClient real | Reemplazar `enabled` por `provider_type = "nubefact" \| "mock"` en Sprint 4 |
+| R6 | **Factory débil** | `enabled=True` y `enabled=False` devuelven el mismo Mock — lógica ambigua | ✅ RESUELTO — `provider_type = "mock" \| "nubefact"` en `CompanyInvoiceConfig` + factory actualizada |
 | R7 | **Double save** | `order.save()` ocurre dentro del UseCase (línea 52) Y en la view (línea 536) | ⚠️ No rompe nada hoy porque salvan campos distintos, pero es frágil | Consolidar: UseCase solo modifica campos invoice_*, view salva todo al final |
 
 ---
@@ -74,7 +74,7 @@ Celery Worker (async)
 ✅ Paso 2 — Lock + idempotencia  _claim_workflow_lock() en OrderWorkflowService + guardia en CreateInvoiceUseCase
 ✅ Paso 3 — Celery task          create_invoice_task: lock, idempotencia, retry, estados processing/retrying/failed
 ✅ Paso 4 — Exception hierarchy  NubefactPermanentError en UseCase (DoesNotExist) + contrato en InvoiceProvider ABC
-🔜 Paso 5 — NubefactClient real  HTTP real + idempotency_key + factory robusta (Sprint 4)
+✅ Paso 5 — NubefactClient real  NubefactClient HTTP + provider_type en config + factory robusta + tests mock HTTP
 ```
 
 ---
