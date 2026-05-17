@@ -3,12 +3,26 @@ from abc import ABC, abstractmethod
 
 class InvoiceProvider(ABC):
     """
-    Contrato para proveedores de facturación electronica.
+    Contrato para proveedores de facturacion electronica.
 
-    Contrato de excepciones:
-      - NubefactTemporaryError: timeout, 502, 503 — el caller puede reintentar
-      - NubefactPermanentError: 400, auth error, payload invalido — no reintentar
-      - Exito: retorna dict {'status': 'issued', 'external_id': str, 'error': None}
+    Excepciones que pueden lanzar ambos metodos:
+      NubefactTemporaryError — timeout, 5xx: el caller puede reintentar
+      NubefactPermanentError — 4xx, auth, payload invalido: no reintentar
+
+    Contrato de retorno de create_invoice:
+      {'status': 'issued', 'external_id': str, 'error': None}
+
+    Contrato de retorno de get_invoice_status:
+      {
+          'accepted':           bool,        # SUNAT confirmo el comprobante
+          'observed':           bool,        # SUNAT acepto con observaciones
+          'rejected':           bool,        # SUNAT rechazo el comprobante
+          'hash':               str | None,  # Hash CDR — prueba de recepcion Nubefact
+          'provider_reference': str | None,  # Referencia interna de Nubefact
+          'raw_response':       dict,        # Respuesta completa para auditoria
+      }
+      Invariante: a lo sumo uno de (accepted, observed, rejected) es True.
+      Si los tres son False, el comprobante sigue en procesamiento SUNAT.
     """
 
     def __init__(self, config):
@@ -16,4 +30,8 @@ class InvoiceProvider(ABC):
 
     @abstractmethod
     def create_invoice(self, order) -> dict:
+        pass
+
+    @abstractmethod
+    def get_invoice_status(self, external_id: str) -> dict:
         pass

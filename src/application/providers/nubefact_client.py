@@ -70,6 +70,85 @@ class NubefactClient(InvoiceProvider):
             'error': None,
         }
 
+    def get_invoice_status(self, external_id: str) -> dict:
+        """
+        Consulta el estado de un comprobante ya emitido en Nubefact/SUNAT.
+
+        Nubefact expone la operacion 'consultar_comprobante' en el mismo
+        endpoint base. Parsea los campos SUNAT y normaliza al contrato ABC.
+        """
+        url = f"{self.config.api_base_url.rstrip('/')}/{self.config.endpoint_url.strip('/')}"
+        headers = {
+            'Authorization': f'Token {self.config.token}',
+            'Content-Type': 'application/json',
+        }
+
+        # external_id tiene forma 'B001-42' — serie y numero
+        parts = external_id.split('-', 1)
+        serie  = parts[0] if len(parts) == 2 else external_id
+        numero = parts[1] if len(parts) == 2 else ''
+
+        payload = {
+            'operacion':           'consultar_comprobante',
+            'tipo_de_comprobante': 2,
+            'serie':               serie,
+            'numero':              numero,
+        }
+
+        logger.info(
+            f"[NubefactClient][external_id={external_id}][action=QUERY_STATUS]"
+        )
+
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=self.TIMEOUT)
+        except requests.exceptions.Timeout:
+            raise NubefactTemporaryError(
+                f"Timeout querying status — external_id={external_id}"
+            )
+        except requests.exceptions.ConnectionError as exc:
+            raise NubefactTemporaryError(
+                f"Connection error querying status — external_id={external_id}: {exc}"
+            )
+
+        logger.info(
+            f"[NubefactClient][external_id={external_id}][status={response.status_code}]"
+        )
+
+        if response.status_code in _PERMANENT_CODES:
+            raise NubefactPermanentError(
+                f"HTTP {response.status_code} querying status — external_id={external_id}: {response.text[:300]}"
+            )
+
+        if response.status_code in _TEMPORARY_CODES:
+            raise NubefactTemporaryError(
+                f"HTTP {response.status_code} querying status — external_id={external_id}: {response.text[:300]}"
+            )
+
+        if not response.ok:
+            raise NubefactPermanentError(
+                f"HTTP {response.status_code} querying status — external_id={external_id}: {response.text[:300]}"
+            )
+
+        data = response.json()
+
+        # Nubefact expone 'aceptado_por_sunat' y 'observado' en la respuesta.
+        # 'observado' significa aceptado por SUNAT pero con observaciones menores.
+        accepted = bool(data.get('aceptado_por_sunat', False))
+        observed = accepted and bool(data.get('observado', False))
+        rejected = not accepted and data.get('codigo_de_la_respuesta_sunat') not in (None, '', '0')
+
+        hash_value = data.get('hash') or data.get('hash_cpe') or data.get('hash_cdr')
+        provider_ref = data.get('enlace_del_cdi') or data.get('cadena_para_codigo_qr')
+
+        return {
+            'accepted':           accepted,
+            'observed':           observed,
+            'rejected':           rejected,
+            'hash':               hash_value,
+            'provider_reference': provider_ref,
+            'raw_response':       data,
+        }
+
     def _build_payload(self, order) -> dict:
         from django.utils import timezone
 
