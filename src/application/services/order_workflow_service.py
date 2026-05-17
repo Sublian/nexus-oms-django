@@ -6,9 +6,8 @@ from src.domain.models import OrderWorkflowLog
 
 class OrderWorkflowService:
 
-    def __init__(self, logger, create_invoice_usecase=None):
+    def __init__(self, logger):
         self.logger = logger
-        self.create_invoice_usecase = create_invoice_usecase
 
     def handle_order_paid(self, order):
         # Guardia: solo procesar ordenes en estado PAID
@@ -26,7 +25,6 @@ class OrderWorkflowService:
             return
 
         # DB lock: re-fetch con select_for_update para prevenir race condition
-        # (dos requests simultaneos pasando el check en memoria)
         # _claim_workflow_lock es patcheable en unit tests (sin DB).
         if not self._claim_workflow_lock(order):
             self.logger.warning(
@@ -76,11 +74,10 @@ class OrderWorkflowService:
         self._audit_log(order, 'action_executed', order.workflow_status)
 
     def _trigger_invoicing(self, order):
-        from src.application.usecases.create_invoice import CreateInvoiceUseCase
-        self.logger.info(f"[OrderWorkflow][order_id={order.id}][action=INVOICING_TRIGGERED][status=pending]")
+        from src.domain.tasks.invoice_tasks import create_invoice_task
+        self.logger.info(f"[OrderWorkflow][order_id={order.id}][action=INVOICING_TRIGGERED][status=async]")
         self._audit_log(order, 'invoicing_triggered', order.workflow_status)
-        usecase = self.create_invoice_usecase or CreateInvoiceUseCase()
-        usecase.execute(order)
+        create_invoice_task.delay(order.id)
 
     def _audit_log(self, order, action, status, metadata=None):
         try:
