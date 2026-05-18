@@ -114,6 +114,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'tasks.sync_daily_exchange_rate',
         'schedule': crontab(hour=6, minute=0),
     },
+    'sync-pending-invoices': {
+        'task': 'tasks.sync_pending_invoices',
+        'schedule': 60,  # cada 60 segundos — fan-out sobre facturas pendientes de SUNAT
+    },
 }
 
 CACHES = {
