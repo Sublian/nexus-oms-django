@@ -7,6 +7,7 @@ from .finance import ExchangeRate
 from .workflow_audit import OrderWorkflowLog
 from .invoicing import InvoiceSyncQueue
 from .accounting import AccountingEntry, AccountingEntryLine
+from .integrations import ExternalServiceConfig, ExternalRequestLog
 
 __all__ = [
     'Organization', 'Client', 'CustomUser', 'UserRole',
@@ -17,4 +18,5 @@ __all__ = [
     'OrderWorkflowLog', 'CompanyInvoiceConfig',
     'InvoiceSyncQueue',
     'AccountingEntry', 'AccountingEntryLine',
+    'ExternalServiceConfig', 'ExternalRequestLog',
 ]
