@@ -1,3 +1,4 @@
+{% load invoice_tags %}
 <tr id="order-row-{{ order.id }}"
     class="hover:bg-gray-50/50 transition-colors
            {% if order.status == 'CANCELLED' %}bg-gray-50 opacity-60
@@ -47,6 +48,21 @@
             {% else %}bg-yellow-100 text-yellow-700{% endif %}">
             {{ order.get_status_display }}
         </span>
+    </td>
+
+    <td class="px-6 py-4">
+        {% if order.invoice_status != 'pending' %}
+            {% with ui=order.invoice_status|invoice_ui %}
+            <span class="px-2 py-1 rounded-full text-[9px] font-black uppercase {{ ui.badge }}">
+                {{ ui.label }}
+            </span>
+            {% endwith %}
+            {% if order.invoice_external_id %}
+            <div class="text-[9px] font-mono text-gray-400 mt-0.5">{{ order.invoice_external_id }}</div>
+            {% endif %}
+        {% else %}
+            <span class="text-[9px] text-gray-300">—</span>
+        {% endif %}
     </td>
 
     <td class="px-6 py-4 text-right">
