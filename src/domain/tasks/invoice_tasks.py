@@ -2,6 +2,7 @@ import logging
 
 from celery import shared_task
 from django.db import transaction
+from django.utils import timezone
 
 logger = logging.getLogger("invoice_task")
 
@@ -23,7 +24,6 @@ def create_invoice_task(self, order_id: int):
     logger.info(f"[InvoiceTask][task_id={task_id}][order_id={order_id}][action=START]")
 
     # Fase 1: lock corto — idempotencia + marcar processing
-    # No ejecutar nada externo dentro del lock (evita bloquear DB)
     with transaction.atomic():
         try:
             order = Order.objects.select_for_update().get(id=order_id)
@@ -52,8 +52,10 @@ def create_invoice_task(self, order_id: int):
         usecase = CreateInvoiceUseCase()
         result = usecase.execute(order)
 
-        if result.get('status') == 'issued':
+        if result.get('status') == 'submitted':
             Order.objects.filter(id=order_id).update(invoice_last_error=None)
+            order.refresh_from_db()
+            _enqueue_for_sync(order, task_id)
 
         logger.info(
             f"[InvoiceTask][task_id={task_id}][order_id={order_id}]"
@@ -62,7 +64,6 @@ def create_invoice_task(self, order_id: int):
         return result
 
     except NubefactTemporaryError as exc:
-        # Timeout, 502, 503 — retry con backoff exponencial
         logger.warning(
             f"[InvoiceTask][task_id={task_id}][order_id={order_id}]"
             f"[action=RETRY][error={str(exc)}][attempt={self.request.retries + 1}]"
@@ -74,7 +75,6 @@ def create_invoice_task(self, order_id: int):
         raise self.retry(exc=exc)
 
     except NubefactPermanentError as exc:
-        # 400, auth error — no reintentar
         logger.error(
             f"[InvoiceTask][task_id={task_id}][order_id={order_id}]"
             f"[action=FAILED_PERMANENT][error={str(exc)}]"
@@ -94,3 +94,35 @@ def create_invoice_task(self, order_id: int):
             invoice_last_error=str(exc)[:500],
         )
         raise
+
+
+def _enqueue_for_sync(order, task_id: str) -> None:
+    """
+    Crea una entrada en InvoiceSyncQueue para iniciar el polling de estado SUNAT.
+    Idempotente: get_or_create previene duplicados en retries de Celery.
+    """
+    from src.domain.models.invoicing import InvoiceSyncQueue
+
+    entry, created = InvoiceSyncQueue.objects.get_or_create(
+        order=order,
+        defaults={
+            'organization': order.organization,
+            'status': InvoiceSyncQueue.STATUS_PENDING,
+            'next_retry_at': timezone.now() + timezone.timedelta(seconds=60),
+        },
+    )
+
+    if created:
+        logger.info(
+            f"[InvoiceTask][task_id={task_id}][order_id={order.id}]"
+            f"[tenant_id={order.organization_id}][queue_action=queue_created]"
+            f"[invoice_status=submitted]"
+        )
+        # metric placeholder: invoice.queue.created
+    else:
+        logger.info(
+            f"[InvoiceTask][task_id={task_id}][order_id={order.id}]"
+            f"[tenant_id={order.organization_id}][queue_action=queue_duplicate_prevented]"
+            f"[invoice_status=submitted][existing_queue_status={entry.status}]"
+        )
+        # metric placeholder: invoice.queue.duplicate_prevented

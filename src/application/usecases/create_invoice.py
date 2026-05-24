@@ -41,6 +41,7 @@ class CreateInvoiceUseCase:
 
         order.invoice_status = result['status']
         order.invoice_external_id = result.get('external_id')
+        order.invoice_hash = result.get('hash')
         order.save()
 
         return result
