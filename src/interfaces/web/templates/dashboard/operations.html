@@ -1,0 +1,258 @@
+{% extends 'layouts/base.html' %}
+{% load invoice_tags %}
+
+{% block title %}Dashboard Operacional{% endblock %}
+
+{% block content %}
+
+{# ── Header ───────────────────────────────────────────────────────────────── #}
+<div class="mb-8 flex flex-wrap justify-between items-center gap-4">
+    <div>
+        <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">Dashboard Operacional</h1>
+        <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">
+            {{ tenant.name }} — Facturación · Cola · Integraciones · Contabilidad
+        </p>
+    </div>
+
+    {# Filtro de rango temporal #}
+    <div class="flex items-center gap-2">
+        <span class="text-[10px] text-gray-400 font-black uppercase tracking-widest">Período:</span>
+        {% for key, label in range_labels.items %}
+        <a href="?range={{ key }}"
+           class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
+                  {% if date_range == key %}bg-tenant-primary text-white shadow{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+            {{ label }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════════ #}
+{# 1. FACTURACIÓN                                                             #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
+<div class="mb-8">
+    <div class="flex items-center gap-3 mb-4">
+        <div class="w-1 h-6 bg-tenant-primary rounded-full"></div>
+        <h2 class="text-sm font-black text-gray-700 uppercase tracking-widest">Facturación Electrónica</h2>
+        {% if invoice_metrics.has_alert %}
+        <span class="px-2 py-0.5 bg-red-100 text-red-600 text-[9px] font-black uppercase rounded-full">Alerta</span>
+        {% endif %}
+    </div>
+
+    {# Tarjetas resumen #}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div class="card-tenant !border-l-emerald-500">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Aceptadas SUNAT</p>
+            <p class="text-3xl font-black text-emerald-600 mt-1">{{ invoice_metrics.terminal_ok }}</p>
+            <p class="text-[9px] text-gray-400 mt-1">accepted + observed</p>
+        </div>
+        <div class="card-tenant !border-l-sky-500">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">En Tránsito</p>
+            <p class="text-3xl font-black text-sky-600 mt-1">{{ invoice_metrics.in_flight }}</p>
+            <p class="text-[9px] text-gray-400 mt-1">submitted · sync · retrying</p>
+        </div>
+        <div class="card-tenant {% if invoice_metrics.terminal_err > 0 %}!border-l-red-500{% else %}!border-l-gray-200{% endif %}">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Errores Terminales</p>
+            <p class="text-3xl font-black {% if invoice_metrics.terminal_err > 0 %}text-red-600{% else %}text-gray-400{% endif %} mt-1">{{ invoice_metrics.terminal_err }}</p>
+            <p class="text-[9px] text-gray-400 mt-1">rejected + failed</p>
+        </div>
+        <div class="card-tenant !border-l-gray-300">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Facturadas</p>
+            <p class="text-3xl font-black text-gray-700 mt-1">{{ invoice_metrics.total_invoiced }}</p>
+            <p class="text-[9px] text-gray-400 mt-1">con proceso iniciado</p>
+        </div>
+    </div>
+
+    {# Desglose por estado #}
+    <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <div class="px-5 py-3 bg-gray-50 border-b border-gray-100">
+            <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Desglose por Estado</span>
+        </div>
+        <div class="divide-y divide-gray-50">
+            {% for status, count in invoice_metrics.by_status.items %}
+            {% if count > 0 or status in 'accepted,rejected,failed' %}
+            {% with ui=status|invoice_ui %}
+            <div class="flex items-center justify-between px-5 py-2.5 hover:bg-gray-50/50">
+                <div class="flex items-center gap-2.5">
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase {{ ui.badge }}">{{ ui.label }}</span>
+                    <span class="text-[10px] font-mono text-gray-400">{{ status }}</span>
+                    {% if ui.terminal %}<span class="text-[8px] text-gray-300 font-bold uppercase">terminal</span>{% endif %}
+                </div>
+                <span class="text-sm font-black {% if count > 0 and ui.severity == 'error' %}text-red-600{% elif count > 0 %}text-gray-800{% else %}text-gray-300{% endif %}">
+                    {{ count }}
+                </span>
+            </div>
+            {% endwith %}
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════════ #}
+{# 2. QUEUE HEALTH                                                            #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
+<div class="mb-8">
+    <div class="flex items-center gap-3 mb-4">
+        <div class="w-1 h-6 bg-indigo-500 rounded-full"></div>
+        <h2 class="text-sm font-black text-gray-700 uppercase tracking-widest">Cola de Sincronización SUNAT</h2>
+        {% if queue_health.has_alert %}
+        <span class="px-2 py-0.5 bg-orange-100 text-orange-600 text-[9px] font-black uppercase rounded-full">Atención requerida</span>
+        {% endif %}
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div class="card-tenant !border-l-yellow-400">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pendientes</p>
+            <p class="text-3xl font-black text-yellow-600 mt-1">{{ queue_health.pending }}</p>
+            {% if queue_health.oldest_age_mins is not None %}
+            <p class="text-[9px] text-gray-400 mt-1">más antigua: {{ queue_health.oldest_age_mins }} min</p>
+            {% else %}
+            <p class="text-[9px] text-gray-400 mt-1">cola vacía</p>
+            {% endif %}
+        </div>
+        <div class="card-tenant !border-l-red-400 {% if queue_health.stale_locks > 0 %}ring-1 ring-red-200{% endif %}">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Locks Stale</p>
+            <p class="text-3xl font-black {% if queue_health.stale_locks > 0 %}text-red-600{% else %}text-gray-300{% endif %} mt-1">{{ queue_health.stale_locks }}</p>
+            <p class="text-[9px] text-gray-400 mt-1">bloqueados &gt;10 min</p>
+        </div>
+        <div class="card-tenant {% if queue_health.exhausted > 0 %}!border-l-red-500{% else %}!border-l-gray-200{% endif %}">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Agotadas</p>
+            <p class="text-3xl font-black {% if queue_health.exhausted > 0 %}text-red-600{% else %}text-gray-300{% endif %} mt-1">{{ queue_health.exhausted }}</p>
+            <p class="text-[9px] text-gray-400 mt-1">max reintentos alcanzado</p>
+        </div>
+        <div class="card-tenant {% if queue_health.dead_letter > 0 %}!border-l-rose-600{% else %}!border-l-gray-200{% endif %}">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dead Letter</p>
+            <p class="text-3xl font-black {% if queue_health.dead_letter > 0 %}text-rose-700{% else %}text-gray-300{% endif %} mt-1">{{ queue_health.dead_letter }}</p>
+            <p class="text-[9px] text-gray-400 mt-1">intervención manual</p>
+        </div>
+    </div>
+
+    {# Alert de locks stale #}
+    {% if queue_health.stale_locks > 0 %}
+    <div class="bg-red-50 border border-red-200 rounded-xl px-5 py-3 flex items-start gap-3">
+        <svg class="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <div>
+            <p class="text-xs font-black text-red-700">{{ queue_health.stale_locks }} lock(s) stale detectado(s)</p>
+            <p class="text-[10px] text-red-500 mt-0.5">Posible worker atascado. Verificar celery logs y liberar manualmente desde Admin → InvoiceSyncQueue.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════════ #}
+{# 3. INTEGRACIONES EXTERNAS                                                  #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
+<div class="mb-8">
+    <div class="flex items-center gap-3 mb-4">
+        <div class="w-1 h-6 bg-purple-500 rounded-full"></div>
+        <h2 class="text-sm font-black text-gray-700 uppercase tracking-widest">Integraciones Externas</h2>
+        {% if not integration_health.has_data %}
+        <span class="px-2 py-0.5 bg-gray-100 text-gray-400 text-[9px] font-black uppercase rounded-full">Sin datos aún</span>
+        {% endif %}
+    </div>
+
+    {% if integration_health.has_data %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {% for provider, stats in integration_health.by_provider.items %}
+        <div class="bg-white rounded-xl border {% if stats.has_alert %}border-red-200{% else %}border-gray-100{% endif %} p-5">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-black text-gray-700 uppercase tracking-wide">{{ provider }}</span>
+                {% if stats.has_alert %}
+                <span class="px-2 py-0.5 bg-red-100 text-red-600 text-[9px] font-black uppercase rounded-full">Error rate alto</span>
+                {% else %}
+                <span class="px-2 py-0.5 bg-emerald-100 text-emerald-600 text-[9px] font-black uppercase rounded-full">OK</span>
+                {% endif %}
+            </div>
+            <div class="grid grid-cols-3 gap-3 text-center">
+                <div>
+                    <p class="text-lg font-black text-gray-800">{{ stats.total }}</p>
+                    <p class="text-[9px] text-gray-400 font-bold uppercase">Total</p>
+                </div>
+                <div>
+                    <p class="text-lg font-black text-emerald-600">{{ stats.success }}</p>
+                    <p class="text-[9px] text-gray-400 font-bold uppercase">OK</p>
+                </div>
+                <div>
+                    <p class="text-lg font-black {% if stats.failed > 0 %}text-red-600{% else %}text-gray-300{% endif %}">{{ stats.failed }}</p>
+                    <p class="text-[9px] text-gray-400 font-bold uppercase">Errores</p>
+                </div>
+            </div>
+            <div class="mt-3 pt-3 border-t border-gray-50 flex justify-between text-[10px] text-gray-400">
+                <span>Error rate: <strong class="{% if stats.error_rate > 10 %}text-red-500{% else %}text-gray-600{% endif %}">{{ stats.error_rate }}%</strong></span>
+                {% if stats.avg_duration %}
+                <span>Latencia prom: <strong class="text-gray-600">{{ stats.avg_duration }}ms</strong></span>
+                {% endif %}
+            </div>
+            {% if stats.last_error %}
+            <p class="mt-2 text-[9px] font-mono text-red-400 bg-red-50 rounded p-2 truncate" title="{{ stats.last_error }}">
+                {{ stats.last_error|truncatechars:80 }}
+            </p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-gray-50 rounded-xl border border-dashed border-gray-200 px-6 py-10 text-center">
+        <p class="text-sm font-bold text-gray-400">Sin registros de integraciones externas todavía.</p>
+        <p class="text-[10px] text-gray-400 mt-1">Los logs aparecerán aquí cuando NubefactClient comience a registrar en ExternalRequestLog.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════════ #}
+{# 4. CONTABILIDAD — CONSISTENCIA                                             #}
+{# ══════════════════════════════════════════════════════════════════════════ #}
+<div class="mb-8">
+    <div class="flex items-center gap-3 mb-4">
+        <div class="w-1 h-6 bg-amber-500 rounded-full"></div>
+        <h2 class="text-sm font-black text-gray-700 uppercase tracking-widest">Consistencia Contable</h2>
+        {% if accounting.has_alert %}
+        <span class="px-2 py-0.5 bg-red-100 text-red-600 text-[9px] font-black uppercase rounded-full">Inconsistencia detectada</span>
+        {% elif accounting.consistency_ok %}
+        <span class="px-2 py-0.5 bg-emerald-100 text-emerald-600 text-[9px] font-black uppercase rounded-full">Consistente</span>
+        {% endif %}
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="card-tenant !border-l-emerald-400">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Órdenes Aceptadas</p>
+            <p class="text-3xl font-black text-emerald-600 mt-1">{{ accounting.accepted_orders }}</p>
+            <p class="text-[9px] text-gray-400 mt-1">invoice_status=accepted</p>
+        </div>
+        <div class="card-tenant !border-l-amber-400">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Asientos Generados</p>
+            <p class="text-3xl font-black text-amber-600 mt-1">{{ accounting.entries_generated }}</p>
+            <p class="text-[9px] text-gray-400 mt-1">AccountingEntry en DB</p>
+        </div>
+        <div class="card-tenant {% if accounting.missing_entries > 0 %}!border-l-red-500{% else %}!border-l-gray-200{% endif %}">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sin Asiento</p>
+            <p class="text-3xl font-black {% if accounting.missing_entries > 0 %}text-red-600{% else %}text-gray-300{% endif %} mt-1">{{ accounting.missing_entries }}</p>
+            <p class="text-[9px] text-gray-400 mt-1">aceptadas sin entrada</p>
+        </div>
+        <div class="card-tenant {% if accounting.orphan_entries > 0 %}!border-l-red-500{% else %}!border-l-gray-200{% endif %}">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Asientos Huérfanos</p>
+            <p class="text-3xl font-black {% if accounting.orphan_entries > 0 %}text-red-600{% else %}text-gray-300{% endif %} mt-1">{{ accounting.orphan_entries }}</p>
+            <p class="text-[9px] text-gray-400 mt-1">sin factura aceptada</p>
+        </div>
+    </div>
+
+    {% if accounting.has_alert %}
+    <div class="mt-4 bg-red-50 border border-red-200 rounded-xl px-5 py-3 flex items-start gap-3">
+        <svg class="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <div>
+            <p class="text-xs font-black text-red-700">Inconsistencia contable detectada</p>
+            <p class="text-[10px] text-red-500 mt-0.5">
+                Regla: cada factura accepted debe tener exactamente un AccountingEntry.
+                Revisar pipeline en Admin → Asientos Contables.
+            </p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
