@@ -19,8 +19,9 @@ class MockNubefactClient(InvoiceProvider):
     def create_invoice(self, order) -> dict:
         external_id = f"MOCK-{str(uuid.uuid4())[:8].upper()}"
         return {
-            'status': 'issued',
+            'status': 'submitted',
             'external_id': external_id,
+            'hash': f"MOCK-HASH-{external_id}",
             'error': None,
             'organization': order.organization.id,
             'order_id': order.id,

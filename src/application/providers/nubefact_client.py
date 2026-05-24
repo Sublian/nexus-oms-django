@@ -64,9 +64,12 @@ class NubefactClient(InvoiceProvider):
         numero = data.get('numero', '')
         external_id = f"{serie}-{numero}" if serie and numero else f"NFE-{order.id}"
 
+        hash_value = data.get('hash') or data.get('hash_cpe') or data.get('hash_cdr')
+
         return {
-            'status': 'issued',
+            'status': 'submitted',
             'external_id': external_id,
+            'hash': hash_value,
             'error': None,
         }
 

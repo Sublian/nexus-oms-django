@@ -10,7 +10,7 @@ class InvoiceProvider(ABC):
       NubefactPermanentError — 4xx, auth, payload invalido: no reintentar
 
     Contrato de retorno de create_invoice:
-      {'status': 'issued', 'external_id': str, 'error': None}
+      {'status': 'submitted', 'external_id': str, 'hash': str | None, 'error': None}
 
     Contrato de retorno de get_invoice_status:
       {
