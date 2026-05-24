@@ -36,12 +36,12 @@ class TestCreateInvoiceUseCase(TestCase):
         usecase = CreateInvoiceUseCase()
         result = usecase.execute(self.order)
 
-        assert result['status'] == 'issued'
+        assert result['status'] == 'submitted'
         assert result['external_id'].startswith('MOCK-')
         assert result['error'] is None
 
         self.order.refresh_from_db()
-        assert self.order.invoice_status == 'issued'
+        assert self.order.invoice_status == 'submitted'
         assert self.order.invoice_external_id == result['external_id']
 
     def test_create_invoice_without_config_raises_permanent_error(self):
@@ -68,7 +68,7 @@ class TestCreateInvoiceUseCase(TestCase):
         result = client.create_invoice(self.order)
 
         assert result['external_id'].startswith('MOCK-')
-        assert result['status'] == 'issued'
+        assert result['status'] == 'submitted'
         assert len(result['external_id']) > 5
 
     def test_provider_resolves_by_provider_type(self):
@@ -109,16 +109,16 @@ class TestCreateInvoiceUseCase(TestCase):
         assert result1['external_id'].startswith('MOCK-')
         assert result2['external_id'].startswith('MOCK-')
 
-    def test_idempotency_guard_skips_if_already_issued(self):
+    def test_idempotency_guard_skips_if_already_submitted(self):
         # Guardia de idempotencia: si invoice_external_id ya existe, no crear factura nueva
-        self.order.invoice_status = 'issued'
+        self.order.invoice_status = 'submitted'
         self.order.invoice_external_id = 'MOCK-EXISTING'
         self.order.save()
 
         usecase = CreateInvoiceUseCase()
         result = usecase.execute(self.order)
 
-        assert result['status'] == 'issued'
+        assert result['status'] == 'submitted'
         assert result['external_id'] == 'MOCK-EXISTING'
         assert result['error'] is None
 

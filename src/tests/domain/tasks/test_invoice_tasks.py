@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch
 
 from src.domain.models import Order, CompanyInvoiceConfig
+from src.domain.models.invoicing import InvoiceSyncQueue
 from src.domain.models.order_constants import OrderStatus
 from src.domain.tasks.invoice_tasks import create_invoice_task
 from src.application.usecases.create_invoice import CreateInvoiceUseCase
@@ -33,21 +34,45 @@ def _make_config(organization):
 @pytest.mark.django_db
 class TestCreateInvoiceTask:
 
-    def test_happy_path_issues_invoice(self, organization):
+    def test_happy_path_submits_invoice(self, organization):
         _make_config(organization)
         order = _make_order(organization)
 
         create_invoice_task.delay(order.id)
 
         order.refresh_from_db()
-        assert order.invoice_status == 'issued'
+        assert order.invoice_status == 'submitted'
         assert order.invoice_external_id is not None
         assert order.invoice_external_id.startswith('MOCK-')
         assert order.invoice_attempts == 1
         assert order.invoice_last_error is None
 
+    def test_happy_path_creates_sync_queue_entry(self, organization):
+        _make_config(organization)
+        order = _make_order(organization)
+
+        create_invoice_task.delay(order.id)
+
+        order.refresh_from_db()
+        assert order.invoice_status == 'submitted'
+        assert InvoiceSyncQueue.objects.filter(order=order).exists()
+
+        entry = InvoiceSyncQueue.objects.get(order=order)
+        assert entry.status == InvoiceSyncQueue.STATUS_PENDING
+        assert entry.organization == organization
+        assert entry.next_retry_at is not None
+
+    def test_sync_queue_idempotent_on_celery_retry(self, organization):
+        # Si Celery reintenta el task, get_or_create no debe duplicar la entrada
+        _make_config(organization)
+        order = _make_order(organization)
+
+        create_invoice_task.delay(order.id)
+        create_invoice_task.delay(order.id)  # simula reintento (invoice_external_id ya existe → skip)
+
+        assert InvoiceSyncQueue.objects.filter(order=order).count() == 1
+
     def test_no_config_fails_gracefully(self, organization):
-        # Sin CompanyInvoiceConfig — UseCase falla gracefully, no rompe el task
         order = _make_order(organization)
 
         create_invoice_task.delay(order.id)
@@ -55,26 +80,27 @@ class TestCreateInvoiceTask:
         order.refresh_from_db()
         assert order.invoice_status == 'failed'
         assert order.invoice_attempts == 1
+        assert not InvoiceSyncQueue.objects.filter(order=order).exists()
 
     def test_idempotency_already_issued_skips(self, organization):
-        # invoice_external_id existe — skip sin incrementar attempts
-        order = _make_order(organization, invoice_status='issued', invoice_external_id='MOCK-EXISTING')
+        # invoice_external_id existe — skip sin incrementar attempts ni crear queue
+        order = _make_order(organization, invoice_status='submitted', invoice_external_id='MOCK-EXISTING')
 
         create_invoice_task.delay(order.id)
 
         order.refresh_from_db()
         assert order.invoice_external_id == 'MOCK-EXISTING'
-        assert order.invoice_attempts == 0  # no incrementado
+        assert order.invoice_attempts == 0
+        assert not InvoiceSyncQueue.objects.filter(order=order).exists()
 
     def test_already_processing_skips(self, organization):
-        # Otro worker ya marco processing — skip para evitar doble ejecucion
         order = _make_order(organization, invoice_status='processing')
 
         create_invoice_task.delay(order.id)
 
         order.refresh_from_db()
         assert order.invoice_status == 'processing'
-        assert order.invoice_attempts == 0  # no incrementado
+        assert order.invoice_attempts == 0
 
     def test_invoice_attempts_increments_on_each_valid_run(self, organization):
         _make_config(organization)
@@ -86,12 +112,9 @@ class TestCreateInvoiceTask:
         assert order.invoice_attempts == 1
 
     def test_order_not_found_returns_gracefully(self):
-        # Order inexistente — el task no debe levantar excepcion
         result = create_invoice_task.delay(order_id=99999)
-        # Si llego aqui sin excepcion, el manejo es correcto
 
     def test_last_error_cleared_on_success(self, organization):
-        # Si habia un error previo y ahora tiene exito, invoice_last_error = None
         _make_config(organization)
         order = _make_order(organization, invoice_status='pending')
         Order.objects.filter(id=order.id).update(invoice_last_error='previous error')
@@ -99,11 +122,10 @@ class TestCreateInvoiceTask:
         create_invoice_task.delay(order.id)
 
         order.refresh_from_db()
-        assert order.invoice_status == 'issued'
+        assert order.invoice_status == 'submitted'
         assert order.invoice_last_error is None
 
     def test_unknown_exception_marks_failed_and_reraises(self, organization):
-        # Excepcion inesperada: marca failed y re-raise (Celery lo captura para dead-letter)
         order = _make_order(organization)
 
         with patch.object(CreateInvoiceUseCase, 'execute', side_effect=RuntimeError("unexpected")):
@@ -113,23 +135,23 @@ class TestCreateInvoiceTask:
         order.refresh_from_db()
         assert order.invoice_status == 'failed'
         assert 'unexpected' in order.invoice_last_error
+        assert not InvoiceSyncQueue.objects.filter(order=order).exists()
 
     def test_permanent_error_marks_failed_without_retry(self, organization):
-        # NubefactPermanentError: el task marca failed y retorna — no re-raise
         from src.domain.exceptions import NubefactPermanentError
         order = _make_order(organization)
 
         with patch.object(CreateInvoiceUseCase, 'execute', side_effect=NubefactPermanentError("bad payload")):
-            create_invoice_task.delay(order.id)  # no debe raise
+            create_invoice_task.delay(order.id)
 
         order.refresh_from_db()
         assert order.invoice_status == 'failed'
         assert order.invoice_attempts == 1
         assert 'bad payload' in order.invoice_last_error
+        assert not InvoiceSyncQueue.objects.filter(order=order).exists()
 
     def test_no_config_raises_permanent_error_and_marks_failed(self, organization):
-        # Paso 4: UseCase ahora levanta NubefactPermanentError — task lo captura
-        order = _make_order(organization)  # sin CompanyInvoiceConfig
+        order = _make_order(organization)
 
         create_invoice_task.delay(order.id)
 

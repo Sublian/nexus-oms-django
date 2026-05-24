@@ -44,20 +44,21 @@ def _mock_response(status_code, json_data=None, text=''):
 
 class TestNubefactClient:
 
-    def test_success_200_returns_issued(self):
+    def test_success_200_returns_submitted(self):
         config = _make_config()
         order = _make_order()
-        response_data = {'serie': 'B001', 'numero': 1}
+        response_data = {'serie': 'B001', 'numero': 1, 'hash_cdr': 'ABC123'}
 
         with patch('requests.post', return_value=_mock_response(200, response_data)):
             client = NubefactClient(config)
             result = client.create_invoice(order)
 
-        assert result['status'] == 'issued'
+        assert result['status'] == 'submitted'
         assert result['external_id'] == 'B001-1'
+        assert result['hash'] == 'ABC123'
         assert result['error'] is None
 
-    def test_success_202_returns_issued(self):
+    def test_success_202_returns_submitted(self):
         config = _make_config()
         order = _make_order()
         response_data = {'serie': 'B001', 'numero': 7}
@@ -66,8 +67,9 @@ class TestNubefactClient:
             client = NubefactClient(config)
             result = client.create_invoice(order)
 
-        assert result['status'] == 'issued'
+        assert result['status'] == 'submitted'
         assert result['external_id'] == 'B001-7'
+        assert result['hash'] is None
 
     def test_400_raises_permanent_error(self):
         config = _make_config()
