@@ -6,6 +6,7 @@ from .config import TaxConfiguration, SalesReport, CashReconciliation, CompanyIn
 from .finance import ExchangeRate
 from .workflow_audit import OrderWorkflowLog
 from .invoicing import InvoiceSyncQueue
+from .accounting import AccountingEntry, AccountingEntryLine
 
 __all__ = [
     'Organization', 'Client', 'CustomUser', 'UserRole',
@@ -15,4 +16,5 @@ __all__ = [
     'TaxConfiguration', 'SalesReport', 'CashReconciliation', 'ExchangeRate',
     'OrderWorkflowLog', 'CompanyInvoiceConfig',
     'InvoiceSyncQueue',
+    'AccountingEntry', 'AccountingEntryLine',
 ]
