@@ -1,5 +1,5 @@
 # Nexus OMS — Resumen de Avances del Proyecto
-**Fecha de corte:** 17 de Mayo, 2026 | **Versión:** 3.1.0-WIP | **Fase:** Sprint 3 en progreso
+**Fecha de corte:** 24 de Mayo, 2026 | **Versión:** 3.2.0-WIP | **Fase:** Sprint 4 completo
 
 ---
 
@@ -12,11 +12,13 @@
 | Sprint 3 Paso 1 — InvoiceSyncQueue + estados expandidos | ✅ COMPLETO | `1f9878f` | — |
 | Sprint 3 Paso 2 — get_invoice_status + UseCase | ✅ COMPLETO | `2752990` | +29 |
 | Sprint 3 Paso 3 — Tasks de polling + Beat schedule | ✅ COMPLETO | `906f9ed` | +19 |
-| Sprint 3 Paso 4 — Wiring: create_invoice → InvoiceSyncQueue | 🔜 PENDIENTE | — | — |
-| Sprint 4 — Dashboard operacional + retries manuales | 🔜 PENDIENTE | — | — |
+| Sprint 3 Paso 4 — Wiring: create_invoice → InvoiceSyncQueue | ✅ COMPLETO | `caf6fdb`→`edb1298` | +2 |
+| Mini-sprint Operational Visibility | ✅ COMPLETO | `5a09c33`→`f57cbc4` | — |
+| Sprint 4 — Dashboard operacional | ✅ COMPLETO | `f0d6760`→`eb8560b` | — |
 | Sprint 5 — Reporting + analytics | 🔜 PENDIENTE | — | — |
+| Sprint 6 — Hardening SaaS | 🔜 PENDIENTE | — | — |
 
-**Tests totales:** 159 / 159 passing  
+**Tests totales:** 161 / 161 passing  
 **Suite completa:** `docker compose exec web pytest -q`
 
 ---
@@ -47,7 +49,7 @@ create_invoice_task.delay(order.id)          ← Celery async
   invoice_status = 'submitted'               ← Nubefact recibió + hash CDR
   invoice_hash = data['hash']
   ↓
-  InvoiceSyncQueue.create(...)               ← PENDIENTE: Paso 4 de Sprint 3
+  InvoiceSyncQueue.get_or_create(...)        ← idempotente, next_retry_at = now+60s
   ↓
 
 sync_pending_invoices_task (Beat, 60s)       ← Sprint 3 Paso 3 ✅
@@ -107,17 +109,23 @@ src/domain/
 ├── models/
 │   ├── sales.py                     # Order: invoice_status (12 estados), invoice_hash
 │   ├── config.py                    # CompanyInvoiceConfig: provider_type, token, etc.
-│   └── invoicing.py                 # InvoiceSyncQueue (TenantModel, lockable, retryable)
+│   ├── invoicing.py                 # InvoiceSyncQueue (MAX_ATTEMPTS=7, exhaustion, requeue)
+│   ├── accounting.py                # AccountingEntry + AccountingEntryLine (SOLO accepted)
+│   └── integrations.py              # ExternalServiceConfig + ExternalRequestLog
 ├── tasks/
-│   ├── invoice_tasks.py             # create_invoice_task (emisión async)
-│   └── sync_invoice_tasks.py        # sync_pending_invoices_task + sync_single_invoice_task
+│   ├── invoice_tasks.py             # create_invoice_task + _enqueue_for_sync (idempotente)
+│   └── sync_invoice_tasks.py        # sync_pending + sync_single (auto-exhaustion)
+├── invoice_status_ui.py             # Capa presentación: label, badge Tailwind, severity
+├── templatetags/
+│   └── invoice_tags.py              # Filtro |invoice_ui para templates
 ├── exceptions/
 │   └── __init__.py                  # NubefactTemporaryError, NubefactPermanentError
 └── migrations/
-    ├── 0008 — CompanyInvoiceConfig + Order invoice fields
-    ├── 0009 — invoice_attempts, invoice_last_error, status choices
-    ├── 0010 — CompanyInvoiceConfig.provider_type
-    └── 0011 — InvoiceSyncQueue + 12 estados en invoice_status
+    ├── 0008–0011 — Sprint 1-3 base
+    ├── 0012 — InvoiceSyncQueue: dead_letter + exhausted
+    ├── 0013 — InvoiceSyncQueue: last_attempt_at, exhausted_at, processing_duration_ms
+    ├── 0014 — AccountingEntry + AccountingEntryLine
+    └── 0015 — ExternalServiceConfig + ExternalRequestLog
 ```
 
 ### Application
@@ -128,9 +136,11 @@ src/application/
 │   ├── nubefact_client.py           # HTTP real: POST + consultar_comprobante
 │   ├── mock_nubefact_client.py      # Mock: 6 escenarios configurables
 │   └── factory.py                   # get_invoice_provider(config) por provider_type
-└── usecases/
-    ├── create_invoice.py            # Emisión: config → provider → persist
-    └── query_invoice_status.py      # Polling: provider → interpretar → actualizar Order
+├── usecases/
+│   ├── create_invoice.py            # Emisión: config → provider → persist (+ invoice_hash)
+│   └── query_invoice_status.py      # Polling: provider → interpretar → actualizar Order
+└── services/
+    └── dashboard.py                 # OperationalDashboardService facade + 4 sub-servicios
 ```
 
 ### Tests
@@ -154,21 +164,29 @@ src/tests/
 
 ```python
 class InvoiceSyncQueue(TenantModel):
-    order         = OneToOneField(Order)       # una entrada por factura
-    status        = CharField(pending|processing|completed|failed)
-    attempts      = IntegerField(default=0)    # incrementado en Phase 1 (atómico)
-    next_retry_at = DateTimeField             # backoff: [1m,5m,15m,30m,1h,6h,24h]
-    last_response = JSONField(null=True)      # respuesta cruda de Nubefact
-    last_error    = TextField(null=True)      # último mensaje de error
-    locked_at     = DateTimeField(null=True)  # lock activo; null = libre
-    completed_at  = DateTimeField(null=True)  # timestamp de estado terminal
-    created_at    = DateTimeField(auto_now_add=True)
+    MAX_ATTEMPTS = 7           # auto-exhaustion tras 7 intentos sin resolución SUNAT
+    RETRYABLE_STATUSES = frozenset({STATUS_FAILED, STATUS_EXHAUSTED, STATUS_DEAD_LETTER})
+
+    order               = OneToOneField(Order)      # una entrada por factura
+    status              = CharField(pending|processing|completed|failed|exhausted|dead_letter)
+    attempts            = IntegerField(default=0)   # incrementado en Phase 1 (atómico)
+    next_retry_at       = DateTimeField             # backoff: [1m,5m,15m,30m,1h,6h,24h]
+    last_response       = JSONField(null=True)      # respuesta cruda de Nubefact
+    last_error          = TextField(null=True)      # último mensaje de error
+    locked_at           = DateTimeField(null=True)  # lock activo; null = libre
+    last_attempt_at     = DateTimeField(null=True)  # timestamp del último intento
+    completed_at        = DateTimeField(null=True)  # timestamp de estado terminal
+    exhausted_at        = DateTimeField(null=True)  # timestamp de agotamiento
+    processing_duration_ms = IntegerField(null=True)
+    created_at          = DateTimeField(auto_now_add=True)
 
 # Helpers
 entry.schedule_next_retry()   # calcula next_retry_at por backoff exponencial
+entry.should_exhaust()        # True si attempts >= MAX_ATTEMPTS
+entry.mark_exhausted(error)   # status=exhausted, exhausted_at=now(), completed_at=now()
 entry.mark_completed()        # status=completed, completed_at=now()
 entry.mark_failed(error)      # status=failed, last_error, completed_at=now()
-entry.release_lock()          # locked_at=None (model-level; task usa .update())
+entry.requeue()               # status=pending, libera lock — solo desde RETRYABLE_STATUSES
 
 # Índices de DB
 (status, next_retry_at)       # query del fan-out
@@ -305,10 +323,11 @@ docker compose logs celery --tail=50 -f
 ### Checklist de salud del sistema de facturación
 ```
 [ ] Beat corriendo y disparando tasks.sync_pending_invoices cada 60s
-[ ] No hay locks stale en InvoiceSyncQueue
+[ ] No hay locks stale en InvoiceSyncQueue (dashboard: stale_locks == 0)
 [ ] No hay facturas atascadas >24h en status=pending
 [ ] No hay entries en status=processing sin locked_at (worker muerto sin finally)
-[ ] Order.invoice_status='submitted' con sync_queue_entry creada (Paso 4 pendiente)
+[ ] Order.invoice_status='submitted' siempre tiene sync_queue_entry (wiring completo)
+[ ] accepted_orders == entries_generated (dashboard: accounting consistency_ok)
 [ ] Celery worker alcanzable (docker compose ps)
 [ ] Redis alcanzable (broker de Celery)
 ```
@@ -347,8 +366,9 @@ Para activar `NubefactClient` en producción para un tenant:
 ### `create_invoice` → dict
 ```python
 {
-    'status':      'issued',       # siempre si OK
+    'status':      'submitted',    # siempre si OK (Nubefact recibió)
     'external_id': 'B001-42',      # serie-numero de Nubefact
+    'hash':        'HASH-CDR-...',  # hash CDR para verificación futura
     'error':       None,
 }
 # Excepciones: NubefactTemporaryError | NubefactPermanentError
@@ -382,30 +402,26 @@ Para activar `NubefactClient` en producción para un tenant:
 
 ---
 
-## Pendiente — Sprint 3 Paso 4 (Próxima sesión)
+## Sprint 4 — Dashboard Operacional (COMPLETO)
 
-**Objetivo:** Conectar `create_invoice_task` con `InvoiceSyncQueue`.
+**URL:** `/dashboard/<org_slug>/operations/`  
+**Vista:** `operational_dashboard_view` — thin view, toda la lógica en `OperationalDashboardService`
 
-Cuando `create_invoice_task` recibe respuesta exitosa de Nubefact:
-1. Cambiar `invoice_status` de `issued` → `submitted`
-2. Guardar `invoice_hash` si viene en la respuesta
-3. Crear `InvoiceSyncQueue` entry con `next_retry_at = now() + 60s`
+### Secciones del dashboard
 
-Archivos a modificar:
-- `src/domain/tasks/invoice_tasks.py` — Phase 2: crear entry en InvoiceSyncQueue
-- `src/application/usecases/create_invoice.py` — retornar hash si disponible
-- `src/application/providers/nubefact_client.py` — incluir hash en respuesta de `create_invoice`
-- Tests de regresión: `test_invoice_tasks.py` espera `invoice_status='issued'` → actualizar a `submitted`
+| Sección | Servicio | Datos |
+|---------|----------|-------|
+| Facturación | `InvoiceMetricsService` | counts por status, terminal_ok/err, in_flight, has_alert |
+| Queue Health | `QueueHealthService` | pending, stale_locks (>10min), exhausted, dead_letter, oldest_age |
+| Integraciones | `IntegrationHealthService` | por provider: total, error_rate, avg_duration, last_error |
+| Contabilidad | `AccountingConsistencyService` | accepted_orders vs entries_generated, missing/orphan gaps |
 
----
+### Filtro de rango temporal
+`?range=1d|7d|30d|all` — pasa `date_from` a servicios de Facturación e Integraciones.
 
-## Pendiente — Sprint 4: Dashboard Operacional
-
-Basado en guia6.md:
-- Vista por tenant: emitidas, pendientes, rechazadas, retrying
-- Botón "Reprocesar factura" (re-enqueue en InvoiceSyncQueue)
-- Admin UI para InvoiceSyncQueue con filtros: tenant, status, retries, aging
-- Alertas: facturas pending > 30 min → notificación operacional
+### Invariante crítico
+`AccountingEntry` solo debe existir cuando `invoice_status == 'accepted'`.  
+`accepted` = SUNAT confirmó (≠ `submitted` = Nubefact solo recibió).
 
 ---
 
@@ -437,10 +453,14 @@ Formato de logs:
 ✅ Sprint 3.1 InvoiceSyncQueue model + 12 estados
 ✅ Sprint 3.2 get_invoice_status + InvoiceStatusQueryUseCase
 ✅ Sprint 3.3 sync_single + sync_pending tasks + Beat schedule
-🔜 Sprint 3.4 Wiring: create_invoice → InvoiceSyncQueue (PRÓXIMO)
-🔜 Sprint 4   Dashboard operacional + retries manuales
+✅ Sprint 3.4 Wiring: create_invoice → InvoiceSyncQueue (idempotente, hash CDR)
+✅ Mini-sprint  Operational Visibility: invoice_status_ui, admin, badges en templates
+✅ Mini-sprint  Operational Recovery: MAX_ATTEMPTS=7, exhaustion, requeue admin action
+✅ Mini-sprint  Accounting foundations: AccountingEntry + AccountingEntryLine
+✅ Mini-sprint  Integration layer: ExternalServiceConfig + ExternalRequestLog
+✅ Sprint 4   Dashboard operacional (4 secciones, filtro rango, sidebar nav)
 🔜 Sprint 5   Reporting + analytics (datos confiables ya disponibles)
-🔜 Sprint 6   Hardening SaaS: rate limiting, circuit breaker, dead letter queue
+🔜 Sprint 6   Hardening SaaS: rate limiting, circuit breaker, Prometheus wiring
 ```
 
 ---
