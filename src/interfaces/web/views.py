@@ -1243,3 +1243,40 @@ def exchange_history_view(request, org_slug):
         'tenant': tenant,
         'rates': page_obj,
     })
+
+
+# ── Sprint 4 — Operational Dashboard ─────────────────────────────────────────
+
+def operational_dashboard_view(request, org_slug):
+    from src.application.services.dashboard import OperationalDashboardService
+
+    tenant = request.organization
+
+    range_param = request.GET.get('range', '7d')
+    now = timezone.now()
+    _RANGES = {
+        '1d':  now - timedelta(days=1),
+        '7d':  now - timedelta(days=7),
+        '30d': now - timedelta(days=30),
+        'all': None,
+    }
+    date_from = _RANGES.get(range_param, _RANGES['7d'])
+
+    data = OperationalDashboardService().get_dashboard_data(
+        organization=tenant,
+        date_from=date_from,
+        date_to=None,
+    )
+
+    return render(request, 'dashboard/operations.html', {
+        'tenant':             tenant,
+        'invoice_metrics':    data['invoice_metrics'],
+        'queue_health':       data['queue_health'],
+        'integration_health': data['integration_health'],
+        'accounting':         data['accounting'],
+        'date_range':         range_param,
+        'range_labels': {
+            '1d': 'Hoy', '7d': 'Últimos 7 días',
+            '30d': 'Últimos 30 días', 'all': 'Todo',
+        },
+    })

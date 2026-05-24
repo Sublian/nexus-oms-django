@@ -4,6 +4,7 @@ from django.urls import path
 from .decorators import tenant_access_required
 from .views import (
     dashboard_home,
+    operational_dashboard_view,
     exchange_history_view,
     order_detail_partial,
     trigger_pdf_generation,
@@ -80,4 +81,7 @@ urlpatterns = [
 
     # --- Tipo de cambio ---
     path('finance/exchange-history/', _ta(exchange_history_view), name='exchange-history'),
+
+    # --- Sprint 4: Operational Dashboard ---
+    path('operations/', _ta(operational_dashboard_view), name='operational-dashboard'),
 ]
