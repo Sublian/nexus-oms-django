@@ -106,6 +106,8 @@ def sync_single_invoice_task(self, entry_id: int):
             if entry.status in (
                 InvoiceSyncQueue.STATUS_COMPLETED,
                 InvoiceSyncQueue.STATUS_FAILED,
+                InvoiceSyncQueue.STATUS_EXHAUSTED,
+                InvoiceSyncQueue.STATUS_DEAD_LETTER,
             ):
                 logger.info(
                     f"[invoice.poll.skip][task_id={task_id}]"
@@ -127,9 +129,10 @@ def sync_single_invoice_task(self, entry_id: int):
 
             # Adquirir lock + incrementar attempts (persistido atomicamente)
             entry.locked_at = timezone.now()
+            entry.last_attempt_at = timezone.now()
             entry.status = InvoiceSyncQueue.STATUS_PROCESSING
             entry.attempts += 1
-            entry.save(update_fields=["locked_at", "status", "attempts"])
+            entry.save(update_fields=["locked_at", "last_attempt_at", "status", "attempts"])
 
     except Exception as exc:
         logger.error(
@@ -176,22 +179,38 @@ def sync_single_invoice_task(self, entry_id: int):
             )
 
         else:
-            # SUNAT aun procesando — reagendar con backoff
-            entry.status = InvoiceSyncQueue.STATUS_PENDING
-            entry.schedule_next_retry()
+            # SUNAT aun procesando — reagendar con backoff o agotar
             entry.last_response = result.get("raw_response")
-            entry.save(update_fields=["status", "next_retry_at", "last_response"])
+            entry.schedule_next_retry()
 
-            _metric(
-                "invoice.poll.retry",
-                task_id=task_id, tenant_id=org_id,
-                order_id=order_id, attempt=entry.attempts,
-            )
-            logger.info(
-                f"[invoice.poll.retry][task_id={task_id}]"
-                f"[tenant_id={org_id}][order_id={order_id}]"
-                f"[next_retry_at={entry.next_retry_at}][attempt={entry.attempts}]"
-            )
+            if entry.should_exhaust():
+                entry.mark_exhausted("Max attempts reached without SUNAT resolution")
+                entry.save(update_fields=["status", "last_error", "exhausted_at", "completed_at", "last_response"])
+
+                _metric(
+                    "invoice.poll.exhausted",
+                    task_id=task_id, tenant_id=org_id,
+                    order_id=order_id, attempt=entry.attempts,
+                )
+                logger.error(
+                    f"[invoice.poll.exhausted][task_id={task_id}]"
+                    f"[tenant_id={org_id}][order_id={order_id}]"
+                    f"[attempt={entry.attempts}]"
+                )
+            else:
+                entry.status = InvoiceSyncQueue.STATUS_PENDING
+                entry.save(update_fields=["status", "next_retry_at", "last_response"])
+
+                _metric(
+                    "invoice.poll.retry",
+                    task_id=task_id, tenant_id=org_id,
+                    order_id=order_id, attempt=entry.attempts,
+                )
+                logger.info(
+                    f"[invoice.poll.retry][task_id={task_id}]"
+                    f"[tenant_id={org_id}][order_id={order_id}]"
+                    f"[next_retry_at={entry.next_retry_at}][attempt={entry.attempts}]"
+                )
 
     except NubefactTemporaryError as exc:
         # Timeout / 5xx — reagendar con backoff, no marcar como failed
