@@ -17,22 +17,75 @@
         </p>
     </div>
 
-    {# Filtro de rango temporal (legacy rolling + calendar month quick links) #}
-    <div class="flex flex-wrap items-center gap-2">
-        <span class="text-[10px] text-gray-400 font-black uppercase tracking-widest">Período:</span>
-        {% for key, label in range_labels.items %}
-        <a href="?range={{ key }}"
-           class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
-                  {% if range_param == key %}bg-tenant-primary text-white shadow{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
-            {{ label }}
-        </a>
-        {% endfor %}
-        {# Month shortcuts for current + previous month #}
-        <a href="?period=month"
-           class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
-                  {% if request.GET.period == 'month' and not request.GET.month %}bg-tenant-primary text-white shadow{% else %}bg-indigo-50 text-indigo-600 hover:bg-indigo-100{% endif %}">
-            Este mes
-        </a>
+    {# ── Quick period filters ──────────────────────────────────────────────── #}
+    <div class="flex flex-col gap-2">
+        <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-[10px] text-gray-400 font-black uppercase tracking-widest mr-1">Período:</span>
+            {% with ap=active_period %}
+            <a href="?period=today"
+               class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
+                      {% if ap == 'today' %}bg-tenant-primary text-white shadow{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+                Hoy
+            </a>
+            <a href="?period=week"
+               class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
+                      {% if ap == 'week' %}bg-tenant-primary text-white shadow{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+                Esta semana
+            </a>
+            <a href="?period=month"
+               class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
+                      {% if ap == 'month' %}bg-tenant-primary text-white shadow{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+                Este mes
+            </a>
+            <a href="?range=30d"
+               class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
+                      {% if ap == '30d' %}bg-tenant-primary text-white shadow{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+                Últimos 30d
+            </a>
+            <a href="?period=year"
+               class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
+                      {% if ap == 'year' %}bg-tenant-primary text-white shadow{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+                Este año
+            </a>
+            <a href="?range=all"
+               class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
+                      {% if ap == 'all' %}bg-tenant-primary text-white shadow{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+                Todo
+            </a>
+            {% endwith %}
+        </div>
+
+        {# ── Month navigator (visible only when period=month) ──────────────── #}
+        {% if active_period == 'month' %}
+        <div class="flex items-center gap-2 mt-0.5">
+            {% if prev_month_url %}
+            <a href="{{ prev_month_url }}"
+               class="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 text-xs font-black transition-all"
+               title="Mes anterior">&#9664;</a>
+            {% endif %}
+
+            <span class="text-sm font-black text-gray-700 min-w-[120px] text-center">
+                {{ nav_month_name }} {{ nav_year }}
+            </span>
+
+            {% if next_month_url %}
+            <a href="{{ next_month_url }}"
+               class="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 text-xs font-black transition-all"
+               title="Mes siguiente">&#9654;</a>
+            {% else %}
+            <span class="w-7 h-7"></span>
+            {% endif %}
+
+            {# Year selector #}
+            <select
+                onchange="location.href='?period=month&month={{ nav_month }}&year='+this.value"
+                class="ml-2 text-[10px] font-black text-gray-500 bg-gray-100 border-0 rounded-lg px-2 py-1.5 hover:bg-gray-200 cursor-pointer focus:ring-0 focus:outline-none">
+                {% for year in available_years %}
+                <option value="{{ year }}" {% if year == nav_year %}selected{% endif %}>{{ year }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
     </div>
 </div>
 

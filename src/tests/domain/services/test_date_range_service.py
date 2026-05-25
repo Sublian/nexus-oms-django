@@ -167,7 +167,7 @@ class TestFromRequest:
         start, end, label = svc.from_request(req)
         assert start.month == 3
         assert start.year == 2026
-        assert 'March 2026' in label
+        assert 'Marzo 2026' in label
 
     def test_period_today(self):
         svc = DateRangeService()

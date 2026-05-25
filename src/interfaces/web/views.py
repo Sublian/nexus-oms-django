@@ -1250,7 +1250,7 @@ def exchange_history_view(request, org_slug):
 def operational_dashboard_view(request, org_slug):
     import json
     from src.application.services.dashboard import OperationalDashboardService
-    from src.domain.services.date_range_service import DateRangeService
+    from src.domain.services.date_range_service import DateRangeService, ES_MONTHS
 
     tenant = request.organization
     date_from, date_to, period_label = DateRangeService().from_request(request)
@@ -1261,12 +1261,49 @@ def operational_dashboard_view(request, org_slug):
         date_to=date_to,
     )
 
-    # Serialise chart series to JSON for Chart.js — keys are dates, safe to dump
     chart_series = data['chart_series']
     chart_series_json = json.dumps({
         'labels':   chart_series['labels'],
         'datasets': chart_series['datasets'],
     })
+
+    # ── Navigation context ────────────────────────────────────────────────────
+    now = timezone.now()
+
+    period_param = request.GET.get('period')
+    range_param  = request.GET.get('range', '7d')
+
+    if period_param in ('today', 'week', 'year', 'month'):
+        active_period = period_param
+    elif range_param in ('1d', '7d', '30d', 'all'):
+        active_period = range_param
+    else:
+        active_period = '7d'
+
+    # Month navigation — only relevant when period=month
+    nav_month = nav_year = None
+    nav_month_name = ''
+    prev_month_url = next_month_url = None
+
+    if active_period == 'month':
+        try:
+            nav_month = int(request.GET.get('month') or now.month)
+            nav_year  = int(request.GET.get('year')  or now.year)
+        except (ValueError, TypeError):
+            nav_month, nav_year = now.month, now.year
+        nav_month_name = ES_MONTHS[nav_month]
+
+        pm = nav_month - 1 if nav_month > 1 else 12
+        py = nav_year if nav_month > 1 else nav_year - 1
+        prev_month_url = f'?period=month&month={pm}&year={py}'
+
+        nm = nav_month + 1 if nav_month < 12 else 1
+        ny = nav_year if nav_month < 12 else nav_year + 1
+        if (ny, nm) <= (now.year, now.month):
+            next_month_url = f'?period=month&month={nm}&year={ny}'
+
+    current_year   = now.year
+    available_years = list(range(current_year - 3, current_year + 1))
 
     return render(request, 'dashboard/operations.html', {
         'tenant':              tenant,
@@ -1276,11 +1313,15 @@ def operational_dashboard_view(request, org_slug):
         'accounting':          data['accounting'],
         'kpis':                data['kpis'],
         'chart_series_json':   chart_series_json,
-        # period state for UI
+        # period labels
         'period_label':        period_label,
-        'range_param':         request.GET.get('range', '7d'),
-        'range_labels': {
-            '1d': 'Últimas 24h', '7d': 'Últimos 7 días',
-            '30d': 'Últimos 30 días', 'all': 'Todo',
-        },
+        # navigation state
+        'active_period':       active_period,
+        'nav_month':           nav_month,
+        'nav_year':            nav_year,
+        'nav_month_name':      nav_month_name,
+        'prev_month_url':      prev_month_url,
+        'next_month_url':      next_month_url,
+        'available_years':     available_years,
+        'es_months':           list(ES_MONTHS.items()),
     })

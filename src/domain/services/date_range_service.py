@@ -15,6 +15,12 @@ import calendar
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
 
+ES_MONTHS = {
+    1: 'Enero',    2: 'Febrero',   3: 'Marzo',    4: 'Abril',
+    5: 'Mayo',     6: 'Junio',     7: 'Julio',    8: 'Agosto',
+    9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre',
+}
+
 from django.utils import timezone
 
 DateTimePair = Tuple[Optional[datetime], Optional[datetime]]
@@ -128,7 +134,7 @@ class DateRangeService:
                 start, end = self.month_range(m, y)
                 _m = m or timezone.now().month
                 _y = y or timezone.now().year
-                label = f"{calendar.month_name[_m]} {_y}"
+                label = f"{ES_MONTHS[_m]} {_y}"
                 return start, end, label
             except (ValueError, TypeError, DateRangeValidationError):
                 pass
