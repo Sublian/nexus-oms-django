@@ -8,19 +8,19 @@
     </div>
 
     <div class="flex space-x-4 border-b border-gray-200 mb-6" hx-target="#settings-content">
-        <button hx-get="{% url 'web:org-settings-notifications' tenant.slug %}" 
+        <button hx-get="{% url 'web:org_settings_notifications' tenant.slug %}" 
                 hx-on:click="updateActiveTab(this)"
                 class="tab-btn px-4 py-2 border-b-2 border-tenant-primary text-tenant-primary font-semibold">
             Notificaciones
         </button>
         
-        <button hx-get="{% url 'web:org-settings-company' tenant.slug %}"
+        <button hx-get="{% url 'web:org_settings_company' tenant.slug %}"
                 hx-on:click="updateActiveTab(this)"
                 class="tab-btn px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-tenant-primary transition">
             Información de Empresa
         </button>
 
-        <button hx-get="{% url 'web:org-settings-shipping' tenant.slug %}"
+        <button hx-get="{% url 'web:org_settings_shipping' tenant.slug %}"
                 hx-on:click="updateActiveTab(this)"
                 class="tab-btn px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-tenant-primary transition">
             Envío & Delivery

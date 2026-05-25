@@ -13,7 +13,7 @@ def test_order_list_view_status_code(client, admin_user, organization):
     
     # IMPORTANTE: El middleware de tenant necesita que el usuario tenga permiso 
     # o que la URL contenga el slug correcto.
-    url = reverse('web:order-list', kwargs={'org_slug': organization.slug})
+    url = reverse('web:order_list', kwargs={'org_slug': organization.slug})
     response = client.get(url)
     
     assert response.status_code == 200
@@ -22,12 +22,12 @@ def test_order_list_view_status_code(client, admin_user, organization):
 @pytest.mark.django_db
 class TestOrderWebViews:
     def test_order_list_view(self, logged_in_client, organization):
-        url = reverse('web:order-list', kwargs={'org_slug': organization.slug})
+        url = reverse('web:order_list', kwargs={'org_slug': organization.slug})
         response = logged_in_client.get(url)
         assert response.status_code == 200
 
     def test_order_create_view_get(self, logged_in_client, organization):
-        url = reverse('web:order-create', kwargs={'org_slug': organization.slug})
+        url = reverse('web:order_create', kwargs={'org_slug': organization.slug})
         response = logged_in_client.get(url)
         assert response.status_code == 200
 
@@ -37,7 +37,7 @@ class TestOrderWebViews:
         warehouse = Warehouse.objects.create(name="Principal", organization=organization)
         Stock.objects.create(product=product, warehouse=warehouse, quantity=100, organization=organization)
 
-        url = reverse('web:order-create', kwargs={'org_slug': organization.slug})
+        url = reverse('web:order_create', kwargs={'org_slug': organization.slug})
         data = {
             'customer_name': 'Juan Test',
             'customer_email': 'juan@test.com',
@@ -87,7 +87,7 @@ class TestOrderWebViews:
         )
         # After creating OrderItem, signal decrements stock: 100 - 5 = 95
 
-        url = reverse('web:order-item-edit', kwargs={
+        url = reverse('web:order_item_edit', kwargs={
             'org_slug': organization.slug,
             'order_id': order.id,
             'item_id': item.id
@@ -131,7 +131,7 @@ class TestOrderWebViews:
         )
         # After creating OrderItem, signal decrements stock: 95 - 5 = 90
 
-        url = reverse('web:order-item-edit', kwargs={
+        url = reverse('web:order_item_edit', kwargs={
             'org_slug': organization.slug,
             'order_id': order.id,
             'item_id': item.id
@@ -174,7 +174,7 @@ class TestOrderWebViews:
             organization=organization
         )
 
-        url = reverse('web:order-item-edit', kwargs={
+        url = reverse('web:order_item_edit', kwargs={
             'org_slug': organization.slug,
             'order_id': order.id,
             'item_id': item.id
@@ -222,7 +222,7 @@ class TestOrderWebViews:
         )
         # After creating items, signal decrements stock: 95 - 5 - 5 = 85
 
-        url = reverse('web:order-item-delete', kwargs={
+        url = reverse('web:order_item_delete', kwargs={
             'org_slug': organization.slug,
             'order_id': order.id,
             'item_id': item1.id
@@ -266,7 +266,7 @@ class TestOrderWebViews:
             organization=organization
         )
 
-        url = reverse('web:order-item-edit', kwargs={
+        url = reverse('web:order_item_edit', kwargs={
             'org_slug': organization.slug,
             'order_id': order.id,
             'item_id': item.id
@@ -302,7 +302,7 @@ class TestOrderWebViews:
             organization=organization
         )
 
-        url = reverse('web:order-item-delete', kwargs={
+        url = reverse('web:order_item_delete', kwargs={
             'org_slug': organization.slug,
             'order_id': order.id,
             'item_id': item.id
@@ -341,7 +341,7 @@ class TestOrderWebViews:
             organization=organization
         )
 
-        url = reverse('web:order-item-delete', kwargs={
+        url = reverse('web:order_item_delete', kwargs={
             'org_slug': organization.slug,
             'order_id': order.id,
             'item_id': item.id
@@ -396,7 +396,7 @@ class TestOrderWebViews:
             organization=organization
         )
 
-        url = reverse('web:order-item-delete', kwargs={
+        url = reverse('web:order_item_delete', kwargs={
             'org_slug': organization.slug,
             'order_id': order.id,
             'item_id': item1.id

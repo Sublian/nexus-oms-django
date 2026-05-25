@@ -11,7 +11,7 @@
 </div>
 {% endif %}
 
-<form hx-post="{% url 'web:order-create' tenant.slug %}" hx-target="body">
+<form hx-post="{% url 'web:order_create' tenant.slug %}" hx-target="body">
     {% csrf_token %}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div class="lg:col-span-2 space-y-6">
@@ -25,7 +25,7 @@
                     <div>
                         <label class="block text-xs font-bold uppercase text-gray-500">Documento (DNI/RUC)</label>
                         <input type="text" name="document" required
-                               hx-get="{% url 'web:search-client' tenant.slug %}"
+                               hx-get="{% url 'web:search_client' tenant.slug %}"
                                hx-trigger="keyup changed delay:500ms"
                                hx-target="#client-result"
                                class="w-full border border-tenant-secondary/40 rounded-lg p-2.5 focus:border-tenant-primary focus:ring-1 focus:ring-tenant-primary bg-white transition-all shadow-sm"
@@ -49,7 +49,7 @@
                     <div class="relative w-64">
                         <input type="text" name="q" autocomplete="off"
                             placeholder="Buscar o ver productos..." 
-                            hx-get="{% url 'web:search-product' tenant.slug %}"
+                            hx-get="{% url 'web:search_product' tenant.slug %}"
                             
                             # --- NUEVOS DISPARADORES ---
                             # click: Carga productos al tocar el campo

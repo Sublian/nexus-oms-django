@@ -10,7 +10,7 @@
             {% endif %}
         </div>
     </div>
-    <form hx-post="{% url 'web:order-item-edit' org_slug=item.order.organization.slug order_id=item.order.id item_id=item.id %}"
+    <form hx-post="{% url 'web:order_item_edit' org_slug=item.order.organization.slug order_id=item.order.id item_id=item.id %}"
           hx-target="#order-items-section"
           hx-swap="outerHTML"
           class="flex items-center gap-2">

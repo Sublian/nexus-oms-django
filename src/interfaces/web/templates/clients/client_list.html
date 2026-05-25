@@ -15,7 +15,7 @@
                 {% endif %}
             </p>
         </div>
-        <a href="{% url 'web:client-create' tenant.slug %}" class="btn-tenant flex items-center gap-2 text-sm">
+        <a href="{% url 'web:client_create' tenant.slug %}" class="btn-tenant flex items-center gap-2 text-sm">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
@@ -39,7 +39,7 @@
                 Buscar
             </button>
             {% if query %}
-            <a href="{% url 'web:client-list' tenant.slug %}"
+            <a href="{% url 'web:client_list' tenant.slug %}"
                class="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-all">
                 Limpiar
             </a>
@@ -71,7 +71,7 @@
                                 {{ client.name|first|upper }}
                             </div>
                             <div>
-                                <a href="{% url 'web:client-detail' tenant.slug client.id %}"
+                                <a href="{% url 'web:client_detail' tenant.slug client.id %}"
                                    class="font-bold text-gray-900 text-sm leading-tight hover:text-tenant-primary transition-colors">
                                     {{ client.name }}
                                 </a>
@@ -184,7 +184,7 @@
             {% if query %}
             <p class="text-gray-500 font-semibold">Sin resultados para "{{ query }}"</p>
             <p class="text-sm text-gray-400 mt-1">Prueba con otro nombre, documento o teléfono</p>
-            <a href="{% url 'web:client-list' tenant.slug %}" class="mt-4 text-sm text-tenant-primary font-bold hover:underline">
+            <a href="{% url 'web:client_list' tenant.slug %}" class="mt-4 text-sm text-tenant-primary font-bold hover:underline">
                 Ver todos los clientes
             </a>
             {% else %}

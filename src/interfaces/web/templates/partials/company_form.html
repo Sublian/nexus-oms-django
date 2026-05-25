@@ -7,7 +7,7 @@
         </div>
     {% endif %}
 
-    <form hx-post="{% url 'web:org-settings-company' tenant.slug %}" 
+    <form hx-post="{% url 'web:org_settings_company' tenant.slug %}" 
           hx-target="#company-settings" 
           hx-swap="outerHTML" 
           class="space-y-4">

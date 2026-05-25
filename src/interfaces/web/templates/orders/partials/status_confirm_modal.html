@@ -71,7 +71,7 @@
 
         <!-- Footer -->
         <div class="p-6 border-t border-gray-100 flex gap-3">
-            <form hx-post="{% url 'web:order-confirm-status' tenant.slug order.id %}"
+            <form hx-post="{% url 'web:order_confirm_status' tenant.slug order.id %}"
                   hx-target="#modals-here"
                   hx-swap="outerHTML"
                   class="flex-1">

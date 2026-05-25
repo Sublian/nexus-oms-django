@@ -10,7 +10,7 @@
         <h1 class="text-3xl font-extrabold text-gray-950 tracking-tight">Bienvenido, Operador</h1>
     </div>
     
-    <a href="{% url 'web:order-create' tenant.slug %}" class="btn-tenant flex items-center gap-2">
+    <a href="{% url 'web:order_create' tenant.slug %}" class="btn-tenant flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
         </svg>
@@ -126,7 +126,7 @@
 
 <div class="flex justify-between items-center mb-4">
     <h3 class="font-bold text-gray-700">Últimos Pedidos</h3>
-    <a href="{% url 'web:order-list' tenant.slug %}" class="text-xs text-tenant-primary font-black hover:underline flex items-center gap-1">
+    <a href="{% url 'web:order_list' tenant.slug %}" class="text-xs text-tenant-primary font-black hover:underline flex items-center gap-1">
         VER TODOS
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
     </a>

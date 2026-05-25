@@ -10,7 +10,7 @@
         </div>
     </div>
 
-    <form hx-post="{% url 'web:order-item-delete' org_slug=order.organization.slug order_id=order.id item_id=item_id %}"
+    <form hx-post="{% url 'web:order_item_delete' org_slug=order.organization.slug order_id=order.id item_id=item_id %}"
           hx-target="#order-items-section"
           hx-swap="outerHTML"
           class="space-y-3">

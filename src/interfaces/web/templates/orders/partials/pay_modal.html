@@ -41,7 +41,7 @@
             </button>
         </div>
 
-        <form hx-post="{% url 'web:order-pay' tenant.slug order.id %}"
+        <form hx-post="{% url 'web:order_pay' tenant.slug order.id %}"
               hx-target="#modals-here"
               hx-swap="outerHTML"
               @submit="validateAndSubmit($event)">

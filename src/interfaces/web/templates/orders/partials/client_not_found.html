@@ -1,5 +1,5 @@
 <button type="button" 
-        hx-get="{% url 'web:validate-identity' tenant.slug %}?document={{ doc_number }}"
+        hx-get="{% url 'web:validate_identity' tenant.slug %}?document={{ doc_number }}"
         hx-target="#client-result"
         class="bg-tenant-primary text-white px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 transition-all">
     VALIDAR EN NUBE (MIGO)

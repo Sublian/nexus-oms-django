@@ -318,7 +318,7 @@ def order_create_view(request, org_slug):
                 res['HX-Redirect'] = f"/dashboard/{org_slug}/orders/" # O a la lista de pedidos
                 return res
             
-            return redirect('web:order-list', org_slug=org_slug)
+            return redirect('web:order_list', org_slug=org_slug)
 
         except ValueError as e:
             messages.error(request, f"Error de validación: {str(e)}")
@@ -362,7 +362,7 @@ def search_client_partial(request, org_slug):
     
     # 2. Si no existe y tiene longitud de DNI/RUC, sugerir validación externa
     if len(doc_number) in [8, 11]:
-        validate_url = f"/dashboard/{org_slug}/validate-identity/?document={doc_number}"
+        validate_url = f"/dashboard/{org_slug}/validate_identity/?document={doc_number}"
         return HttpResponse(f"""
             <div class="p-2 bg-blue-50 border border-blue-100 rounded-lg flex flex-col gap-2">
                 <span class="text-[10px] text-blue-600 font-bold uppercase">No registrado localmente</span>
@@ -649,7 +649,7 @@ def _client_form_context(tenant, error, post_data, client=None, is_edit=False, o
     from django.urls import reverse
     doc_types = Client.DOCUMENT_TYPES
     if is_edit:
-        cancel_url = reverse('web:client-detail', kwargs={'org_slug': org_slug, 'client_id': client.id})
+        cancel_url = reverse('web:client_detail', kwargs={'org_slug': org_slug, 'client_id': client.id})
         current = {
             'document_type': post_data.get('document_type', client.document_type),
             'document_number': post_data.get('document_number', client.document_number),
@@ -659,7 +659,7 @@ def _client_form_context(tenant, error, post_data, client=None, is_edit=False, o
             'address': post_data.get('address', client.address or ''),
         }
     else:
-        cancel_url = reverse('web:client-list', kwargs={'org_slug': org_slug})
+        cancel_url = reverse('web:client_list', kwargs={'org_slug': org_slug})
         current = {k: post_data.get(k, '') for k in ['document_type', 'document_number', 'name', 'email', 'phone', 'address']}
         if not current['document_type']:
             current['document_type'] = 'DNI'
@@ -704,7 +704,7 @@ def client_create_view(request, org_slug):
                 address=post_data.get('address', '').strip() or None,
             )
             messages.success(request, f'Cliente {name.upper()} creado correctamente.')
-            return redirect('web:client-list', org_slug=org_slug)
+            return redirect('web:client_list', org_slug=org_slug)
 
     ctx = _client_form_context(tenant, error, post_data, is_edit=False, org_slug=org_slug)
     return render(request, 'clients/client_form.html', ctx)
@@ -741,7 +741,7 @@ def client_edit_view(request, org_slug, client_id):
             client.address = post_data.get('address', '').strip() or None
             client.save()
             messages.success(request, f'Cliente {client.name} actualizado correctamente.')
-            return redirect('web:client-detail', org_slug=org_slug, client_id=client_id)
+            return redirect('web:client_detail', org_slug=org_slug, client_id=client_id)
 
     ctx = _client_form_context(tenant, error, post_data, client=client, is_edit=True, org_slug=org_slug)
     return render(request, 'clients/client_form.html', ctx)
@@ -753,7 +753,7 @@ def _product_form_context(tenant, error, post_data, product=None, is_edit=False,
     warehouses = Warehouse.objects.filter(organization=tenant).order_by('name')
 
     if is_edit and product:
-        cancel_url = reverse('web:product-detail', kwargs={'org_slug': org_slug, 'product_id': product.id})
+        cancel_url = reverse('web:product_detail', kwargs={'org_slug': org_slug, 'product_id': product.id})
         current = {
             'name': post_data.get('name', product.name),
             'sku': post_data.get('sku', product.sku),
@@ -763,7 +763,7 @@ def _product_form_context(tenant, error, post_data, product=None, is_edit=False,
             'is_active': product.is_active,
         }
     else:
-        cancel_url = reverse('web:product-list', kwargs={'org_slug': org_slug})
+        cancel_url = reverse('web:product_list', kwargs={'org_slug': org_slug})
         current = {
             'name': post_data.get('name', ''),
             'sku': post_data.get('sku', ''),
@@ -927,7 +927,7 @@ def product_create_view(request, org_slug):
                     pass
 
             messages.success(request, f'Producto {product.name} creado correctamente.')
-            return redirect('web:product-detail', org_slug=org_slug, product_id=product.id)
+            return redirect('web:product_detail', org_slug=org_slug, product_id=product.id)
 
     ctx = _product_form_context(tenant, error, post_data, is_edit=False, org_slug=org_slug)
     return render(request, 'products/product_form.html', ctx)
@@ -977,7 +977,7 @@ def product_edit_view(request, org_slug, product_id):
             product.save()
 
             messages.success(request, f'Producto {product.name} actualizado correctamente.')
-            return redirect('web:product-detail', org_slug=org_slug, product_id=product.id)
+            return redirect('web:product_detail', org_slug=org_slug, product_id=product.id)
 
     ctx = _product_form_context(tenant, error, post_data, product=product, is_edit=True, org_slug=org_slug)
     return render(request, 'products/product_form.html', ctx)
@@ -995,7 +995,7 @@ def product_toggle_active_view(request, org_slug, product_id):
 
     label = 'activado' if product.is_active else 'suspendido'
     messages.success(request, f'Producto {product.name} {label} correctamente.')
-    return redirect('web:product-detail', org_slug=org_slug, product_id=product.id)
+    return redirect('web:product_detail', org_slug=org_slug, product_id=product.id)
 
 
 def _restore_order_stock(order):

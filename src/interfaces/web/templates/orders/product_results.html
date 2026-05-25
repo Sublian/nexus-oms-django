@@ -2,7 +2,7 @@
     <div class="max-h-60 overflow-y-auto">
         {% for product in products %}
         <div class="p-3 hover:bg-tenant-primary/5 cursor-pointer border-b last:border-none flex justify-between items-center group"
-             hx-get="{% url 'web:add-to-order' tenant.slug product.id %}"
+             hx-get="{% url 'web:add_to_order' tenant.slug product.id %}"
              hx-target="#order-items"
              hx-swap="beforeend">
             

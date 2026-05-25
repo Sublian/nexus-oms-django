@@ -13,7 +13,7 @@
     <td class="px-6 py-4">
         <div class="text-sm font-medium {% if order.status == 'CANCELLED' %}line-through text-gray-400{% else %}text-gray-900{% endif %}">
             {% if order.client %}
-            <a href="{% url 'web:client-detail' tenant.slug order.client.id %}"
+            <a href="{% url 'web:client_detail' tenant.slug order.client.id %}"
                class="hover:text-tenant-primary transition-colors">{{ order.customer_name }}</a>
             {% else %}
             {{ order.customer_name }}
@@ -80,52 +80,52 @@
 
             {# Transiciones contextuales — abren modal #}
             {% if order.status == 'DRAFT' %}
-                <button hx-get="{% url 'web:order-confirm-status' tenant.slug order.id %}?to=PENDING"
+                <button hx-get="{% url 'web:order_confirm_status' tenant.slug order.id %}?to=PENDING"
                         hx-target="#modals-here"
                         class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-yellow-100 text-yellow-700 hover:bg-yellow-200 transition-all">
                     Confirmar
                 </button>
-                <button hx-get="{% url 'web:order-confirm-status' tenant.slug order.id %}?to=COURTESY"
+                <button hx-get="{% url 'web:order_confirm_status' tenant.slug order.id %}?to=COURTESY"
                         hx-target="#modals-here"
                         class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 transition-all">
                     Cortesía
                 </button>
 
             {% elif order.status == 'PENDING' %}
-                <button hx-get="{% url 'web:order-pay' tenant.slug order.id %}"
+                <button hx-get="{% url 'web:order_pay' tenant.slug order.id %}"
                         hx-target="#modals-here"
                         class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all">
                     Pagar
                 </button>
 
             {% elif order.status == 'COURTESY' %}
-                <button hx-get="{% url 'web:order-confirm-status' tenant.slug order.id %}?to=SHIPPED"
+                <button hx-get="{% url 'web:order_confirm_status' tenant.slug order.id %}?to=SHIPPED"
                         hx-target="#modals-here"
                         class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-sky-100 text-sky-700 hover:bg-sky-200 transition-all">
                     Enviar
                 </button>
 
             {% elif order.status == 'PAID' %}
-                <button hx-get="{% url 'web:order-confirm-status' tenant.slug order.id %}?to=SHIPPED"
+                <button hx-get="{% url 'web:order_confirm_status' tenant.slug order.id %}?to=SHIPPED"
                         hx-target="#modals-here"
                         class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-sky-100 text-sky-700 hover:bg-sky-200 transition-all">
                     Enviar
                 </button>
 
             {% elif order.status == 'SHIPPED' %}
-                <button hx-get="{% url 'web:order-confirm-status' tenant.slug order.id %}?to=DELIVERED"
+                <button hx-get="{% url 'web:order_confirm_status' tenant.slug order.id %}?to=DELIVERED"
                         hx-target="#modals-here"
                         class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-all">
                     Entregar
                 </button>
 
             {% elif order.status == 'DELIVERED' %}
-                <button hx-get="{% url 'web:order-confirm-status' tenant.slug order.id %}?to=COMPLETED"
+                <button hx-get="{% url 'web:order_confirm_status' tenant.slug order.id %}?to=COMPLETED"
                         hx-target="#modals-here"
                         class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-all">
                     Completar
                 </button>
-                <button hx-get="{% url 'web:order-confirm-status' tenant.slug order.id %}?to=RETURNED"
+                <button hx-get="{% url 'web:order_confirm_status' tenant.slug order.id %}?to=RETURNED"
                         hx-target="#modals-here"
                         class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-orange-100 text-orange-700 hover:bg-orange-200 transition-all">
                     Retornar
@@ -134,7 +134,7 @@
 
             {# Anular (pre-DELIVERED) #}
             {% if order.status in 'DRAFT,PENDING,COURTESY,PAID,SHIPPED' %}
-                <button hx-get="{% url 'web:order-confirm-status' tenant.slug order.id %}?to=CANCELLED"
+                <button hx-get="{% url 'web:order_confirm_status' tenant.slug order.id %}?to=CANCELLED"
                         hx-target="#modals-here"
                         title="Anular pedido"
                         class="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">

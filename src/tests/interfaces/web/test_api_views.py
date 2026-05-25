@@ -19,7 +19,7 @@ class TestOrderAPI:
         
         # 2. Usamos el namespace correcto. Según tu urls.py es 'web'
         # Si es una API con Router de Django Rest Framework, verifica dónde se incluye
-        # url = reverse('web:order-list', kwargs={'org_slug': other_org.slug})
+        # url = reverse('web:order_list', kwargs={'org_slug': other_org.slug})
         url = reverse('order-list')
 
         data = {
@@ -96,10 +96,10 @@ class TestOrderAPI:
         set_current_organization(None)
 
     def test_order_search_and_filter(self, logged_in_client, organization, product):
-        url = reverse('web:search-product', kwargs={'org_slug': organization.slug})
+        url = reverse('web:search_product', kwargs={'org_slug': organization.slug})
         response = logged_in_client.get(url, {'q': product.name})
         assert response.status_code == 200
 
-        url_list = reverse('web:order-list', kwargs={'org_slug': organization.slug})
+        url_list = reverse('web:order_list', kwargs={'org_slug': organization.slug})
         response_filter = logged_in_client.get(url_list, {'status': 'PENDING'})
         assert response_filter.status_code == 200

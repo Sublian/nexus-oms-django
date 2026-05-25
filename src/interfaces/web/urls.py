@@ -46,42 +46,42 @@ urlpatterns = [
     path('orders/<int:order_id>/generate-pdf/', _ta(trigger_pdf_generation), name='generate_order_pdf'),
 
     # --- Configuración ---
-    path('settings/', _ta(organization_settings), name='org-settings'),
-    path('settings/notifications/', _ta(settings_notifications_partial), name='org-settings-notifications'),
-    path('settings/company/', _ta(settings_company_partial), name='org-settings-company'),
-    path('validate-identity/', _ta(validate_identity_partial), name='validate-identity'),
+    path('settings/', _ta(organization_settings), name='org_settings'),
+    path('settings/notifications/', _ta(settings_notifications_partial), name='org_settings_notifications'),
+    path('settings/company/', _ta(settings_company_partial), name='org_settings_company'),
+    path('validate-identity/', _ta(validate_identity_partial), name='validate_identity'),
 
     # --- Órdenes ---
-    path('orders/', _ta(order_list_view), name='order-list'),
-    path('orders/search-product/', _ta(search_product_partial), name='search-product'),
-    path('orders/add-item/<int:product_id>/', _ta(add_product_to_order_partial), name='add-to-order'),
-    path('orders/new/', _ta(order_create_view), name='order-create'),
-    path('orders/search-client/', _ta(search_client_partial), name='search-client'),
-    path('orders/<int:order_id>/cancel/', _ta(order_cancel_view), name='order-cancel'),
-    path('orders/<int:order_id>/status/', _ta(order_change_status_view), name='order-status'),
-    path('orders/<int:order_id>/pay/', _ta(order_pay_modal_view), name='order-pay'),
-    path('orders/<int:order_id>/confirm-status/', _ta(order_status_modal_view), name='order-confirm-status'),
-    path('orders/<int:order_id>/items/<int:item_id>/edit/', _ta(order_item_edit_view), name='order-item-edit'),
-    path('orders/<int:order_id>/items/<int:item_id>/delete/confirm/', _ta(order_item_delete_confirm_view), name='order-item-delete-confirm'),
-    path('orders/<int:order_id>/items/<int:item_id>/delete/', _ta(order_item_delete_view), name='order-item-delete'),
-    path('settings/shipping/', _ta(settings_shipping_partial), name='org-settings-shipping'),
+    path('orders/', _ta(order_list_view), name='order_list'),
+    path('orders/search-product/', _ta(search_product_partial), name='search_product'),
+    path('orders/add-item/<int:product_id>/', _ta(add_product_to_order_partial), name='add_to_order'),
+    path('orders/new/', _ta(order_create_view), name='order_create'),
+    path('orders/search-client/', _ta(search_client_partial), name='search_client'),
+    path('orders/<int:order_id>/cancel/', _ta(order_cancel_view), name='order_cancel'),
+    path('orders/<int:order_id>/status/', _ta(order_change_status_view), name='order_status'),
+    path('orders/<int:order_id>/pay/', _ta(order_pay_modal_view), name='order_pay'),
+    path('orders/<int:order_id>/confirm-status/', _ta(order_status_modal_view), name='order_confirm_status'),
+    path('orders/<int:order_id>/items/<int:item_id>/edit/', _ta(order_item_edit_view), name='order_item_edit'),
+    path('orders/<int:order_id>/items/<int:item_id>/delete/confirm/', _ta(order_item_delete_confirm_view), name='order_item_delete_confirm'),
+    path('orders/<int:order_id>/items/<int:item_id>/delete/', _ta(order_item_delete_view), name='order_item_delete'),
+    path('settings/shipping/', _ta(settings_shipping_partial), name='org_settings_shipping'),
 
     # --- Clientes ---
-    path('clients/', _ta(client_list_view), name='client-list'),
-    path('clients/new/', _ta(client_create_view), name='client-create'),
-    path('clients/<int:client_id>/', _ta(client_detail_view), name='client-detail'),
-    path('clients/<int:client_id>/edit/', _ta(client_edit_view), name='client-edit'),
+    path('clients/', _ta(client_list_view), name='client_list'),
+    path('clients/new/', _ta(client_create_view), name='client_create'),
+    path('clients/<int:client_id>/', _ta(client_detail_view), name='client_detail'),
+    path('clients/<int:client_id>/edit/', _ta(client_edit_view), name='client_edit'),
 
     # --- Productos ---
-    path('products/', _ta(product_list_view), name='product-list'),
-    path('products/new/', _ta(product_create_view), name='product-create'),
-    path('products/<int:product_id>/', _ta(product_detail_view), name='product-detail'),
-    path('products/<int:product_id>/edit/', _ta(product_edit_view), name='product-edit'),
-    path('products/<int:product_id>/toggle/', _ta(product_toggle_active_view), name='product-toggle'),
+    path('products/', _ta(product_list_view), name='product_list'),
+    path('products/new/', _ta(product_create_view), name='product_create'),
+    path('products/<int:product_id>/', _ta(product_detail_view), name='product_detail'),
+    path('products/<int:product_id>/edit/', _ta(product_edit_view), name='product_edit'),
+    path('products/<int:product_id>/toggle/', _ta(product_toggle_active_view), name='product_toggle'),
 
     # --- Tipo de cambio ---
-    path('finance/exchange-history/', _ta(exchange_history_view), name='exchange-history'),
+    path('finance/exchange-history/', _ta(exchange_history_view), name='exchange_history'),
 
     # --- Sprint 4: Operational Dashboard ---
-    path('operations/', _ta(operational_dashboard_view), name='operational-dashboard'),
+    path('operations/', _ta(operational_dashboard_view), name='operational_dashboard'),
 ]

@@ -30,7 +30,7 @@
 
         {% if is_last_item %}
         <!-- Form for last item (requires nota) -->
-        <form hx-post="{% url 'web:order-item-delete' org_slug=order.organization.slug order_id=order.id item_id=item_id %}"
+        <form hx-post="{% url 'web:order_item_delete' org_slug=order.organization.slug order_id=order.id item_id=item_id %}"
               hx-target="#order-items-section"
               hx-swap="outerHTML"
               class="p-6 border-t border-gray-100 space-y-4">
@@ -62,7 +62,7 @@
         {% else %}
         <!-- Simple delete confirmation (no nota needed) -->
         <div class="p-6 border-t border-gray-100 flex gap-3">
-            <form hx-post="{% url 'web:order-item-delete' org_slug=order.organization.slug order_id=order.id item_id=item_id %}"
+            <form hx-post="{% url 'web:order_item_delete' org_slug=order.organization.slug order_id=order.id item_id=item_id %}"
                   hx-target="#order-items-section"
                   hx-swap="outerHTML"
                   class="flex-1">

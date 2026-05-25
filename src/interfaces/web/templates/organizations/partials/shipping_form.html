@@ -6,7 +6,7 @@
 </div>
 {% endif %}
 
-<form hx-post="{% url 'web:org-settings-shipping' tenant.slug %}"
+<form hx-post="{% url 'web:org_settings_shipping' tenant.slug %}"
       hx-target="#settings-content"
       hx-swap="innerHTML">
     {% csrf_token %}

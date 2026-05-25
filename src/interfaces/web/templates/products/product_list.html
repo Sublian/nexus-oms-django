@@ -15,7 +15,7 @@
                 {% endif %}
             </p>
         </div>
-        <a href="{% url 'web:product-create' tenant.slug %}" class="btn-tenant flex items-center gap-2 text-sm">
+        <a href="{% url 'web:product_create' tenant.slug %}" class="btn-tenant flex items-center gap-2 text-sm">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
@@ -48,7 +48,7 @@
             <button type="submit" class="btn-tenant py-2.5 px-5 text-sm">Buscar</button>
 
             {% if query or category_id %}
-            <a href="{% url 'web:product-list' tenant.slug %}"
+            <a href="{% url 'web:product_list' tenant.slug %}"
                class="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-all">
                 Limpiar
             </a>
@@ -102,7 +102,7 @@
                                 </svg>
                             </div>
                             <div>
-                                <a href="{% url 'web:product-detail' tenant.slug product.id %}"
+                                <a href="{% url 'web:product_detail' tenant.slug product.id %}"
                                    class="font-bold text-gray-900 text-sm leading-tight hover:text-tenant-primary transition-colors">
                                     {{ product.name }}
                                 </a>
@@ -153,14 +153,14 @@
                     <!-- Actions -->
                     <td class="px-6 py-4 text-right">
                         <div class="flex items-center justify-end gap-1.5">
-                            <a href="{% url 'web:product-detail' tenant.slug product.id %}"
+                            <a href="{% url 'web:product_detail' tenant.slug product.id %}"
                                title="Ver detalle"
                                class="p-1.5 text-gray-400 hover:text-tenant-primary hover:bg-gray-100 rounded-lg transition-all">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                 </svg>
                             </a>
-                            <a href="{% url 'web:product-edit' tenant.slug product.id %}"
+                            <a href="{% url 'web:product_edit' tenant.slug product.id %}"
                                title="Editar"
                                class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -217,7 +217,7 @@
             {% if query %}
             <p class="text-gray-500 font-semibold">Sin resultados para "{{ query }}"</p>
             <p class="text-sm text-gray-400 mt-1">Prueba con otro nombre o SKU</p>
-            <a href="{% url 'web:product-list' tenant.slug %}" class="mt-4 text-sm text-tenant-primary font-bold hover:underline">
+            <a href="{% url 'web:product_list' tenant.slug %}" class="mt-4 text-sm text-tenant-primary font-bold hover:underline">
                 Ver todos los productos
             </a>
             {% elif status_filter == 'inactive' %}
@@ -225,7 +225,7 @@
             {% else %}
             <p class="text-gray-500 font-semibold">No hay productos en el catálogo</p>
             <p class="text-sm text-gray-400 mt-1">Crea el primer producto para comenzar</p>
-            <a href="{% url 'web:product-create' tenant.slug %}" class="mt-4 btn-tenant text-sm">
+            <a href="{% url 'web:product_create' tenant.slug %}" class="mt-4 btn-tenant text-sm">
                 Nuevo Producto
             </a>
             {% endif %}

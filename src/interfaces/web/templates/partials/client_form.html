@@ -1,4 +1,4 @@
-<form hx-post="{% url 'web:client-create' tenant.slug %}" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<form hx-post="{% url 'web:client_create' tenant.slug %}" class="grid grid-cols-1 md:grid-cols-2 gap-4">
     <div class="col-span-1">
         <label>Tipo de Doc.</label>
         <select name="doc_type" class="w-full border-gray-300 rounded-lg p-2">
@@ -11,7 +11,7 @@
     <div class="col-span-1">
         <label>Número</label>
         <input type="text" name="document" 
-               hx-get="{% url 'web:validate-identity' tenant.slug %}"
+               hx-get="{% url 'web:validate_identity' tenant.slug %}"
                hx-trigger="keyup changed delay:500ms"
                hx-target="#client-status"
                class="w-full border-gray-300 rounded-lg p-2">
