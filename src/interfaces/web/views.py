@@ -1245,38 +1245,42 @@ def exchange_history_view(request, org_slug):
     })
 
 
-# ── Sprint 4 — Operational Dashboard ─────────────────────────────────────────
+# ── Sprint 4/5 — Operational Dashboard ────────────────────────────────────────
 
 def operational_dashboard_view(request, org_slug):
+    import json
     from src.application.services.dashboard import OperationalDashboardService
+    from src.domain.services.date_range_service import DateRangeService
 
     tenant = request.organization
-
-    range_param = request.GET.get('range', '7d')
-    now = timezone.now()
-    _RANGES = {
-        '1d':  now - timedelta(days=1),
-        '7d':  now - timedelta(days=7),
-        '30d': now - timedelta(days=30),
-        'all': None,
-    }
-    date_from = _RANGES.get(range_param, _RANGES['7d'])
+    date_from, date_to, period_label = DateRangeService().from_request(request)
 
     data = OperationalDashboardService().get_dashboard_data(
         organization=tenant,
         date_from=date_from,
-        date_to=None,
+        date_to=date_to,
     )
 
+    # Serialise chart series to JSON for Chart.js — keys are dates, safe to dump
+    chart_series = data['chart_series']
+    chart_series_json = json.dumps({
+        'labels':   chart_series['labels'],
+        'datasets': chart_series['datasets'],
+    })
+
     return render(request, 'dashboard/operations.html', {
-        'tenant':             tenant,
-        'invoice_metrics':    data['invoice_metrics'],
-        'queue_health':       data['queue_health'],
-        'integration_health': data['integration_health'],
-        'accounting':         data['accounting'],
-        'date_range':         range_param,
+        'tenant':              tenant,
+        'invoice_metrics':     data['invoice_metrics'],
+        'queue_health':        data['queue_health'],
+        'integration_health':  data['integration_health'],
+        'accounting':          data['accounting'],
+        'kpis':                data['kpis'],
+        'chart_series_json':   chart_series_json,
+        # period state for UI
+        'period_label':        period_label,
+        'range_param':         request.GET.get('range', '7d'),
         'range_labels': {
-            '1d': 'Hoy', '7d': 'Últimos 7 días',
+            '1d': 'Últimas 24h', '7d': 'Últimos 7 días',
             '30d': 'Últimos 30 días', 'all': 'Todo',
         },
     })
