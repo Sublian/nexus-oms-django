@@ -26,50 +26,37 @@ Snapshot técnico al 2026-05-24. Usar como contexto de arranque en nueva sesión
 | `DashboardKPIService` | Acceptance rate + avg latency |
 | `OperationalDashboardService` | Facade que agrega todos los anteriores |
 
-### Modelos clave
-
-- `Order` — tiene `invoice_status` (12 estados), `created_at`
-- `InvoiceSyncQueue` — cola persistente con `STATUS_PENDING/PROCESSING/COMPLETED/FAILED/EXHAUSTED/DEAD_LETTER`; `MAX_ATTEMPTS=7`
-- `AccountingEntry` + `AccountingEntryLine` — invariante: solo para `invoice_status='accepted'`
-- `ExternalRequestLog` — logs por `provider_name`, `success`, `duration_ms`
-- `ExternalServiceConfig` — configuración por provider (`base_url`, `api_key` requeridos)
-
 ---
 
-## Cambios implementados en esta sesión
+## Cambios implementados — sesión actual
 
-### 1. Tests analytics (commit `4fc016a`)
-- Nuevo: `src/tests/application/services/__init__.py`
-- Nuevo: `src/tests/application/services/test_daily_invoice_series_service.py` (17 tests)
-- Nuevo: `src/tests/application/services/test_dashboard_kpi_service.py` (22 tests)
-- Cobertura: empty dataset, filtering, tenant isolation, aggregation, date range, acceptance rate formula, latency
-- **Nota**: tests usan `days_ago>=1` para evitar skew timezone Lima vs UTC en TruncDate
+### FASE 1 — Date Range UX (commit `7ad0d82`)
+- `ES_MONTHS` dict en `date_range_service.py` (labels español, sin locale)
+- `operational_dashboard_view` enriquecido: `active_period`, nav mes/año, prev/next urls
+- `operations.html`: 6 quick filters + navegador mensual ◀ Mes Año ▶ + selector año
 
-### 2. FASE 1 — Date Range UX (commit `7ad0d82`)
-- `src/domain/services/date_range_service.py`:
-  - Añadido `ES_MONTHS` dict (sin dependencia de locale del sistema)
-  - Reemplazado `calendar.month_name[_m]` por `ES_MONTHS[_m]`
-- `src/interfaces/web/views.py` — `operational_dashboard_view` ahora pasa:
-  - `active_period`: `'today'|'week'|'month'|'30d'|'year'|'all'|'7d'|'1d'`
-  - `nav_month`, `nav_year`, `nav_month_name`
-  - `prev_month_url`, `next_month_url` (None si no aplica o límite futuro)
-  - `available_years`: lista `[current-3..current]`
-  - `es_months`: lista de tuplas `[(1,'Enero'),...]`
-- `src/interfaces/web/templates/dashboard/operations.html`:
-  - Reemplazada barra legacy de rolling windows
-  - 6 quick filters: Hoy / Esta semana / Este mes / Últimos 30d / Este año / Todo
-  - Navegador mensual con ◀ Mes Año ▶ + selector de año (visible solo con `period=month`)
-  - Filter activo se resalta con `bg-tenant-primary text-white`
-- `src/tests/domain/services/test_date_range_service.py`:
-  - Actualizado assertion `'March 2026'` → `'Marzo 2026'`
+### FASE 2A — Drill-down navigation (commit `99b52c3`)
+
+**3 nuevas vistas + 3 rutas + 3 templates + 22 tests:**
+
+| URL | Vista | Filtros |
+|-----|-------|---------|
+| `operations/queue/` | `queue_detail_view` | `?status=pending\|failed\|exhausted\|dead_letter\|stale` |
+| `operations/integrations/` | `integration_logs_view` | `?provider=<name>&status=error` |
+| `operations/accounting/` | `accounting_detail_view` | `?filter=missing_entries\|orphan_entries` |
+
+**Links drill-down en `operations.html`:**
+- Queue Health cards: pending, stale locks, exhausted, dead_letter → "Ver →"
+- Integrations provider cards: "Ver logs →" + "Solo errores →" (si failed > 0)
+- Accounting cards: sin asiento, asientos huérfanos → "Ver →"
 
 ---
 
 ## Estado de tests
 
-- **267 tests passing** (106 ejecutados en esta sesión: date_range + analytics + URL resolution)
+- **325 tests** (estimado — no se corrió suite completa)
+- **58/58** en tests de UI/drill-down ejecutados en esta sesión
 - `manage.py check`: 0 issues
-- Migración `0016` aplicada correctamente
 
 ---
 
@@ -79,77 +66,46 @@ Snapshot técnico al 2026-05-24. Usar como contexto de arranque en nueva sesión
 (ninguno — árbol limpio)
 ```
 
-Documentos sin trackear (intencionales):
-- `resume.md` (este archivo)
-- `docs/operational_roadmap.md`
-
 ---
 
 ## Bug conocido (documentado, no bloqueante)
 
 **Timezone inconsistency en `DailyInvoiceSeriesService`:**
-- `TruncDate` usa `TIME_ZONE=America/Lima` del settings de Django
-- `now.date()` usa UTC (de `timezone.now()`)
-- Órdenes creadas cerca de medianoche Lima pueden caer en slot de día incorrecto
-- No bloquea operación. Fix futuro: usar `timezone.localdate()` en la construcción del `dates` list
+- `TruncDate` usa `TIME_ZONE=America/Lima`, `now.date()` usa UTC
+- Fix futuro: `timezone.localdate()`
 
 ---
 
-## Estado UI Dashboard (`/dashboard/<slug>/operations/`)
+## Rutas del módulo operacional
 
-### Filtros actuales (nuevo comportamiento)
-- **6 quick filters**: Hoy / Esta semana / Este mes / Últimos 30d / Este año / Todo
-- **Navegación mensual**: ◀ Mayo 2026 ▶ (cuando `?period=month`)
-- **Selector de año**: dropdown visible en modo mensual
-- Labels en **español** (ES_MONTHS, sin locale global)
-- Parámetros: `?period=today|week|month|year` y `?range=30d|all|7d|1d`
-
-### Secciones del dashboard
-1. KPI cards (4): acceptance rate, latencia, errores terminales, total facturadas
-2. Charts: línea diaria 30 días + donut estados SUNAT
-3. Facturación: tabla de counts por `invoice_status`
-4. Queue Health: pending/processing/completed/failed/exhausted/dead_letter + stale locks
-5. Integraciones: por provider (error rate, latencia, último error)
-6. Consistencia contable: accepted_orders vs entries_generated, missing, orphans
+```
+/dashboard/<slug>/operations/              → Dashboard principal
+/dashboard/<slug>/operations/queue/        → Cola SUNAT (drill-down)
+/dashboard/<slug>/operations/integrations/ → Logs externos (drill-down)
+/dashboard/<slug>/operations/accounting/   → Contabilidad (drill-down)
+```
 
 ---
 
-## Pendientes inmediatos
+## Próximos pasos recomendados
 
-1. **Trackear** `resume.md` y `docs/operational_roadmap.md` en git (o dejarlos sin trackear por diseño)
-2. **Validación visual**: navegar a `/dashboard/nike/operations/` y verificar:
-   - Quick filters se resaltan correctamente
-   - ◀ ▶ navega entre meses
-   - Selector año funciona
-   - Labels en español
-3. **FASE 2** (próximo bloque): Drill-down navegación — desde KPIs navegar a listas filtradas
-
----
-
-## Siguiente bloque recomendado
-
-**FASE 1 completada** ✅
-
-**FASE 2 — Facturación visible** (próximo):
-- Bloque de facturación electrónica en modal de pedido
-- Mejorar columna invoice_status en listado de pedidos (badge + tooltip)
-- O bien: Drill-down desde dashboard (clic en "5 errores SUNAT" → lista filtrada)
+1. **Validación visual**: navegar al dashboard seed y verificar links de drill-down
+2. **FASE 2B** (siguiente): Drill-down de Facturación — desde invoice_status en dashboard
+   navegar a órdenes filtradas por status (`/orders/?invoice_status=rejected`)
+3. **FASE 3**: Logs de integraciones con payload viewer (sin secretos)
 
 ---
 
 ## Comandos útiles
 
 ```bash
-# Tests relacionados al dashboard
-docker compose exec web pytest src/tests/domain/services/test_date_range_service.py src/tests/application/services/ src/tests/interfaces/web/test_url_resolution.py -v
+# Tests drill-down
+docker compose exec web pytest src/tests/interfaces/web/test_drill_down_views.py -v
+docker compose exec web pytest src/tests/interfaces/web/ -v
 
-# Sistema
+# Check sistema
 docker compose exec web python manage.py check
 
 # Git
 git log --oneline -6
-git status
-
-# URL debug
-docker compose exec web python manage.py shell -c "from django.urls import reverse; print(reverse('web:operational_dashboard', kwargs={'org_slug': 'nike'}))"
 ```

@@ -142,6 +142,19 @@ Operaciones necesita visibilidad.
 
 228 tests totales passing.
 
+### FASE 1 — UX operacional ✅ (commit 7ad0d82)
+- 6 quick filters: Hoy / Esta semana / Este mes / Últimos 30d / Este año / Todo
+- Navegación mensual ◀ Mes Año ▶ con selector de año
+- ES_MONTHS: labels en español sin locale global
+- active_period context para resaltar filtro activo
+
+### FASE 2A — Drill-down navigation ✅ (commit 99b52c3)
+- /operations/queue/?status=pending|stale|exhausted|dead_letter|failed
+- /operations/integrations/?provider=<name>&status=error
+- /operations/accounting/?filter=missing_entries|orphan_entries
+- Links "Ver →" en todas las tarjetas métricas del dashboard
+- 22 tests: tenant isolation + filtering behavior
+
 ---
 
 # Bug conocido
@@ -162,10 +175,25 @@ Resolver más adelante usando timezone.localdate().
 
 # Roadmap inmediato
 
-# FASE 1 — UX operacional (PRIORIDAD ALTA)
+# FASE 1 — UX operacional ✅ COMPLETA
+
+# FASE 2A — Drill-down navigation ✅ COMPLETA
+
+# FASE 2B — Drill-down facturación (PRÓXIMO)
 
 Objetivo:
-hacer navegable y útil el dashboard.
+desde dashboard, clic en invoice_status → lista de órdenes filtradas.
+
+Implementar:
+- Link desde "Errores Terminales" → /orders/?invoice_status=rejected
+- Link desde "En Tránsito" → /orders/?invoice_status=submitted,sync_pending
+- Filtro ?invoice_status= en order_list_view (si no existe)
+- NO invoice detail avanzado todavía
+
+# FASE 2 — Facturación visible (era FASE 2)
+
+Objetivo original:
+hacer visible el ciclo completo de facturación en modal de pedido.
 
 ## 1. Date Range UX
 
