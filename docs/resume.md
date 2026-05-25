@@ -1,5 +1,5 @@
 # Nexus OMS — Resumen de Avances del Proyecto
-**Fecha de corte:** 24 de Mayo, 2026 | **Versión:** 3.2.0-WIP | **Fase:** Sprint 4 completo
+**Fecha de corte:** 24 de Mayo, 2026 | **Versión:** 3.3.0-WIP | **Fase:** Operational Dashboard — FASE 2A completa
 
 ---
 
@@ -15,10 +15,14 @@
 | Sprint 3 Paso 4 — Wiring: create_invoice → InvoiceSyncQueue | ✅ COMPLETO | `caf6fdb`→`edb1298` | +2 |
 | Mini-sprint Operational Visibility | ✅ COMPLETO | `5a09c33`→`f57cbc4` | — |
 | Sprint 4 — Dashboard operacional | ✅ COMPLETO | `f0d6760`→`eb8560b` | — |
+| Bloque A — Analytics tests (deuda técnica) | ✅ COMPLETO | `4fc016a` | +39 |
+| FASE 1 — Date Range UX + labels español | ✅ COMPLETO | `7ad0d82` | 0 nuevos |
+| FASE 2A — Drill-down operacional | ✅ COMPLETO | `99b52c3` | +22 |
+| FASE 2B — Drill-down facturación | 🔜 PRÓXIMO | — | — |
 | Sprint 5 — Reporting + analytics | 🔜 PENDIENTE | — | — |
 | Sprint 6 — Hardening SaaS | 🔜 PENDIENTE | — | — |
 
-**Tests totales:** 161 / 161 passing  
+**Tests totales:** 292 / 292 passing  
 **Suite completa:** `docker compose exec web pytest -q`
 
 ---
@@ -459,6 +463,10 @@ Formato de logs:
 ✅ Mini-sprint  Accounting foundations: AccountingEntry + AccountingEntryLine
 ✅ Mini-sprint  Integration layer: ExternalServiceConfig + ExternalRequestLog
 ✅ Sprint 4   Dashboard operacional (4 secciones, filtro rango, sidebar nav)
+✅ Bloque A   Analytics tests: DailyInvoiceSeriesService + DashboardKPIService (39 tests)
+✅ FASE 1     Date Range UX: 6 quick filters, month nav ◀▶, ES_MONTHS, year selector
+✅ FASE 2A    Drill-down: queue / integrations / accounting con tenant isolation + 22 tests
+🔜 FASE 2B    Drill-down facturación: /orders/?invoice_status= desde dashboard
 🔜 Sprint 5   Reporting + analytics (datos confiables ya disponibles)
 🔜 Sprint 6   Hardening SaaS: rate limiting, circuit breaker, Prometheus wiring
 ```
@@ -489,4 +497,70 @@ docker compose logs celery-beat -f
 
 # Flower (monitoreo de tareas)
 # http://localhost:5555
+
+# Tests drill-down operacional
+docker compose exec web pytest src/tests/interfaces/web/test_drill_down_views.py -v
+
+# Tests analytics
+docker compose exec web pytest src/tests/application/services/ -v
 ```
+
+---
+
+## Dashboard Operacional — FASE 1 + FASE 2A (COMPLETO)
+
+### Rutas operacionales
+
+```
+/dashboard/<slug>/operations/              → Dashboard principal
+/dashboard/<slug>/operations/queue/        → Cola SUNAT (drill-down)
+/dashboard/<slug>/operations/integrations/ → Logs externos (drill-down)
+/dashboard/<slug>/operations/accounting/   → Contabilidad (drill-down)
+```
+
+### Vistas nuevas (FASE 2A — commit `99b52c3`)
+
+| Vista | Filtros |
+|-------|---------|
+| `queue_detail_view` | `?status=pending\|failed\|exhausted\|dead_letter\|stale` |
+| `integration_logs_view` | `?provider=<name>&status=error` |
+| `accounting_detail_view` | `?filter=missing_entries\|orphan_entries` |
+
+- `stale` = virtual: `locked_at < now - 10min` (no es status real en DB)
+- `accounting_detail_view` usa `show_mode='orders'|'entries'` para alternar tabla
+
+### Servicios analytics (Bloque A — commit `4fc016a`)
+
+| Servicio | Archivo |
+|----------|---------|
+| `DailyInvoiceSeriesService` | `src/application/services/dashboard.py` |
+| `DashboardKPIService` | `src/application/services/dashboard.py` |
+| `DateRangeService` | `src/domain/services/date_range_service.py` |
+
+`ES_MONTHS` dict en `date_range_service.py` — labels español sin locale del sistema.
+
+### Date Range UX (FASE 1 — commit `7ad0d82`)
+
+Quick filters: `?period=day|week|month|30d|year|all`  
+Navegación mensual: `?period=month&month=5&year=2026`
+
+---
+
+## Bug conocido (documentado, no bloqueante)
+
+**Timezone inconsistency en `DailyInvoiceSeriesService`:**
+- `TruncDate` usa `TIME_ZONE=America/Lima` para truncar fechas
+- `timezone.now().date()` devuelve fecha UTC
+- Órdenes cerca de medianoche Lima (UTC-5) pueden caer en día incorrecto
+- Fix futuro: usar `timezone.localdate()` en lugar de `now.date()`
+
+---
+
+## Próximos pasos
+
+1. **FASE 2B** — Drill-down de facturación:
+   - Link "3 rechazadas" → `/orders/?invoice_status=rejected`
+   - Agregar filtro `?invoice_status=` a `order_list_view`
+   - 2 tests mínimos
+2. **FASE 3** — Logs con payload viewer (sin exponer secretos/tokens)
+3. **Timezone fix** — `DailyInvoiceSeriesService` usar `timezone.localdate()`

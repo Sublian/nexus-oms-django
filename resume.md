@@ -54,9 +54,15 @@ Snapshot técnico al 2026-05-24. Usar como contexto de arranque en nueva sesión
 
 ## Estado de tests
 
-- **325 tests** (estimado — no se corrió suite completa)
-- **58/58** en tests de UI/drill-down ejecutados en esta sesión
+- **292 tests** passing (`pytest --collect-only -q` verificado)
 - `manage.py check`: 0 issues
+
+### Desglose por bloque
+| Bloque | Tests |
+|---|---|
+| Bloque A — analytics services | 39 nuevos (commit `4fc016a`) |
+| FASE 1 — date range UX | 0 nuevos (lógica cubierta por tests existentes) |
+| FASE 2A — drill-down views | 22 nuevos (commit `99b52c3`) |
 
 ---
 
