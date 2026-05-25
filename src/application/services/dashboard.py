@@ -1,5 +1,5 @@
 """
-Operational Dashboard Services — Sprint 4
+Operational Dashboard Services — Sprint 4 / Sprint 5 prep
 
 Read-only query layer for the operational dashboard.
 All aggregation logic lives here, not in views or templates.
@@ -10,6 +10,7 @@ Prepared for future wiring to Prometheus/OpenTelemetry (Sprint 5).
 from datetime import timedelta
 
 from django.db.models import Avg, Count, Q
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 
 STALE_LOCK_MINUTES = 10
@@ -223,6 +224,88 @@ class AccountingConsistencyService:
         }
 
 
+# ── Daily Invoice Series ───────────────────────────────────────────────────────
+
+class DailyInvoiceSeriesService:
+    """
+    Generates time-series aggregations for Chart.js rendering.
+    Returns JSON-serializable structures: labels + per-status datasets.
+    """
+
+    CHART_STATUSES = ['accepted', 'observed', 'rejected', 'failed']
+
+    def get_daily_series(self, organization, days: int = 30) -> dict:
+        from src.domain.models import Order
+
+        now       = timezone.now()
+        date_from = now - timedelta(days=days)
+
+        rows = (
+            Order.all_objects
+            .filter(organization=organization, created_at__gte=date_from)
+            .filter(invoice_status__in=self.CHART_STATUSES)
+            .annotate(day=TruncDate('created_at'))
+            .values('day', 'invoice_status')
+            .annotate(n=Count('id'))
+            .order_by('day')
+        )
+
+        # Build ordered date list (oldest → newest)
+        dates = [(now - timedelta(days=i)).date() for i in range(days, -1, -1)]
+
+        series: dict = {s: {d: 0 for d in dates} for s in self.CHART_STATUSES}
+        for row in rows:
+            d, s = row['day'], row['invoice_status']
+            if d in series.get(s, {}):
+                series[s][d] = row['n']
+
+        labels = [d.strftime('%d/%m') for d in dates]
+        return {
+            'labels':   labels,
+            'datasets': {s: [series[s].get(d, 0) for d in dates] for s in self.CHART_STATUSES},
+        }
+
+
+# ── KPI Service ────────────────────────────────────────────────────────────────
+
+class DashboardKPIService:
+    """
+    Computes high-level KPIs: acceptance rate and avg external latency.
+    """
+
+    def get_kpis(self, organization, date_from=None, date_to=None) -> dict:
+        from src.domain.models import Order
+        from src.domain.models.integrations import ExternalRequestLog
+
+        # Acceptance rate: accepted / (accepted + observed + rejected + failed)
+        qs = Order.all_objects.filter(organization=organization)
+        if date_from:
+            qs = qs.filter(created_at__gte=date_from)
+        if date_to:
+            qs = qs.filter(created_at__lte=date_to)
+
+        terminal_counts = dict(
+            qs.filter(invoice_status__in=['accepted', 'observed', 'rejected', 'failed'])
+            .values_list('invoice_status')
+            .annotate(n=Count('id'))
+        )
+        terminal_total = sum(terminal_counts.values())
+        accepted_n     = terminal_counts.get('accepted', 0) + terminal_counts.get('observed', 0)
+        acceptance_rate = round(accepted_n / terminal_total * 100, 1) if terminal_total else 0
+
+        # Avg external latency (all providers)
+        log_qs = ExternalRequestLog.all_objects.filter(organization=organization)
+        if date_from:
+            log_qs = log_qs.filter(created_at__gte=date_from)
+        avg_latency = log_qs.aggregate(avg=Avg('duration_ms'))['avg']
+
+        return {
+            'acceptance_rate':   acceptance_rate,
+            'avg_latency_ms':    int(avg_latency) if avg_latency else None,
+            'terminal_total':    terminal_total,
+        }
+
+
 # ── Facade ─────────────────────────────────────────────────────────────────────
 
 class OperationalDashboardService:
@@ -236,11 +319,15 @@ class OperationalDashboardService:
         self._queue       = QueueHealthService()
         self._integration = IntegrationHealthService()
         self._accounting  = AccountingConsistencyService()
+        self._series      = DailyInvoiceSeriesService()
+        self._kpis        = DashboardKPIService()
 
     def get_dashboard_data(self, organization, date_from=None, date_to=None) -> dict:
         return {
-            'invoice_metrics':     self._invoice.get_metrics(organization, date_from, date_to),
-            'queue_health':        self._queue.get_health(organization),
-            'integration_health':  self._integration.get_health(organization, date_from, date_to),
-            'accounting':          self._accounting.get_consistency(organization),
+            'invoice_metrics':    self._invoice.get_metrics(organization, date_from, date_to),
+            'queue_health':       self._queue.get_health(organization),
+            'integration_health': self._integration.get_health(organization, date_from, date_to),
+            'accounting':         self._accounting.get_consistency(organization),
+            'chart_series':       self._series.get_daily_series(organization, days=30),
+            'kpis':               self._kpis.get_kpis(organization, date_from, date_to),
         }
