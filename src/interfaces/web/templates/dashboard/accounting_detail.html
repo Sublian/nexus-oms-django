@@ -1,0 +1,166 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Contabilidad — {{ title }}{% endblock %}
+
+{% block content %}
+
+{# ── Header ─────────────────────────────────────────────────────────────────── #}
+<div class="mb-6 flex flex-wrap justify-between items-start gap-4">
+    <div>
+        <div class="flex items-center gap-2 mb-1">
+            <a href="{% url 'web:operational_dashboard' org_slug=tenant.slug %}"
+               class="text-[10px] font-black text-gray-400 hover:text-gray-600 uppercase tracking-widest transition-colors">
+                ← Dashboard Operacional
+            </a>
+        </div>
+        <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">Consistencia Contable</h1>
+        <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">
+            {{ tenant.name }} — {{ title }}
+        </p>
+    </div>
+
+    {# Filter pills #}
+    <div class="flex flex-wrap items-center gap-1.5">
+        <a href="?"
+           class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
+                  {% if not filter_param %}bg-gray-700 text-white shadow{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+            Todas aceptadas
+        </a>
+        <a href="?filter=missing_entries"
+           class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
+                  {% if filter_param == 'missing_entries' %}bg-red-600 text-white shadow{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+            Sin asiento
+        </a>
+        <a href="?filter=orphan_entries"
+           class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
+                  {% if filter_param == 'orphan_entries' %}bg-orange-600 text-white shadow{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+            Asientos huérfanos
+        </a>
+    </div>
+</div>
+
+{# ── Table ───────────────────────────────────────────────────────────────────── #}
+<div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+    {% if page_obj.object_list %}
+    <table class="w-full text-left border-collapse">
+        <thead>
+            <tr class="bg-gray-50 border-b border-gray-100">
+                {% if show_mode == 'orders' %}
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Orden</th>
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Cliente</th>
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Estado Factura</th>
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Importe</th>
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Asiento</th>
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Creado</th>
+                {% else %}
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Asiento</th>
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Orden</th>
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Estado Factura Orden</th>
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Importe Bruto</th>
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Creado</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+            {% for item in page_obj %}
+            <tr class="hover:bg-gray-50/50 transition-colors">
+                {% if show_mode == 'orders' %}
+                {# item is an Order #}
+                <td class="px-4 py-3">
+                    <span class="text-xs font-black text-gray-700">#{{ item.id }}</span>
+                    {% if item.invoice_external_id %}
+                    <p class="text-[9px] font-mono text-gray-400">{{ item.invoice_external_id }}</p>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    <p class="text-xs font-bold text-gray-700">{{ item.customer_name|default:"—" }}</p>
+                    <p class="text-[9px] text-gray-400">{{ item.customer_email|default:"" }}</p>
+                </td>
+                <td class="px-4 py-3">
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-100 text-emerald-700">
+                        {{ item.invoice_status }}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-sm font-black text-gray-700 font-mono">
+                    S/ {{ item.total_amount|floatformat:2 }}
+                </td>
+                <td class="px-4 py-3">
+                    {% if filter_param == 'missing_entries' %}
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-red-100 text-red-700">
+                        Faltante
+                    </span>
+                    {% else %}
+                    <span class="text-[9px] text-emerald-600 font-bold">✓ Tiene asiento</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 text-[10px] font-mono text-gray-400">
+                    {{ item.created_at|date:"d/m/Y" }}
+                </td>
+
+                {% else %}
+                {# item is an AccountingEntry #}
+                <td class="px-4 py-3">
+                    <span class="text-xs font-black text-gray-700">#{{ item.id }}</span>
+                    <p class="text-[9px] font-mono text-gray-400">{{ item.invoice_external_id|default:"—" }}</p>
+                </td>
+                <td class="px-4 py-3">
+                    {% if item.order %}
+                    <span class="text-xs font-black text-gray-700">#{{ item.order_id }}</span>
+                    {% else %}
+                    <span class="text-[9px] text-gray-400">Sin orden</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    {% if item.order %}
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-orange-100 text-orange-700">
+                        {{ item.order.invoice_status }}
+                    </span>
+                    {% else %}
+                    <span class="text-[9px] text-gray-400">—</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 text-sm font-black text-gray-700 font-mono">
+                    {{ item.currency }} {{ item.amount_gross|floatformat:2 }}
+                </td>
+                <td class="px-4 py-3 text-[10px] font-mono text-gray-400">
+                    {{ item.created_at|date:"d/m/Y" }}
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {# Pagination #}
+    {% if page_obj.has_other_pages %}
+    <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+        <span class="text-xs text-gray-500">
+            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+            ({{ page_obj.paginator.count }} registros)
+        </span>
+        <div class="flex gap-2">
+            {% if page_obj.has_previous %}
+            <a href="?{% if filter_param %}filter={{ filter_param }}&{% endif %}page={{ page_obj.previous_page_number }}"
+               class="px-3 py-1 text-[10px] font-black bg-gray-100 rounded hover:bg-gray-200">← Anterior</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a href="?{% if filter_param %}filter={{ filter_param }}&{% endif %}page={{ page_obj.next_page_number }}"
+               class="px-3 py-1 text-[10px] font-black bg-gray-100 rounded hover:bg-gray-200">Siguiente →</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="px-6 py-12 text-center">
+        <p class="text-sm font-bold text-gray-400">Sin registros para este filtro.</p>
+        {% if filter_param == 'missing_entries' %}
+        <p class="text-[10px] text-emerald-500 mt-1 font-bold">✓ Sin inconsistencias detectadas</p>
+        {% elif filter_param == 'orphan_entries' %}
+        <p class="text-[10px] text-emerald-500 mt-1 font-bold">✓ Sin asientos huérfanos</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

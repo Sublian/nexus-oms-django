@@ -1,0 +1,161 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Logs de Integraciones{% endblock %}
+
+{% block content %}
+
+{# ── Header ─────────────────────────────────────────────────────────────────── #}
+<div class="mb-6 flex flex-wrap justify-between items-start gap-4">
+    <div>
+        <div class="flex items-center gap-2 mb-1">
+            <a href="{% url 'web:operational_dashboard' org_slug=tenant.slug %}"
+               class="text-[10px] font-black text-gray-400 hover:text-gray-600 uppercase tracking-widest transition-colors">
+                ← Dashboard Operacional
+            </a>
+        </div>
+        <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">Logs de Integraciones</h1>
+        <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">
+            {{ tenant.name }}{% if provider %} — {{ provider }}{% endif %}{% if status_filter == 'error' %} — Solo errores{% endif %}
+        </p>
+    </div>
+
+    {# Filters #}
+    <div class="flex flex-col gap-2 items-end">
+        {# Provider filter #}
+        {% if providers %}
+        <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-[10px] text-gray-400 font-black uppercase tracking-widest mr-1">Provider:</span>
+            <a href="?{% if status_filter %}status={{ status_filter }}{% endif %}"
+               class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
+                      {% if not provider %}bg-gray-700 text-white shadow{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+                Todos
+            </a>
+            {% for p in providers %}
+            <a href="?provider={{ p }}{% if status_filter %}&status={{ status_filter }}{% endif %}"
+               class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
+                      {% if provider == p %}bg-purple-600 text-white shadow{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+                {{ p }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {# Error filter #}
+        <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-[10px] text-gray-400 font-black uppercase tracking-widest mr-1">Estado:</span>
+            <a href="?{% if provider %}provider={{ provider }}{% endif %}"
+               class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
+                      {% if not status_filter %}bg-gray-700 text-white shadow{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+                Todos
+            </a>
+            <a href="?{% if provider %}provider={{ provider }}&{% endif %}status=error"
+               class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
+                      {% if status_filter == 'error' %}bg-red-600 text-white shadow{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+                Solo Errores
+            </a>
+        </div>
+    </div>
+</div>
+
+{# ── Table ───────────────────────────────────────────────────────────────────── #}
+<div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+    {% if page_obj.object_list %}
+    <table class="w-full text-left border-collapse">
+        <thead>
+            <tr class="bg-gray-50 border-b border-gray-100">
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Timestamp</th>
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Provider</th>
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Operación</th>
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">HTTP</th>
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Latencia</th>
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Resultado</th>
+                <th class="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Error</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+            {% for log in page_obj %}
+            <tr class="hover:bg-gray-50/50 transition-colors {% if not log.success %}bg-red-50/30{% endif %}">
+                <td class="px-4 py-3 text-[10px] font-mono text-gray-500 whitespace-nowrap">
+                    {{ log.created_at|date:"d/m/Y H:i:s" }}
+                </td>
+                <td class="px-4 py-3">
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-purple-100 text-purple-700">
+                        {{ log.provider_name }}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-[10px] font-mono text-gray-600">
+                    {{ log.operation }}
+                    {% if log.order_id %}
+                    <p class="text-[9px] text-gray-400">#{{ log.order_id }}</p>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    {% if log.status_code %}
+                    <span class="text-sm font-black
+                        {% if log.status_code >= 500 %}text-red-600
+                        {% elif log.status_code >= 400 %}text-orange-600
+                        {% elif log.status_code >= 200 %}text-emerald-600
+                        {% else %}text-gray-500{% endif %}">
+                        {{ log.status_code }}
+                    </span>
+                    {% else %}
+                    <span class="text-gray-300 text-sm">—</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 text-xs font-mono
+                    {% if log.duration_ms and log.duration_ms > 5000 %}text-red-600
+                    {% elif log.duration_ms and log.duration_ms > 2000 %}text-amber-600
+                    {% else %}text-gray-600{% endif %}">
+                    {% if log.duration_ms %}{{ log.duration_ms }}ms{% else %}—{% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    {% if log.success %}
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-100 text-emerald-700">OK</span>
+                    {% elif log.success == False %}
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-red-100 text-red-700">Error</span>
+                    {% else %}
+                    <span class="text-gray-300 text-[9px]">—</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 max-w-xs">
+                    {% if log.error_message %}
+                    <span class="text-[9px] font-mono text-red-400" title="{{ log.error_message }}">
+                        {{ log.error_message|truncatechars:70 }}
+                    </span>
+                    {% else %}
+                    <span class="text-[9px] text-gray-300">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {# Pagination #}
+    {% if page_obj.has_other_pages %}
+    <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+        <span class="text-xs text-gray-500">
+            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+            ({{ page_obj.paginator.count }} registros)
+        </span>
+        <div class="flex gap-2">
+            {% if page_obj.has_previous %}
+            <a href="?{% if provider %}provider={{ provider }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.previous_page_number }}"
+               class="px-3 py-1 text-[10px] font-black bg-gray-100 rounded hover:bg-gray-200">← Anterior</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a href="?{% if provider %}provider={{ provider }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.next_page_number }}"
+               class="px-3 py-1 text-[10px] font-black bg-gray-100 rounded hover:bg-gray-200">Siguiente →</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="px-6 py-12 text-center">
+        <p class="text-sm font-bold text-gray-400">Sin registros para este filtro.</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

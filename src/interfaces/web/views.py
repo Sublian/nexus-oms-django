@@ -1325,3 +1325,138 @@ def operational_dashboard_view(request, org_slug):
         'available_years':     available_years,
         'es_months':           list(ES_MONTHS.items()),
     })
+
+
+# ── FASE 2A — Drill-down views ────────────────────────────────────────────────
+
+STALE_LOCK_MINUTES = 10
+
+
+def queue_detail_view(request, org_slug):
+    from datetime import timedelta
+    from django.core.paginator import Paginator
+    from src.domain.models.invoicing import InvoiceSyncQueue
+
+    tenant = request.organization
+    status = request.GET.get('status', '')
+    now    = timezone.now()
+
+    qs = InvoiceSyncQueue.all_objects.filter(organization=tenant).select_related('order')
+
+    VALID_STATUSES = {
+        InvoiceSyncQueue.STATUS_PENDING,
+        InvoiceSyncQueue.STATUS_PROCESSING,
+        InvoiceSyncQueue.STATUS_COMPLETED,
+        InvoiceSyncQueue.STATUS_FAILED,
+        InvoiceSyncQueue.STATUS_EXHAUSTED,
+        InvoiceSyncQueue.STATUS_DEAD_LETTER,
+    }
+    STATUS_LABELS = {
+        'pending':     'Pendientes',
+        'processing':  'Procesando',
+        'completed':   'Completadas',
+        'failed':      'Fallidas',
+        'exhausted':   'Agotadas',
+        'dead_letter': 'Dead Letter',
+        'stale':       'Locks Stale (>10 min)',
+    }
+
+    if status == 'stale':
+        stale_cutoff = now - timedelta(minutes=STALE_LOCK_MINUTES)
+        qs = qs.filter(locked_at__lt=stale_cutoff)
+    elif status in VALID_STATUSES:
+        qs = qs.filter(status=status)
+
+    qs = qs.order_by('-created_at')
+    paginator = Paginator(qs, 25)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'dashboard/queue_detail.html', {
+        'tenant':   tenant,
+        'page_obj': page_obj,
+        'status':   status,
+        'title':    STATUS_LABELS.get(status, 'Toda la cola'),
+        'statuses': [
+            ('pending',     'Pendientes'),
+            ('stale',       'Stale Locks'),
+            ('exhausted',   'Agotadas'),
+            ('dead_letter', 'Dead Letter'),
+            ('failed',      'Fallidas'),
+        ],
+    })
+
+
+def integration_logs_view(request, org_slug):
+    from django.core.paginator import Paginator
+    from src.domain.models.integrations import ExternalRequestLog
+
+    tenant        = request.organization
+    provider      = request.GET.get('provider', '')
+    status_filter = request.GET.get('status', '')  # 'error' → only failures
+
+    qs = ExternalRequestLog.all_objects.filter(organization=tenant).order_by('-created_at')
+
+    if provider:
+        qs = qs.filter(provider_name=provider)
+    if status_filter == 'error':
+        qs = qs.filter(success=False)
+
+    providers = list(
+        ExternalRequestLog.all_objects
+        .filter(organization=tenant)
+        .values_list('provider_name', flat=True)
+        .distinct()
+        .order_by('provider_name')
+    )
+
+    paginator = Paginator(qs, 25)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'dashboard/integration_logs.html', {
+        'tenant':        tenant,
+        'page_obj':      page_obj,
+        'provider':      provider,
+        'status_filter': status_filter,
+        'providers':     providers,
+    })
+
+
+def accounting_detail_view(request, org_slug):
+    from django.core.paginator import Paginator
+    from src.domain.models import Order, AccountingEntry
+
+    tenant       = request.organization
+    filter_param = request.GET.get('filter', '')
+
+    if filter_param == 'missing_entries':
+        qs        = (Order.all_objects
+                     .filter(organization=tenant, invoice_status='accepted',
+                             accounting_entry__isnull=True)
+                     .order_by('-created_at'))
+        title     = 'Órdenes aceptadas sin asiento contable'
+        show_mode = 'orders'
+    elif filter_param == 'orphan_entries':
+        qs        = (AccountingEntry.all_objects
+                     .filter(organization=tenant)
+                     .exclude(order__invoice_status='accepted')
+                     .select_related('order')
+                     .order_by('-created_at'))
+        title     = 'Asientos contables huérfanos'
+        show_mode = 'entries'
+    else:
+        qs        = (Order.all_objects
+                     .filter(organization=tenant, invoice_status='accepted')
+                     .order_by('-created_at'))
+        title     = 'Órdenes aceptadas'
+        show_mode = 'orders'
+
+    paginator = Paginator(qs, 25)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'dashboard/accounting_detail.html', {
+        'tenant':       tenant,
+        'page_obj':     page_obj,
+        'filter_param': filter_param,
+        'title':        title,
+        'show_mode':    show_mode,
+    })

@@ -40,6 +40,9 @@ def _r(name, **kwargs):
     "product_create",
     "exchange_history",
     "operational_dashboard",
+    "operations_queue",
+    "operations_integrations",
+    "operations_accounting",
 ])
 def test_url_resolves_with_org_slug(url_name):
     url = _r(url_name)

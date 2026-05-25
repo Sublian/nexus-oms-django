@@ -5,6 +5,9 @@ from .decorators import tenant_access_required
 from .views import (
     dashboard_home,
     operational_dashboard_view,
+    queue_detail_view,
+    integration_logs_view,
+    accounting_detail_view,
     exchange_history_view,
     order_detail_partial,
     trigger_pdf_generation,
@@ -84,4 +87,9 @@ urlpatterns = [
 
     # --- Sprint 4: Operational Dashboard ---
     path('operations/', _ta(operational_dashboard_view), name='operational_dashboard'),
+
+    # --- FASE 2A: Drill-down views ---
+    path('operations/queue/', _ta(queue_detail_view), name='operations_queue'),
+    path('operations/integrations/', _ta(integration_logs_view), name='operations_integrations'),
+    path('operations/accounting/', _ta(accounting_detail_view), name='operations_accounting'),
 ]
