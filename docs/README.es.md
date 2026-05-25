@@ -190,7 +190,7 @@ Para una guía detallada con configuración de VS Code y variables de entorno, v
 | Documento | Contenido |
 | :--- | :--- |
 | [`docs/architecture.md`](architecture.md) | Decisiones de arquitectura (ADRs) |
-| [`docs/installation.md`](installation.md) | Guía completa de instalación |
+| [`docs/installation.es.md`](installation.md) | Guía completa de instalación |
 | [`docs/operational_roadmap.md`](operational_roadmap.md) | Roadmap y prioridades |
 | [`docs/resume.md`](resume.md) | Resumen ejecutivo del proyecto |
 

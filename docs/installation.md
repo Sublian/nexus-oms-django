@@ -1,127 +1,211 @@
-# Instalación — Nexus OMS
+# Installation — Nexus OMS
 
-Guía de instalación local usando **Docker Compose** (método recomendado).
+> Setup guide for the Nexus OMS local development environment — a multi-tenant OMS platform with electronic invoicing, built on Django, DRF, HTMX, and Celery.
+
+📘 Spanish version: [`docs/installation.es.md`](installation.es.md)
+
+**Recommended method: Docker Compose.**
 
 ---
 
-## Prerrequisitos
+## Requirements
 
-| Herramienta | Versión mínima |
-|---|---|
-| Git | cualquiera |
+| Tool | Version |
+| :--- | :--- |
+| Git | Latest |
 | Docker | 24+ |
 | Docker Compose | v2+ |
-| Python | 3.12+ *(solo para instalación sin Docker)* |
+| Python | 3.12+ *(non-Docker only)* |
+| PostgreSQL | 17 *(non-Docker only)* |
+| Redis | 7 *(non-Docker only)* |
 
 ---
 
-## Instalación con Docker (recomendado)
+## Quick Start (5 minutes)
 
-### 1. Clonar el repositorio
+Full stack with realistic demo data, up in a single flow.
+
+```bash
+git clone https://github.com/Sublian/nexus-oms-django.git
+cd nexus-oms-django
+cp .env.example .env
+docker compose up --build -d
+docker compose exec web python manage.py migrate
+docker compose exec web python manage.py seed_data --orders 50
+```
+
+### Access Points
+
+| Service | URL |
+| :--- | :--- |
+| App | http://localhost:8000 |
+| Django Admin | http://localhost:8000/admin |
+| Operational Dashboard | http://localhost:8000/dashboard/adidas/operations/ |
+
+---
+
+## Demo Credentials
+
+The `seed_data` command auto-generates a complete operational environment.
+
+### Superuser
+
+| Field | Value |
+| :--- | :--- |
+| Email | `superadmin@nexus.com` |
+| Password | `admin123` |
+
+### Demo Organizations (Tenants)
+
+5 independent tenants are created automatically:
+
+| Organization | Slug |
+| :--- | :--- |
+| Tienda Principal | `tienda-principal` |
+| Nike | `nike` |
+| Adidas | `adidas` |
+| Minorista | `minorista` |
+| Mykonos Shop | `mykonos-shop` |
+
+Each tenant includes isolated catalog, customers, inventory, multi-state orders, payments, mock SUNAT invoicing, and operational analytics data.
+
+---
+
+## Installation with Docker (Recommended)
+
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/Sublian/nexus-oms-django.git
 cd nexus-oms-django
 ```
 
-### 2. Configurar variables de entorno
+### 2. Configure environment variables
 
 ```bash
 cp .env.example .env
 ```
 
-Editar `.env` y ajustar como mínimo:
+Minimum required variables:
 
 ```env
-# Generar una clave segura con:
-# python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-SECRET_KEY=<tu-clave-secreta>
-
+SECRET_KEY=<your-secret-key>
 DEBUG=True
-
-# Valores por defecto alineados con docker-compose.yml
 DATABASE_URL=postgres://nexus_user:nexus_pass@db:5432/nexus_db
 REDIS_URL=redis://redis:6379/0
 CELERY_TASK_ALWAYS_EAGER=False
 ```
 
-### 3. Levantar los servicios
+Generate a `SECRET_KEY`:
+
+```bash
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
+
+### 3. Start services
 
 ```bash
 docker compose up --build -d
 ```
 
-Esto levanta 4 servicios: `db` (PostgreSQL 16), `redis` (Redis 7), `web` (Django en puerto 8000) y `worker` (Celery).
+Included services:
 
-### 4. Aplicar migraciones
+| Service | Description |
+| :--- | :--- |
+| `web` | Django + Gunicorn dev server |
+| `worker` | Celery worker |
+| `db` | PostgreSQL 17 |
+| `redis` | Redis 7 |
+
+### 4. Apply migrations
 
 ```bash
 docker compose exec web python manage.py migrate
 ```
 
-### 5. Crear superusuario (opcional)
+### 5. Load demo data
 
 ```bash
-docker compose exec web python manage.py createsuperuser
+docker compose exec web python manage.py seed_data --orders 50
 ```
 
-### 6. Acceder a la aplicación
+### 6. Verify services
 
-- **App:** http://localhost:8000
-- **Admin:** http://localhost:8000/admin
+```bash
+docker compose ps
+```
+
+All services should show status `running`.
 
 ---
 
-## Instalación sin Docker (entorno local)
+## Installation without Docker
 
-> Requiere PostgreSQL 17 y Redis 7 instalados y corriendo localmente.
+Requires PostgreSQL 17 and Redis 7 running locally.
 
-### 1. Clonar y crear entorno virtual
+### 1. Clone and create virtual environment
 
 ```bash
 git clone https://github.com/Sublian/nexus-oms-django.git
 cd nexus-oms-django
-
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
 ```
 
-### 2. Instalar dependencias
+Activate:
+
+```bash
+# Linux/macOS
+source .venv/bin/activate
+
+# Windows
+.venv\Scripts\activate
+```
+
+### 2. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Configurar variables de entorno
+### 3. Configure `.env`
 
 ```bash
 cp .env.example .env
-# Editar .env y apuntar DATABASE_URL / REDIS_URL a tu instancia local
 ```
 
-Ejemplo para PostgreSQL local:
+Local example:
 
 ```env
 DATABASE_URL=postgres://nexus_user:nexus_pass@localhost:5432/nexus_db
 REDIS_URL=redis://localhost:6379/0
 ```
 
-### 4. Crear base de datos en PostgreSQL
+### 4. Create database
 
 ```sql
 CREATE USER nexus_user WITH PASSWORD 'nexus_pass';
 CREATE DATABASE nexus_db OWNER nexus_user;
 ```
 
-### 5. Aplicar migraciones y levantar el servidor
+### 5. Apply migrations
 
 ```bash
 python manage.py migrate
-python manage.py createsuperuser   # opcional
+```
+
+### 6. Load demo data
+
+```bash
+python manage.py seed_data --orders 50
+```
+
+### 7. Start Django
+
+```bash
 python manage.py runserver
 ```
 
-### 6. Levantar el worker de Celery (en otra terminal)
+### 8. Start Celery (separate terminal)
 
 ```bash
 celery -A config worker --loglevel=info
@@ -129,80 +213,167 @@ celery -A config worker --loglevel=info
 
 ---
 
-## Data semilla (seed_data)
+## Seed Data
 
-El comando `seed_data` carga datos de prueba realistas en la base de datos: organizaciones (tenants), categorías, productos, almacenes, clientes, órdenes y pagos. Es útil para explorar el sistema sin necesidad de cargar datos manualmente.
+`seed_data` generates a complete operational environment for development and testing.
 
-### Uso básico
+### What it generates (per tenant)
+
+- Products, categories, stock, warehouses
+- Customers
+- Orders with multiple states
+- Payments
+- Mock SUNAT invoicing
+- Mock SUNAT sync queue
+- External integration logs
+- Operational metrics
+- Demo accounting data
+
+### Temporal distribution
+
+Orders are distributed across the **last 60 days** to feed KPIs, dashboard, time series, analytics, and charts accurately.
+
+### Included states
+
+**Orders**
+
+| State | Description |
+| :--- | :--- |
+| `PAID` | Payment confirmed |
+| `SHIPPED` | In transit |
+| `DELIVERED` | Delivery confirmed |
+| `COMPLETED` | Cycle complete |
+
+**Electronic invoicing**
+
+| State | Description |
+| :--- | :--- |
+| `pending` | Awaiting sync |
+| `accepted` | SUNAT accepted |
+| `rejected` | SUNAT rejected |
+| `failed` | Provider error |
+
+**SUNAT queue**
+
+| State | Description |
+| :--- | :--- |
+| `pending` | In queue |
+| `processing` | Being processed |
+| `completed` | Synced successfully |
+| `dead_letter` | Terminal error |
+| `exhausted` | Retries exhausted |
+
+### Examples
 
 ```bash
-# Con Docker
-docker compose exec web python manage.py seed_data
-
-# Sin Docker (entorno local)
-python manage.py seed_data
-```
-
-Esto crea **5 organizaciones** de demostración con **30 órdenes** y **10 clientes** cada una (valores por defecto).
-
-### Opciones disponibles
-
-| Argumento | Tipo | Default | Descripción |
-|---|---|---|---|
-| `--orders` | int | `30` | Número de órdenes generadas por organización |
-| `--clients` | int | `10` | Número de clientes generados por organización |
-
-### Ejemplos
-
-```bash
-# Carga mínima: 5 órdenes y 3 clientes por organización
+# Minimal load
 python manage.py seed_data --orders 5 --clients 3
 
-# Carga grande: 100 órdenes y 50 clientes por organización
-python manage.py seed_data --orders 100 --clients 50
+# Heavy load
+python manage.py seed_data --orders 200 --clients 100
 ```
-
-### Datos que genera
-
-El seed crea las siguientes organizaciones (tenants) con su catálogo propio:
-
-| Organización | Slug | IGV | Catálogo |
-|---|---|---|---|
-| Tienda Principal | `tienda-principal` | 18% | 10 productos genéricos |
-| Nike | `nike` | 15% | 10 productos genéricos |
-| Adidas | `adidas` | 15% | 10 productos genéricos |
-| Minorista | `minorista` | 12% | 10 productos genéricos |
-| Mykonos Shop | `mykonos-shop` | 18% | 5 fragancias específicas |
-
-Por cada organización también genera: un almacén central, una configuración de impuestos, un pool de clientes con DNI y datos de contacto aleatorios, y órdenes en estados `PAID`, `SHIPPED` o `DELIVERED` con fechas distribuidas en los últimos 60 días y pagos asociados (`CASH`, `CARD`, `TRANSFER`, `WALLET`).
-
-> **Nota:** El comando usa `update_or_create`, por lo que puede ejecutarse múltiples veces sin duplicar registros base (organizaciones, productos, stock). Solo se acumulan las órdenes y clientes nuevos.
 
 ---
 
-## Comandos útiles
+## Electronic Invoicing (Current Status)
 
-| Acción | Comando |
-|---|---|
-| Ver logs en tiempo real | `docker compose logs -f` |
-| Detener todos los servicios | `docker compose down` |
-| Ejecutar tests | `docker compose exec web pytest` |
-| Ver cobertura | `docker compose exec web pytest --cov` |
-| Abrir shell de Django | `docker compose exec web python manage.py shell` |
+Nexus OMS currently uses a **mock provider** compatible with the SUNAT/Nubefact flow.
+
+Current goals:
+
+- Simulate real operational pipelines
+- Validate dashboards and queue visibility
+- Generate representative metrics
+- Test retry and dead letter workflows
+- Detect accounting inconsistencies
+- Visualize operational errors
+
+Real SUNAT/Nubefact integration will be implemented via decoupled adapters — no domain changes required.
 
 ---
 
-## Estructura del proyecto
+## Operational Dashboard
+
+The multi-tenant operational dashboard is available at:
 
 ```
+/dashboard/<tenant>/operations/
+```
+
+Includes: invoicing KPIs, SUNAT acceptance rate, sync queue depth, dead letters, external integrations, per-provider error rate, average latency, accounting consistency, time series, and date filters.
+
+---
+
+## Testing
+
+```bash
+# Full test suite
+docker compose exec web pytest
+
+# With coverage
+docker compose exec web pytest --cov
+```
+
+---
+
+## Useful Commands
+
+| Action | Command |
+| :--- | :--- |
+| View logs | `docker compose logs -f` |
+| Stop stack | `docker compose down` |
+| Restart services | `docker compose restart` |
+| Django shell | `docker compose exec web python manage.py shell` |
+| Run tests | `docker compose exec web pytest` |
+| Coverage | `docker compose exec web pytest --cov` |
+| Create migrations | `docker compose exec web python manage.py makemigrations` |
+| Apply migrations | `docker compose exec web python manage.py migrate` |
+
+---
+
+## Troubleshooting
+
+**PostgreSQL won't start**
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+**Redis connection refused**
+
+```bash
+docker compose ps
+```
+
+Verify all services are running.
+
+**Inconsistent migrations**
+
+```bash
+docker compose exec web python manage.py migrate
+```
+
+**Dashboard appears empty**
+
+```bash
+docker compose exec web python manage.py seed_data --orders 50
+```
+
+---
+
+## Project Structure
+
+```text
 nexus-oms-django/
 ├── src/
-│   ├── domain/          # Modelos y lógica de negocio
-│   ├── application/     # Casos de uso
-│   ├── infrastructure/  # Celery, AWS, adaptadores
-│   └── interfaces/      # API REST (DRF) y vistas HTMX
-├── config/              # Configuración de Django y Celery
-├── docs/                # Documentación adicional y ADRs
+│   ├── domain/          # Business models and domain logic
+│   ├── application/     # Use cases and analytics services
+│   ├── infrastructure/  # Celery, adapters, providers
+│   └── interfaces/      # DRF API + HTMX views
+│
+├── config/              # Django settings + Celery config
+├── docs/                # ADRs, roadmap, documentation
 ├── docker-compose.yml
 ├── Dockerfile
 ├── requirements.txt
@@ -211,8 +382,27 @@ nexus-oms-django/
 
 ---
 
-## Notas
+## Notes
 
-- El archivo `.env` **nunca** debe subirse al repositorio (ya está en `.gitignore`).
-- En producción, establecer `DEBUG=False` y configurar un servidor Nginx frente a Gunicorn.
-- Consulta la carpeta `docs/` para diagramas de arquitectura y decisiones de diseño (ADRs).
+> ⚠️ Never commit `.env` to the repository.
+
+**Production requirements:**
+
+- `DEBUG=False`
+- Gunicorn + Nginx
+- Managed PostgreSQL
+- Persistent Redis
+
+**Architecture:** Clean Architecture · DDD · Service Layer · HTMX-first UI · Event-driven tasks with Celery
+
+---
+
+## Related Documentation
+
+| Document | Description |
+| :--- | :--- |
+| [`README.md`](../README.md) | Project overview |
+| [`docs/README.es.md`](README.es.md) | Full Spanish README |
+| [`docs/operational_roadmap.md`](operational_roadmap.md) | Operational roadmap |
+| [`docs/architecture.md`](architecture.md) | Architecture and technical decisions |
+| [`docs/adrs/`](adrs/) | Architecture Decision Records |
