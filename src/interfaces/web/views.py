@@ -1482,3 +1482,155 @@ def accounting_detail_view(request, org_slug):
         'title':        title,
         'show_mode':    show_mode,
     })
+
+
+# ── FASE 3 — Invoice Observable & Timeline ─────────────────────────────────────
+
+def invoice_detail_view(request, org_slug, order_id):
+    """FASE 3: Invoice detail with observable timeline (HTMX-ready).
+
+    Route: /dashboard/<slug>/invoices/<order_id>/
+    Scope: Single order drill-down from KPIs or order list.
+    Security: Requires request.organization set (mitigates T6).
+
+    Context exposed:
+      - Order fiscal state (invoice_status, external_id, hashes)
+      - InvoiceSyncQueue metadata (attempts, last_response, errors)
+      - OrderWorkflowLog audit trail (timeline events)
+      - AccountingEntry (if invoice_status='accepted')
+
+    Timeline renders: creation → enqueue → sync attempts → SUNAT response → accounting
+    """
+    from src.domain.models.workflow_audit import OrderWorkflowLog
+    from src.domain.models.invoicing import InvoiceSyncQueue
+    from src.domain.models.accounting import AccountingEntry
+
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    order = get_object_or_404(Order, id=order_id, organization=tenant)
+
+    # ── Gather timeline events ────────────────────────────────────────────────
+    workflow_logs = OrderWorkflowLog.objects.filter(
+        order=order, organization=tenant
+    ).order_by('timestamp')
+
+    sync_queue = (
+        InvoiceSyncQueue.objects.filter(order=order, organization=tenant)
+        .first()
+    )
+
+    accounting_entry = (
+        AccountingEntry.objects.filter(order=order, organization=tenant)
+        .first()
+    )
+
+    # ── Build unified timeline ────────────────────────────────────────────────
+    timeline_events = []
+
+    # 1. Order creation
+    timeline_events.append({
+        'type': 'order_created',
+        'timestamp': order.created_at,
+        'title': f'Orden #{order.id} creada',
+        'status': order.status,
+        'icon': 'check-circle',
+        'color': 'blue',
+    })
+
+    # 2. Workflow logs
+    for log in workflow_logs:
+        timeline_events.append({
+            'type': 'workflow_log',
+            'timestamp': log.timestamp,
+            'title': f'{dict(log.ACTION_CHOICES).get(log.action, log.action)}',
+            'action': log.action,
+            'status': log.status,
+            'metadata': log.metadata,
+            'icon': 'log',
+            'color': 'gray',
+        })
+
+    # 3. InvoiceSyncQueue events
+    if sync_queue:
+        if sync_queue.created_at:
+            timeline_events.append({
+                'type': 'sync_queue_created',
+                'timestamp': sync_queue.created_at,
+                'title': 'Factura encolada para sincronización SUNAT',
+                'status': sync_queue.status,
+                'icon': 'inbox',
+                'color': 'yellow',
+            })
+
+        if sync_queue.last_attempt_at:
+            timeline_events.append({
+                'type': 'sync_attempt',
+                'timestamp': sync_queue.last_attempt_at,
+                'title': f'Intento de sincronización SUNAT (#{sync_queue.attempts})',
+                'attempts': sync_queue.attempts,
+                'last_response': sync_queue.last_response,
+                'icon': 'refresh',
+                'color': 'orange' if sync_queue.status == 'processing' else 'green',
+            })
+
+        if sync_queue.completed_at:
+            terminal_status = {
+                'completed': ('Sincronización completada', 'check'),
+                'failed': ('Sincronización fallida', 'x'),
+                'exhausted': ('Reintentos agotados', 'alert'),
+                'dead_letter': ('Requiere intervención manual', 'warning'),
+            }
+            title, icon = terminal_status.get(sync_queue.status, ('Completado', 'check'))
+            timeline_events.append({
+                'type': 'sync_terminal',
+                'timestamp': sync_queue.completed_at,
+                'title': title,
+                'status': sync_queue.status,
+                'last_error': sync_queue.last_error,
+                'icon': icon,
+                'color': 'red' if sync_queue.status in ['failed', 'exhausted'] else 'green',
+            })
+
+    # 4. AccountingEntry
+    if accounting_entry:
+        timeline_events.append({
+            'type': 'accounting_entry',
+            'timestamp': accounting_entry.created_at,
+            'title': f'Asiento contable generado ({accounting_entry.entry_type})',
+            'entry_type': accounting_entry.entry_type,
+            'invoice_external_id': accounting_entry.invoice_external_id,
+            'amount': accounting_entry.amount_gross,
+            'icon': 'book',
+            'color': 'purple',
+        })
+
+    # Sort timeline by timestamp (oldest first)
+    timeline_events.sort(key=lambda e: e['timestamp'])
+
+    # ── Determine KPI state for badge ─────────────────────────────────────────
+    invoice_state_map = {
+        'pending': ('Pendiente', 'gray'),
+        'queued': ('En cola', 'yellow'),
+        'processing': ('Procesando', 'yellow'),
+        'submitted': ('Enviado a Nubefact', 'blue'),
+        'sync_pending': ('Esperando confirmación', 'blue'),
+        'sync_processing': ('Consultando SUNAT', 'orange'),
+        'accepted': ('Aceptado por SUNAT', 'green'),
+        'observed': ('Observado por SUNAT', 'amber'),
+        'rejected': ('Rechazado por SUNAT', 'red'),
+        'retrying': ('Reintentando', 'orange'),
+        'failed': ('Fallo permanente', 'red'),
+        'cancelled': ('Cancelada', 'gray'),
+    }
+    state_label, state_color = invoice_state_map.get(
+        order.invoice_status, ('Desconocido', 'gray')
+    )
+
+    return render(request, 'dashboard/invoice_detail.html', {
+        'tenant': tenant,
+        'order': order,
+        'timeline_events': timeline_events,
+        'state_label': state_label,
+        'state_color': state_color,
+        'sync_queue': sync_queue,
+        'accounting_entry': accounting_entry,
+    })

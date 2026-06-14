@@ -8,6 +8,7 @@ from .views import (
     queue_detail_view,
     integration_logs_view,
     accounting_detail_view,
+    invoice_detail_view,
     exchange_history_view,
     order_detail_partial,
     trigger_pdf_generation,
@@ -92,4 +93,7 @@ urlpatterns = [
     path('operations/queue/', _ta(queue_detail_view), name='operations_queue'),
     path('operations/integrations/', _ta(integration_logs_view), name='operations_integrations'),
     path('operations/accounting/', _ta(accounting_detail_view), name='operations_accounting'),
+
+    # --- FASE 3: Invoice Observable & Timeline ---
+    path('invoices/<int:order_id>/', _ta(invoice_detail_view), name='invoice_detail'),
 ]

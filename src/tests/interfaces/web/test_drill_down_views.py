@@ -242,3 +242,134 @@ class TestAccountingDetailView:
         url = reverse('web:operations_accounting', kwargs={'org_slug': organization.slug})
         response = logged_in_client.get(url + '?filter=orphan_entries')
         assert response.context['page_obj'].paginator.count == 0
+
+
+# ── FASE 3: Invoice Detail & Timeline (Observable) ──────────────────────────────
+
+@pytest.mark.django_db
+class TestInvoiceDetailView:
+    """FASE 3: Invoice observable timeline, T6 security (superuser isolation)"""
+
+    def test_invoice_detail_returns_200(self, logged_in_client, organization):
+        order = _make_order(organization, invoice_status='accepted')
+        url = reverse('web:invoice_detail', kwargs={
+            'org_slug': organization.slug,
+            'order_id': order.id
+        })
+        response = logged_in_client.get(url)
+        assert response.status_code == 200
+
+    def test_invoice_detail_renders_order_metadata(self, logged_in_client, organization):
+        order = Order.objects.create(
+            organization=organization,
+            customer_name='Test',
+            customer_email='t@t.com',
+            status='PAID',
+            total_amount=100,
+            invoice_status='accepted',
+            invoice_external_id='FAC-001-001',
+            invoice_hash='abc123def456',
+        )
+        url = reverse('web:invoice_detail', kwargs={
+            'org_slug': organization.slug,
+            'order_id': order.id
+        })
+        response = logged_in_client.get(url)
+        assert response.status_code == 200
+        assert 'FAC-001-001' in response.content.decode()
+        assert 'abc123def456' in response.content.decode()
+        assert order.invoice_status.upper() in response.content.decode()
+
+    def test_invoice_detail_timeline_includes_workflow_logs(self, logged_in_client, organization):
+        from src.domain.models.workflow_audit import OrderWorkflowLog
+
+        order = _make_order(organization, invoice_status='accepted')
+        OrderWorkflowLog.objects.create(
+            organization=organization,
+            order=order,
+            action='invoicing_triggered',
+            status='processing',
+            metadata={'reason': 'paid_order'}
+        )
+
+        url = reverse('web:invoice_detail', kwargs={
+            'org_slug': organization.slug,
+            'order_id': order.id
+        })
+        response = logged_in_client.get(url)
+        assert response.status_code == 200
+        assert 'Línea de Tiempo' in response.content.decode()
+        assert 'Facturación disparada' in response.content.decode()
+
+    def test_invoice_detail_timeline_includes_sync_queue(self, logged_in_client, organization):
+        from src.domain.models.invoicing import InvoiceSyncQueue
+
+        order = _make_order(organization, invoice_status='sync_pending')
+        queue = InvoiceSyncQueue.objects.create(
+            organization=organization,
+            order=order,
+            status='pending',
+            next_retry_at=timezone.now() + timedelta(minutes=5),
+            last_response={'status': 'processing'}
+        )
+
+        url = reverse('web:invoice_detail', kwargs={
+            'org_slug': organization.slug,
+            'order_id': order.id
+        })
+        response = logged_in_client.get(url)
+        assert response.status_code == 200
+        assert 'encolada para sincronización' in response.content.decode()
+        assert 'Cola de Sincronización' in response.content.decode()
+
+    def test_invoice_detail_timeline_includes_accounting_entry(self, logged_in_client, organization):
+        order = _make_order(organization, invoice_status='accepted')
+        entry = _make_accounting_entry(organization, order)
+
+        url = reverse('web:invoice_detail', kwargs={
+            'org_slug': organization.slug,
+            'order_id': order.id
+        })
+        response = logged_in_client.get(url)
+        assert response.status_code == 200
+        assert 'Asiento Contable' in response.content.decode()
+        assert str(entry.amount_gross) in response.content.decode()
+
+    def test_invoice_detail_tenant_isolation(self, logged_in_client, organization, org_factory):
+        """T6 Mitigation: Superuser cannot access other tenant's invoice"""
+        other_org = org_factory('Other Invoice Org')
+        order = _make_order(other_org, invoice_status='accepted')
+
+        # Try to access other org's invoice via first org's slug
+        url = reverse('web:invoice_detail', kwargs={
+            'org_slug': organization.slug,
+            'order_id': order.id
+        })
+        response = logged_in_client.get(url)
+        assert response.status_code == 404  # Order not found in this org
+
+    def test_invoice_detail_state_badge_rendering(self, logged_in_client, organization):
+        """Test state_color badge appears correctly"""
+        test_cases = [
+            ('accepted', 'green'),
+            ('rejected', 'red'),
+            ('pending', 'gray'),
+            ('sync_processing', 'orange'),
+        ]
+        for status, expected_color in test_cases:
+            order = Order.objects.create(
+                organization=organization,
+                customer_name=f'Test {status}',
+                customer_email='t@t.com',
+                status='PAID',
+                total_amount=100,
+                invoice_status=status,
+            )
+            url = reverse('web:invoice_detail', kwargs={
+                'org_slug': organization.slug,
+                'order_id': order.id
+            })
+            response = logged_in_client.get(url)
+            assert response.status_code == 200
+            # Verify state_color is in context (template uses it)
+            assert response.context['state_color'] == expected_color

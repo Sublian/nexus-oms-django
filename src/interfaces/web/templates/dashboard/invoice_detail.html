@@ -1,0 +1,230 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Factura — Orden #{{ order.id }}{% endblock %}
+
+{% block content %}
+
+{# ── Header ─────────────────────────────────────────────────────────────────── #}
+<div class="mb-8 flex flex-wrap justify-between items-start gap-4">
+    <div>
+        <div class="flex items-center gap-2 mb-1">
+            <a href="{% url 'web:order_list' org_slug=tenant.slug %}"
+               class="text-[10px] font-black text-gray-400 hover:text-gray-600 uppercase tracking-widest transition-colors">
+                ← Volver a órdenes
+            </a>
+        </div>
+        <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">Factura Observable</h1>
+        <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">
+            {{ tenant.name }} — Orden #{{ order.id }}
+        </p>
+    </div>
+
+    {# State badge #}
+    <div>
+        <span class="px-4 py-2 rounded-lg text-sm font-black uppercase bg-{{ state_color }}-100 text-{{ state_color }}-700">
+            {{ state_label }}
+        </span>
+    </div>
+</div>
+
+{# ── Fiscal State Card ──────────────────────────────────────────────────────── #}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+    {# Invoice Status #}
+    <div class="bg-white rounded-xl border border-gray-100 p-5">
+        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Estado Fiscal</p>
+        <p class="text-2xl font-black text-gray-900 mt-2">{{ order.invoice_status|upper }}</p>
+        <p class="text-[9px] text-gray-400 mt-1">Enviado: {{ order.created_at|date:"d/m/Y H:i" }}</p>
+    </div>
+
+    {# External ID #}
+    {% if order.invoice_external_id %}
+    <div class="bg-white rounded-xl border border-gray-100 p-5">
+        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">ID Factura</p>
+        <p class="text-lg font-mono text-gray-800 mt-2 break-all">{{ order.invoice_external_id }}</p>
+        <p class="text-[9px] text-gray-400 mt-1">Nubefact / SUNAT</p>
+    </div>
+    {% endif %}
+
+    {# CDR Hash #}
+    {% if order.invoice_hash %}
+    <div class="bg-white rounded-xl border border-gray-100 p-5">
+        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Hash CDR</p>
+        <p class="text-xs font-mono text-gray-600 mt-2 break-all">{{ order.invoice_hash|truncatechars:40 }}</p>
+        <p class="text-[9px] text-gray-400 mt-1">CDR recibido de Nubefact</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ── Timeline ──────────────────────────────────────────────────────────────── #}
+<div class="bg-white rounded-xl border border-gray-100 p-6 mb-8">
+    <h2 class="text-sm font-black text-gray-700 uppercase tracking-widest mb-6">Línea de Tiempo</h2>
+
+    <div class="relative">
+        {# Timeline events #}
+        {% for event in timeline_events %}
+        <div class="flex gap-4 mb-6 last:mb-0">
+            {# Timeline marker #}
+            <div class="flex flex-col items-center">
+                <div class="w-10 h-10 rounded-full bg-{{ event.color }}-100 border-2 border-{{ event.color }}-500 flex items-center justify-center shrink-0">
+                    {% if event.icon == 'check-circle' %}
+                        <svg class="w-5 h-5 text-{{ event.color }}-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                    {% elif event.icon == 'log' %}
+                        <svg class="w-5 h-5 text-{{ event.color }}-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                    {% elif event.icon == 'inbox' %}
+                        <svg class="w-5 h-5 text-{{ event.color }}-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a2 2 0 01-2.828 0l-2.414-2.414a1 1 0 00-.707-.293h-2.586"/>
+                        </svg>
+                    {% elif event.icon == 'refresh' %}
+                        <svg class="w-5 h-5 text-{{ event.color }}-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                    {% elif event.icon == 'check' %}
+                        <svg class="w-5 h-5 text-{{ event.color }}-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                    {% elif event.icon == 'x' %}
+                        <svg class="w-5 h-5 text-{{ event.color }}-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                        </svg>
+                    {% elif event.icon == 'alert' %}
+                        <svg class="w-5 h-5 text-{{ event.color }}-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                        </svg>
+                    {% elif event.icon == 'warning' %}
+                        <svg class="w-5 h-5 text-{{ event.color }}-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    {% elif event.icon == 'book' %}
+                        <svg class="w-5 h-5 text-{{ event.color }}-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C6.5 6.253 2 10.998 2 17s4.5 10.747 10 10.747c5.5 0 10-4.998 10-10.747 0-5.502-4.5-10.747-10-10.747z"/>
+                        </svg>
+                    {% else %}
+                        <div class="w-2 h-2 rounded-full bg-{{ event.color }}-500"></div>
+                    {% endif %}
+                </div>
+                {% if not forloop.last %}
+                <div class="w-0.5 h-12 bg-gray-200 mt-2"></div>
+                {% endif %}
+            </div>
+
+            {# Timeline content #}
+            <div class="flex-1 pt-1">
+                <h3 class="font-black text-sm text-gray-900">{{ event.title }}</h3>
+                <p class="text-[10px] text-gray-400 font-mono mt-0.5">
+                    {{ event.timestamp|date:"d/m/Y H:i:s" }}
+                </p>
+
+                {# Event-specific details #}
+                {% if event.type == 'workflow_log' %}
+                    <p class="text-[9px] text-gray-600 mt-1">
+                        Estado: <span class="font-black">{{ event.status }}</span>
+                    </p>
+                    {% if event.metadata %}
+                    <div class="mt-1 text-[8px] bg-gray-50 rounded p-2 font-mono text-gray-600 max-h-24 overflow-y-auto">
+                        {{ event.metadata|safe }}
+                    </div>
+                    {% endif %}
+                {% elif event.type == 'sync_attempt' %}
+                    <p class="text-[9px] text-gray-600 mt-1">
+                        Intentos: <span class="font-black">{{ event.attempts }}/7</span>
+                    </p>
+                    {% if event.last_response %}
+                    <details class="mt-1">
+                        <summary class="text-[9px] font-black text-blue-600 cursor-pointer">Ver respuesta de SUNAT</summary>
+                        <div class="mt-1 text-[8px] bg-blue-50 rounded p-2 font-mono text-blue-900 max-h-32 overflow-y-auto">
+                            {{ event.last_response|safe }}
+                        </div>
+                    </details>
+                    {% endif %}
+                {% elif event.type == 'sync_terminal' %}
+                    {% if event.last_error %}
+                    <p class="text-[9px] text-red-600 mt-1 font-mono">
+                        <strong>Error:</strong> {{ event.last_error }}
+                    </p>
+                    {% endif %}
+                {% elif event.type == 'accounting_entry' %}
+                    <div class="mt-2 text-[9px] space-y-1">
+                        <p>Tipo: <span class="font-black">{{ event.entry_type }}</span></p>
+                        <p>Monto: <span class="font-black">S/ {{ event.amount|floatformat:2 }}</span></p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{# ── Queue Entry (if exists) ───────────────────────────────────────────────── #}
+{% if sync_queue %}
+<div class="bg-white rounded-xl border border-gray-100 p-6 mb-8">
+    <h2 class="text-sm font-black text-gray-700 uppercase tracking-widest mb-4">Cola de Sincronización</h2>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Estado</p>
+            <p class="text-lg font-black text-gray-800 mt-1">{{ sync_queue.get_status_display }}</p>
+        </div>
+        <div>
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Intentos</p>
+            <p class="text-lg font-black text-gray-800 mt-1">{{ sync_queue.attempts }}/7</p>
+        </div>
+        <div>
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Próximo Reintento</p>
+            <p class="text-xs text-gray-600 mt-1">{{ sync_queue.next_retry_at|date:"d/m/Y H:i" }}</p>
+        </div>
+        {% if sync_queue.locked_at %}
+        <div>
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Bloqueado</p>
+            <p class="text-xs text-orange-600 font-black mt-1">Desde {{ sync_queue.locked_at|date:"H:i" }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{# ── Accounting Entry (if exists) ──────────────────────────────────────────── #}
+{% if accounting_entry %}
+<div class="bg-white rounded-xl border border-purple-100 p-6">
+    <h2 class="text-sm font-black text-gray-700 uppercase tracking-widest mb-4">Asiento Contable</h2>
+
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div>
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tipo</p>
+            <p class="text-sm font-black text-gray-800 mt-1">{{ accounting_entry.get_entry_type_display }}</p>
+        </div>
+        <div>
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Monto Bruto</p>
+            <p class="text-sm font-black text-purple-600 mt-1">S/ {{ accounting_entry.amount_gross }}</p>
+        </div>
+        <div>
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Impuesto</p>
+            <p class="text-sm font-black text-gray-700 mt-1">S/ {{ accounting_entry.amount_tax }}</p>
+        </div>
+        <div>
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Base Imponible</p>
+            <p class="text-sm font-black text-gray-700 mt-1">S/ {{ accounting_entry.amount_net }}</p>
+        </div>
+        <div>
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Moneda</p>
+            <p class="text-sm font-black text-gray-800 mt-1">{{ accounting_entry.currency }}</p>
+        </div>
+        <div>
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Fecha Contable</p>
+            <p class="text-sm font-black text-gray-800 mt-1">{{ accounting_entry.entry_date|date:"d/m/Y" }}</p>
+        </div>
+    </div>
+
+    {% if accounting_entry.notes %}
+    <div class="mt-4 pt-4 border-t border-gray-100">
+        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Notas</p>
+        <p class="text-sm text-gray-700 mt-1">{{ accounting_entry.notes }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}
