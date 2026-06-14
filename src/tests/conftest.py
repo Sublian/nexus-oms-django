@@ -79,4 +79,23 @@ def supplier(organization):
 def mock_migo_token(settings):
     settings.MIGO_API_TOKEN = "test_token_123"
 
-    
+@pytest.fixture
+def exchange_rate_fixture(db):
+    """Pre-populate ExchangeRate for today to prevent HTTP calls to APIMigo during tests.
+
+    This fixture blocks ExchangeService.get_current_rate() from attempting network calls.
+    Only auto-used in web interface tests, not in service unit tests.
+    """
+    from datetime import date
+    from decimal import Decimal
+    from src.domain.models import ExchangeRate
+
+    # Seed today's exchange rate (prevents HTTP leak to api.migo.pe)
+    ExchangeRate.objects.get_or_create(
+        date=date.today(),
+        defaults={
+            'buy_price': Decimal('3.75'),
+            'sell_price': Decimal('3.80'),
+            'origin': 'test'
+        }
+    )

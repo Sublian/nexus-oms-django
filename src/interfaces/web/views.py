@@ -494,6 +494,7 @@ def order_list_view(request, org_slug):
 
     return render(request, 'orders/order_list.html', {
         'tenant': tenant,
+        'page_obj': page_obj,
         'orders': page_obj,
         'status_choices': Order.STATUS_CHOICES,
         'invoice_status_choices': invoice_status_choices,
