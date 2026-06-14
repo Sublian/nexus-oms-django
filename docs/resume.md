@@ -22,10 +22,11 @@
 | FASE 3 — Invoice Observable + Timeline + T6 Mitigation | ✅ COMPLETO | `cad877a` | +8 |
 | FASE 3.4A — Discovery & Audit (Observability) | ✅ COMPLETO | audit only | — |
 | FASE 3.4B-A — Root Cause Analysis (Test Failures) | ✅ COMPLETO | audit only | — |
+| FASE 3.4B-B — Test Recovery (Fix & Verify) | ✅ COMPLETO | `c1abd64` | — |
 | Sprint 5 — Reporting + analytics | 🔜 PENDIENTE | — | — |
 | Sprint 6 — Hardening SaaS | 🔜 PENDIENTE | — | — |
 
-**Tests totales:** 308+ / 308+ passing (FASE 2B-3: +16 tests)  
+**Tests totales:** 307/307 passing (0 failed) ✅  
 **Suite completa:** `docker compose exec web pytest -q`
 
 ---
