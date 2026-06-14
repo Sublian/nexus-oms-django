@@ -1,5 +1,5 @@
 # Nexus OMS — Resumen de Avances del Proyecto
-**Fecha de corte:** 24 de Mayo, 2026 | **Versión:** 3.3.0-WIP | **Fase:** Operational Dashboard — FASE 2A completa
+**Fecha de corte:** 14 de Junio, 2026 | **Versión:** 3.4.0-WIP | **Fase:** Invoice Observable — FASE 2B-3 completa
 
 ---
 
@@ -18,11 +18,12 @@
 | Bloque A — Analytics tests (deuda técnica) | ✅ COMPLETO | `4fc016a` | +39 |
 | FASE 1 — Date Range UX + labels español | ✅ COMPLETO | `7ad0d82` | 0 nuevos |
 | FASE 2A — Drill-down operacional | ✅ COMPLETO | `99b52c3` | +22 |
-| FASE 2B — Drill-down facturación | 🔜 PRÓXIMO | — | — |
+| FASE 2B — Drill-down facturación (KPI interactivos) | ✅ COMPLETO | `9086ca6` | +8 |
+| FASE 3 — Invoice Observable + Timeline + T6 Mitigation | ✅ COMPLETO | `cad877a` | +8 |
 | Sprint 5 — Reporting + analytics | 🔜 PENDIENTE | — | — |
 | Sprint 6 — Hardening SaaS | 🔜 PENDIENTE | — | — |
 
-**Tests totales:** 292 / 292 passing  
+**Tests totales:** 308+ / 308+ passing (FASE 2B-3: +16 tests)  
 **Suite completa:** `docker compose exec web pytest -q`
 
 ---

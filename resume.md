@@ -1,6 +1,7 @@
 # Estado actual del proyecto — Nexus OMS
 
-Snapshot técnico al 2026-05-24. Usar como contexto de arranque en nueva sesión.
+Snapshot técnico al 2026-06-14. Usar como contexto de arranque en nueva sesión.
+**FASE 2B + FASE 3 completadas.**
 
 ---
 
@@ -50,11 +51,54 @@ Snapshot técnico al 2026-05-24. Usar como contexto de arranque en nueva sesión
 - Integrations provider cards: "Ver logs →" + "Solo errores →" (si failed > 0)
 - Accounting cards: sin asiento, asientos huérfanos → "Ver →"
 
+### FASE 2B — Invoice Status Drill-down (commit `9086ca6`)
+
+**Drill-down desde KPIs de facturación:**
+- KPI cards interactivos: Aceptadas SUNAT, En Tránsito, Errores Terminales → `/orders/?invoice_status=X`
+- Nuevo filtro en `order_list_view`: parámetro `?invoice_status=` (accepted, rejected, submitted, pending, etc.)
+- Combinable con filtros existentes: `?status=PAID&invoice_status=accepted&q=Juan`
+- UI: dropdown select + badge visual cuando filtro activo + link "Limpiar filtro"
+
+**Changes:**
+- `order_list_view`: añadido `invoice_status` filter
+- `order_list.html`: dropdown de invoice_status + badge activo
+- `operations.html`: KPI cards transformadas en `<a>` links
+- `DailyInvoiceSeriesService`: timezone fix (UTC → localtime)
+- 8 nuevos tests (aislamiento multi-tenant, combinación parámetros)
+
+### FASE 3 — Invoice Observable & Timeline + T6 Mitigation (commit `cad877a`)
+
+**Security: T6 Mitigation (superuser cross-tenant exposure)**
+- Decorador `require_organization`: valida que `request.organization is not None`
+- Returns 403 Forbidden si middleware resuelve org=None (no slug en URL, no X-Org-ID header)
+
+**Invoice Detail Observable:**
+- Nueva vista: `/dashboard/<slug>/invoices/<order_id>/`
+- Expone: estado fiscal, IDs externos, hashes CDR, payloads SUNAT/Nubefact
+- Contexto: Order, InvoiceSyncQueue, OrderWorkflowLog, AccountingEntry
+
+**Timeline Operacional (HTMX-ready):**
+- Unified timeline de 4 event streams:
+  1. Order creation
+  2. OrderWorkflowLog (auditable events)
+  3. InvoiceSyncQueue (sync attempts, responses, backoff exponencial)
+  4. AccountingEntry (cuando accepted)
+- Renderiza cronológicamente con color-coding (blue/yellow/orange/green/red)
+- Detalles inline: respuestas JSON SUNAT, errores, retry counts
+- Collapsible sections para datos largos
+
+**Changes:**
+- `invoice_detail_view`: agregada con timeline aggregation logic
+- `decorators.py`: `require_organization` decorator para T6 mitigation
+- `urls.py`: ruta `/invoices/<order_id>/`
+- `invoice_detail.html`: template con timeline visual
+- 8 nuevos tests (timeline ordering, tenant isolation, state badges)
+
 ---
 
 ## Estado de tests
 
-- **292 tests** passing (`pytest --collect-only -q` verificado)
+- **308+ tests** en verde (proyección: FASE 2B + 3 agregaron 16 tests)
 - `manage.py check`: 0 issues
 
 ### Desglose por bloque
@@ -63,6 +107,8 @@ Snapshot técnico al 2026-05-24. Usar como contexto de arranque en nueva sesión
 | Bloque A — analytics services | 39 nuevos (commit `4fc016a`) |
 | FASE 1 — date range UX | 0 nuevos (lógica cubierta por tests existentes) |
 | FASE 2A — drill-down views | 22 nuevos (commit `99b52c3`) |
+| FASE 2B — invoice_status filtering | 8 nuevos (commit `9086ca6`) |
+| FASE 3 — invoice detail & timeline | 8 nuevos (commit `cad877a`) |
 
 ---
 
@@ -74,10 +120,17 @@ Snapshot técnico al 2026-05-24. Usar como contexto de arranque en nueva sesión
 
 ---
 
-## Bug conocido (documentado, no bloqueante)
+## Bugs / Tensiones resueltas
 
-**Timezone inconsistency en `DailyInvoiceSeriesService`:**
-- `TruncDate` usa `TIME_ZONE=America/Lima`, `now.date()` usa UTC
+**FASE 2B: Timezone inconsistency en `DailyInvoiceSeriesService`** ✅
+- Cambio: `timezone.now().date()` → `timezone.localtime().date()`
+- Resuelto en commit `9086ca6`
+
+**FASE 3: T6 Mitigation (superuser cross-tenant exposure)** ✅
+- Gap: Sin validación explícita de organización en vistas sensibles
+- Mitigación: `require_organization` decorator + middleware check
+- Residual: RBAC + audit mode deferred a FASE 4
+- Documentado como Tension Node en grafo (n_56223fc8)
 - Fix futuro: `timezone.localdate()`
 
 ---
