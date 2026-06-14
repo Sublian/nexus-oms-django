@@ -1,7 +1,7 @@
 # Estado actual del proyecto — Nexus OMS
 
 Snapshot técnico al 2026-06-14. Usar como contexto de arranque en nueva sesión.
-**FASE 2B + FASE 3 completadas. FASE 3.4A (Audit) completada.**
+**FASE 2B + FASE 3 completadas. FASE 3.4A-B (Audits) completadas.**
 
 ---
 
@@ -112,6 +112,28 @@ Snapshot técnico al 2026-06-14. Usar como contexto de arranque en nueva sesión
 1. Populate ExternalRequestLog in invoice flow
 2. Add error classification taxonomy
 3. Capture request IDs (Nubefact x-request-id, Celery task_id)
+
+### FASE 3.4B-A — Root Cause Analysis (Read-only Audit)
+
+**Test Failure Diagnosis:** Two root causes identified
+
+**RCA Finding #1: Context Variable Mismatch**
+- File: `src/interfaces/web/views.py` line 497
+- Issue: View passes `'orders': page_obj` but tests expect `'page_obj': page_obj`
+- Severity: HIGH
+- Fix: 1-line change (rename context key)
+- Affects: All 7 FASE 2B invoice_status tests
+
+**RCA Finding #2: HTTP Leakage to APIMigo**
+- File: `src/domain/services/finance_service.py` line 101
+- Issue: Context processor calls unprotected ExchangeService that makes HTTP calls
+- Chain: Test → View render → Context processor → APIMigoClient (403 error)
+- Severity: HIGH
+- Fix: Seed ExchangeRate fixtures or wrap with try/except
+- Affects: All dashboard view tests (not just FASE 2B)
+
+**Deliverable:**
+- `docs/rca_report_3_4b.md` — Complete root cause analysis with detailed recommendations
 
 ---
 
