@@ -20,6 +20,7 @@
 | FASE 2A — Drill-down operacional | ✅ COMPLETO | `99b52c3` | +22 |
 | FASE 2B — Drill-down facturación (KPI interactivos) | ✅ COMPLETO | `9086ca6` | +8 |
 | FASE 3 — Invoice Observable + Timeline + T6 Mitigation | ✅ COMPLETO | `cad877a` | +8 |
+| FASE 3.4A — Discovery & Audit (Observability) | ✅ COMPLETO | audit only | — |
 | Sprint 5 — Reporting + analytics | 🔜 PENDIENTE | — | — |
 | Sprint 6 — Hardening SaaS | 🔜 PENDIENTE | — | — |
 

@@ -1,7 +1,7 @@
 # Estado actual del proyecto — Nexus OMS
 
 Snapshot técnico al 2026-06-14. Usar como contexto de arranque en nueva sesión.
-**FASE 2B + FASE 3 completadas.**
+**FASE 2B + FASE 3 completadas. FASE 3.4A (Audit) completada.**
 
 ---
 
@@ -93,6 +93,25 @@ Snapshot técnico al 2026-06-14. Usar como contexto de arranque en nueva sesión
 - `urls.py`: ruta `/invoices/<order_id>/`
 - `invoice_detail.html`: template con timeline visual
 - 8 nuevos tests (timeline ordering, tenant isolation, state badges)
+
+### FASE 3.4A — Discovery & Audit (Read-only, No Code Changes)
+
+**Audit Scope:** Payload persistence, error taxonomy, correlation traceability
+
+**Key Findings:**
+- ✅ Payloads persist via `InvoiceSyncQueue.last_response` (JSON)
+- ✅ Order.id correlates consistently across models (canonical ID valid)
+- ⚠️ ExternalRequestLog model exists but orphaned (never populated)
+- ❌ No structured error taxonomy (errors stored as strings)
+- ❌ No request IDs for distributed tracing
+
+**Deliverable:**
+- `docs/discovery_report_phase_3_4a.md` — Complete audit report with findings & recommendations
+
+**Recommendations for Sprint 5:**
+1. Populate ExternalRequestLog in invoice flow
+2. Add error classification taxonomy
+3. Capture request IDs (Nubefact x-request-id, Celery task_id)
 
 ---
 
