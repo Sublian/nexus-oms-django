@@ -19,6 +19,133 @@ def test_order_list_view_status_code(client, admin_user, organization):
     assert response.status_code == 200
 
 
+# ── FASE 2B: Invoice Status Drill-down Filtering ─────────────────────────────────
+
+@pytest.mark.django_db
+class TestOrderListInvoiceStatusFilter:
+    """FASE 2B tests: drill-down from operational dashboard KPIs"""
+
+    def test_order_list_invoice_status_accepted_filter(self, logged_in_client, organization):
+        """Filter orders by invoice_status=accepted"""
+        Order.objects.create(organization=organization, customer_name="Aceptada", invoice_status='accepted')
+        Order.objects.create(organization=organization, customer_name="Rechazada", invoice_status='rejected')
+        Order.objects.create(organization=organization, customer_name="Pendiente", invoice_status='pending')
+
+        url = reverse('web:order_list', kwargs={'org_slug': organization.slug})
+        response = logged_in_client.get(url + '?invoice_status=accepted')
+
+        assert response.status_code == 200
+        assert response.context['page_obj'].paginator.count == 1
+        assert response.context['active_invoice_status'] == 'accepted'
+
+    def test_order_list_invoice_status_rejected_filter(self, logged_in_client, organization):
+        """Filter orders by invoice_status=rejected"""
+        Order.objects.create(organization=organization, customer_name="Aceptada", invoice_status='accepted')
+        Order.objects.create(organization=organization, customer_name="Rechazada", invoice_status='rejected')
+        Order.objects.create(organization=organization, customer_name="Otra Rechazada", invoice_status='rejected')
+
+        url = reverse('web:order_list', kwargs={'org_slug': organization.slug})
+        response = logged_in_client.get(url + '?invoice_status=rejected')
+
+        assert response.status_code == 200
+        assert response.context['page_obj'].paginator.count == 2
+        assert response.context['active_invoice_status'] == 'rejected'
+
+    def test_order_list_invoice_status_submitted_filter(self, logged_in_client, organization):
+        """Filter orders by invoice_status=submitted (en tránsito)"""
+        Order.objects.create(organization=organization, customer_name="Submitted", invoice_status='submitted')
+        Order.objects.create(organization=organization, customer_name="Sync Pending", invoice_status='sync_pending')
+        Order.objects.create(organization=organization, customer_name="Accepted", invoice_status='accepted')
+
+        url = reverse('web:order_list', kwargs={'org_slug': organization.slug})
+        response = logged_in_client.get(url + '?invoice_status=submitted')
+
+        assert response.status_code == 200
+        assert response.context['page_obj'].paginator.count == 1
+
+    def test_order_list_combine_invoice_status_with_order_status(self, logged_in_client, organization):
+        """Filter by both order status and invoice_status"""
+        Order.objects.create(
+            organization=organization, customer_name="Paid Accepted",
+            status='PAID', invoice_status='accepted'
+        )
+        Order.objects.create(
+            organization=organization, customer_name="Paid Rejected",
+            status='PAID', invoice_status='rejected'
+        )
+        Order.objects.create(
+            organization=organization, customer_name="Draft Accepted",
+            status='DRAFT', invoice_status='accepted'
+        )
+
+        url = reverse('web:order_list', kwargs={'org_slug': organization.slug})
+        response = logged_in_client.get(url + '?status=PAID&invoice_status=accepted')
+
+        assert response.status_code == 200
+        assert response.context['page_obj'].paginator.count == 1
+
+    def test_order_list_combine_invoice_status_with_search(self, logged_in_client, organization):
+        """Filter by search query and invoice_status"""
+        Order.objects.create(
+            organization=organization, customer_name="Juan Pérez",
+            invoice_status='accepted'
+        )
+        Order.objects.create(
+            organization=organization, customer_name="María García",
+            invoice_status='accepted'
+        )
+        Order.objects.create(
+            organization=organization, customer_name="Pedro López",
+            invoice_status='rejected'
+        )
+
+        url = reverse('web:order_list', kwargs={'org_slug': organization.slug})
+        response = logged_in_client.get(url + '?q=Juan&invoice_status=accepted')
+
+        assert response.status_code == 200
+        assert response.context['page_obj'].paginator.count == 1
+
+    def test_order_list_invoice_status_tenant_isolation(self, logged_in_client, organization, org_factory):
+        """invoice_status filter respects tenant boundary (multi-tenant isolation)"""
+        other_org = org_factory('Other Org')
+
+        # Create orders in both orgs with same invoice_status
+        Order.objects.create(organization=organization, customer_name="Org1 Accepted", invoice_status='accepted')
+        Order.objects.create(organization=other_org, customer_name="Org2 Accepted", invoice_status='accepted')
+
+        url = reverse('web:order_list', kwargs={'org_slug': organization.slug})
+        response = logged_in_client.get(url + '?invoice_status=accepted')
+
+        assert response.status_code == 200
+        assert response.context['page_obj'].paginator.count == 1
+        assert response.context['page_obj'].object_list[0].organization_id == organization.id
+
+    def test_order_list_no_invoice_status_filter_shows_all(self, logged_in_client, organization):
+        """Without invoice_status filter, all orders visible"""
+        Order.objects.create(organization=organization, customer_name="Accepted", invoice_status='accepted')
+        Order.objects.create(organization=organization, customer_name="Rejected", invoice_status='rejected')
+        Order.objects.create(organization=organization, customer_name="Pending", invoice_status='pending')
+
+        url = reverse('web:order_list', kwargs={'org_slug': organization.slug})
+        response = logged_in_client.get(url)
+
+        assert response.status_code == 200
+        assert response.context['page_obj'].paginator.count == 3
+        assert response.context['active_invoice_status'] is None
+
+    def test_order_list_invoice_status_choices_in_context(self, logged_in_client, organization):
+        """Verify invoice_status_choices provided to template"""
+        url = reverse('web:order_list', kwargs={'org_slug': organization.slug})
+        response = logged_in_client.get(url)
+
+        assert response.status_code == 200
+        assert 'invoice_status_choices' in response.context
+        choices = response.context['invoice_status_choices']
+        assert any(code == 'accepted' for code, label in choices)
+        assert any(code == 'rejected' for code, label in choices)
+        assert any(code == 'submitted' for code, label in choices)
+
+
 @pytest.mark.django_db
 class TestOrderWebViews:
     def test_order_list_view(self, logged_in_client, organization):

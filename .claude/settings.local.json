@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "understanding-graph": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "understanding-graph",
+        "mcp"
+      ],
+      "env": {
+        "PROJECT_DIR": "C:\\Users\\user\\OneDrive\\Documentos\\GitHub\\nexus-oms-django\\projects"
+      }
+    }
+  },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}

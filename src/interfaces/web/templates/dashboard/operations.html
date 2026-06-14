@@ -166,26 +166,30 @@
 
     {# Tarjetas resumen #}
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-        <div class="card-tenant !border-l-emerald-500">
+        <a href="{% url 'web:order_list' tenant.slug %}?invoice_status=accepted" class="card-tenant !border-l-emerald-500 hover:shadow-lg transition-shadow cursor-pointer">
             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Aceptadas SUNAT</p>
             <p class="text-3xl font-black text-emerald-600 mt-1">{{ invoice_metrics.terminal_ok }}</p>
             <p class="text-[9px] text-gray-400 mt-1">accepted + observed</p>
-        </div>
-        <div class="card-tenant !border-l-sky-500">
+            <p class="text-[8px] text-emerald-500 mt-2 font-bold uppercase">Ver órdenes →</p>
+        </a>
+        <a href="{% url 'web:order_list' tenant.slug %}?invoice_status=submitted" class="card-tenant !border-l-sky-500 hover:shadow-lg transition-shadow cursor-pointer">
             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">En Tránsito</p>
             <p class="text-3xl font-black text-sky-600 mt-1">{{ invoice_metrics.in_flight }}</p>
             <p class="text-[9px] text-gray-400 mt-1">submitted · sync · retrying</p>
-        </div>
-        <div class="card-tenant {% if invoice_metrics.terminal_err > 0 %}!border-l-red-500{% else %}!border-l-gray-200{% endif %}">
+            <p class="text-[8px] text-sky-500 mt-2 font-bold uppercase">Ver órdenes →</p>
+        </a>
+        <a href="{% url 'web:order_list' tenant.slug %}?invoice_status=rejected" class="card-tenant {% if invoice_metrics.terminal_err > 0 %}!border-l-red-500{% else %}!border-l-gray-200{% endif %} hover:shadow-lg transition-shadow cursor-pointer">
             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Errores Terminales</p>
             <p class="text-3xl font-black {% if invoice_metrics.terminal_err > 0 %}text-red-600{% else %}text-gray-400{% endif %} mt-1">{{ invoice_metrics.terminal_err }}</p>
             <p class="text-[9px] text-gray-400 mt-1">rejected + failed</p>
-        </div>
-        <div class="card-tenant !border-l-gray-300">
+            <p class="text-[8px] {% if invoice_metrics.terminal_err > 0 %}text-red-500{% else %}text-gray-400{% endif %} mt-2 font-bold uppercase">Ver órdenes →</p>
+        </a>
+        <a href="{% url 'web:order_list' tenant.slug %}?invoice_status=pending" class="card-tenant !border-l-gray-300 hover:shadow-lg transition-shadow cursor-pointer">
             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Facturadas</p>
             <p class="text-3xl font-black text-gray-700 mt-1">{{ invoice_metrics.total_invoiced }}</p>
             <p class="text-[9px] text-gray-400 mt-1">con proceso iniciado</p>
-        </div>
+            <p class="text-[8px] text-gray-500 mt-2 font-bold uppercase">Ver órdenes →</p>
+        </a>
     </div>
 
     {# Desglose por estado #}

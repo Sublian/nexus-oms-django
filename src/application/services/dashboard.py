@@ -237,7 +237,7 @@ class DailyInvoiceSeriesService:
     def get_daily_series(self, organization, days: int = 30) -> dict:
         from src.domain.models import Order
 
-        now       = timezone.now()
+        now       = timezone.localtime()
         date_from = now - timedelta(days=days)
 
         rows = (
@@ -250,7 +250,7 @@ class DailyInvoiceSeriesService:
             .order_by('day')
         )
 
-        # Build ordered date list (oldest → newest)
+        # Build ordered date list (oldest → newest, in local timezone)
         dates = [(now - timedelta(days=i)).date() for i in range(days, -1, -1)]
 
         series: dict = {s: {d: 0 for d in dates} for s in self.CHART_STATUSES}

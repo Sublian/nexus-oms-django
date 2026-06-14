@@ -14,11 +14,11 @@
 
     <div class="card-tenant flex flex-wrap gap-4 items-center">
         <form method="GET" class="flex flex-wrap gap-4 w-full">
-            <input type="text" name="q" value="{{ request.GET.q|default:'' }}" placeholder="Buscar por cliente o #ID..." 
+            <input type="text" name="q" value="{{ request.GET.q|default:'' }}" placeholder="Buscar por cliente o #ID..."
                    class="border-gray-300 rounded-lg text-sm focus:ring-tenant-primary w-64">
-            
+
             <select name="status" class="border-gray-300 rounded-lg text-sm focus:ring-tenant-primary">
-                <option value="">Todos los estados</option>
+                <option value="">Todos los estados de orden</option>
                 {% for code, label in status_choices %}
                     <option value="{{ code }}" {% if request.GET.status == code %}selected{% endif %}>
                         {{ label }}
@@ -26,8 +26,31 @@
                 {% endfor %}
             </select>
 
+            <select name="invoice_status" class="border-gray-300 rounded-lg text-sm focus:ring-tenant-primary">
+                <option value="">Todos los estados de facturación</option>
+                {% for code, label in invoice_status_choices %}
+                    <option value="{{ code }}" {% if active_invoice_status == code %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                {% endfor %}
+            </select>
+
             <button type="submit" class="bg-gray-100 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200">Filtrar</button>
+
+            {% if active_invoice_status %}
+            <a href="{% url 'web:order_list' tenant.slug %}" class="text-[10px] font-black text-gray-400 hover:text-gray-700 uppercase tracking-wider">
+                Limpiar filtro
+            </a>
+            {% endif %}
         </form>
+
+        {% if active_invoice_status %}
+        <div class="ml-auto">
+            <span class="px-2 py-1 bg-blue-100 text-blue-700 text-[10px] font-black rounded-full uppercase">
+                Facturación: {{ active_invoice_status }}
+            </span>
+        </div>
+        {% endif %}
     </div>
 
     <div class="card-tenant overflow-hidden !p-0">
