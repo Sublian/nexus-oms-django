@@ -43,7 +43,7 @@ class InvoiceStatusQueryUseCase:
             provider = get_invoice_provider(config)
 
 
-        result = provider.get_invoice_status(order.invoice_external_id)
+        result = provider.get_invoice_status(order, order.invoice_external_id)
 
         # Actualizar invoice_status en Order segun resultado normalizado del provider
         new_status = self._resolve_status(result)

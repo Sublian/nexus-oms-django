@@ -33,5 +33,5 @@ class InvoiceProvider(ABC):
         pass
 
     @abstractmethod
-    def get_invoice_status(self, external_id: str) -> dict:
+    def get_invoice_status(self, order, external_id: str) -> dict:
         pass

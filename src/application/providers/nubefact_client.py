@@ -1,8 +1,11 @@
 import logging
+import time
 
 import requests
 
 from src.domain.exceptions import NubefactTemporaryError, NubefactPermanentError
+from src.domain.observability import classify_error, ErrorCategory
+from src.domain.models.integrations import ExternalRequestLog
 from .invoice_provider import InvoiceProvider
 
 logger = logging.getLogger("nubefact_client")
@@ -28,36 +31,95 @@ class NubefactClient(InvoiceProvider):
             f"[NubefactClient][order_id={order.id}][action=POST][url={url}]"
         )
 
+        start_time = time.time()
+        response = None
+        exception_raised = None
+
         try:
             response = requests.post(url, json=payload, headers=headers, timeout=self.TIMEOUT)
-        except requests.exceptions.Timeout:
-            raise NubefactTemporaryError(
-                f"Timeout after {self.TIMEOUT}s — order_id={order.id}"
+        except requests.exceptions.Timeout as exc:
+            duration_ms = int((time.time() - start_time) * 1000)
+            category = classify_error(exc)
+            error_msg = f"[{category.value}] Timeout after {self.TIMEOUT}s — order_id={order.id}"
+            self._log_external_request(
+                order=order,
+                operation='create_invoice',
+                request_payload=payload,
+                response_payload=None,
+                status_code=None,
+                duration_ms=duration_ms,
+                success=False,
+                error_message=error_msg,
             )
+            exception_raised = NubefactTemporaryError(error_msg)
         except requests.exceptions.ConnectionError as exc:
-            raise NubefactTemporaryError(
-                f"Connection error — order_id={order.id}: {exc}"
+            duration_ms = int((time.time() - start_time) * 1000)
+            category = classify_error(exc)
+            error_msg = f"[{category.value}] Connection error — order_id={order.id}: {exc}"
+            self._log_external_request(
+                order=order,
+                operation='create_invoice',
+                request_payload=payload,
+                response_payload=None,
+                status_code=None,
+                duration_ms=duration_ms,
+                success=False,
+                error_message=error_msg,
             )
+            exception_raised = NubefactTemporaryError(error_msg)
 
+        if exception_raised:
+            raise exception_raised
+
+        duration_ms = int((time.time() - start_time) * 1000)
         logger.info(
-            f"[NubefactClient][order_id={order.id}][status={response.status_code}]"
+            f"[NubefactClient][order_id={order.id}][status={response.status_code}][duration_ms={duration_ms}]"
         )
 
         if response.status_code in _PERMANENT_CODES:
-            raise NubefactPermanentError(
-                f"HTTP {response.status_code} — order_id={order.id}: {response.text[:300]}"
+            category = classify_error(response.status_code)
+            error_msg = f"[{category.value}] HTTP {response.status_code} — order_id={order.id}: {response.text[:300]}"
+            self._log_external_request(
+                order=order,
+                operation='create_invoice',
+                request_payload=payload,
+                response_payload=response.json() if response.text else None,
+                status_code=response.status_code,
+                duration_ms=duration_ms,
+                success=False,
+                error_message=error_msg,
             )
+            raise NubefactPermanentError(error_msg)
 
         if response.status_code in _TEMPORARY_CODES:
-            raise NubefactTemporaryError(
-                f"HTTP {response.status_code} — order_id={order.id}: {response.text[:300]}"
+            category = classify_error(response.status_code)
+            error_msg = f"[{category.value}] HTTP {response.status_code} — order_id={order.id}: {response.text[:300]}"
+            self._log_external_request(
+                order=order,
+                operation='create_invoice',
+                request_payload=payload,
+                response_payload=response.json() if response.text else None,
+                status_code=response.status_code,
+                duration_ms=duration_ms,
+                success=False,
+                error_message=error_msg,
             )
+            raise NubefactTemporaryError(error_msg)
 
         if not response.ok:
-            # Cualquier otro código no-2xx no clasificado → error permanente
-            raise NubefactPermanentError(
-                f"HTTP {response.status_code} — order_id={order.id}: {response.text[:300]}"
+            category = classify_error(response.status_code)
+            error_msg = f"[{category.value}] HTTP {response.status_code} — order_id={order.id}: {response.text[:300]}"
+            self._log_external_request(
+                order=order,
+                operation='create_invoice',
+                request_payload=payload,
+                response_payload=response.json() if response.text else None,
+                status_code=response.status_code,
+                duration_ms=duration_ms,
+                success=False,
+                error_message=error_msg,
             )
+            raise NubefactPermanentError(error_msg)
 
         data = response.json()
         serie = data.get('serie', '')
@@ -66,6 +128,17 @@ class NubefactClient(InvoiceProvider):
 
         hash_value = data.get('hash') or data.get('hash_cpe') or data.get('hash_cdr')
 
+        self._log_external_request(
+            order=order,
+            operation='create_invoice',
+            request_payload=payload,
+            response_payload=data,
+            status_code=response.status_code,
+            duration_ms=duration_ms,
+            success=True,
+            error_message=None,
+        )
+
         return {
             'status': 'submitted',
             'external_id': external_id,
@@ -73,7 +146,7 @@ class NubefactClient(InvoiceProvider):
             'error': None,
         }
 
-    def get_invoice_status(self, external_id: str) -> dict:
+    def get_invoice_status(self, order, external_id: str) -> dict:
         """
         Consulta el estado de un comprobante ya emitido en Nubefact/SUNAT.
 
@@ -99,38 +172,98 @@ class NubefactClient(InvoiceProvider):
         }
 
         logger.info(
-            f"[NubefactClient][external_id={external_id}][action=QUERY_STATUS]"
+            f"[NubefactClient][order_id={order.id}][external_id={external_id}][action=QUERY_STATUS]"
         )
+
+        start_time = time.time()
+        response = None
+        exception_raised = None
 
         try:
             response = requests.post(url, json=payload, headers=headers, timeout=self.TIMEOUT)
-        except requests.exceptions.Timeout:
-            raise NubefactTemporaryError(
-                f"Timeout querying status — external_id={external_id}"
+        except requests.exceptions.Timeout as exc:
+            duration_ms = int((time.time() - start_time) * 1000)
+            category = classify_error(exc)
+            error_msg = f"[{category.value}] Timeout querying status — external_id={external_id}"
+            self._log_external_request(
+                order=order,
+                operation='query_status',
+                request_payload=payload,
+                response_payload=None,
+                status_code=None,
+                duration_ms=duration_ms,
+                success=False,
+                error_message=error_msg,
             )
+            exception_raised = NubefactTemporaryError(error_msg)
         except requests.exceptions.ConnectionError as exc:
-            raise NubefactTemporaryError(
-                f"Connection error querying status — external_id={external_id}: {exc}"
+            duration_ms = int((time.time() - start_time) * 1000)
+            category = classify_error(exc)
+            error_msg = f"[{category.value}] Connection error querying status — external_id={external_id}: {exc}"
+            self._log_external_request(
+                order=order,
+                operation='query_status',
+                request_payload=payload,
+                response_payload=None,
+                status_code=None,
+                duration_ms=duration_ms,
+                success=False,
+                error_message=error_msg,
             )
+            exception_raised = NubefactTemporaryError(error_msg)
 
+        if exception_raised:
+            raise exception_raised
+
+        duration_ms = int((time.time() - start_time) * 1000)
         logger.info(
-            f"[NubefactClient][external_id={external_id}][status={response.status_code}]"
+            f"[NubefactClient][order_id={order.id}][external_id={external_id}][status={response.status_code}][duration_ms={duration_ms}]"
         )
 
         if response.status_code in _PERMANENT_CODES:
-            raise NubefactPermanentError(
-                f"HTTP {response.status_code} querying status — external_id={external_id}: {response.text[:300]}"
+            category = classify_error(response.status_code)
+            error_msg = f"[{category.value}] HTTP {response.status_code} querying status — external_id={external_id}: {response.text[:300]}"
+            self._log_external_request(
+                order=order,
+                operation='query_status',
+                request_payload=payload,
+                response_payload=response.json() if response.text else None,
+                status_code=response.status_code,
+                duration_ms=duration_ms,
+                success=False,
+                error_message=error_msg,
             )
+            raise NubefactPermanentError(error_msg)
 
         if response.status_code in _TEMPORARY_CODES:
-            raise NubefactTemporaryError(
-                f"HTTP {response.status_code} querying status — external_id={external_id}: {response.text[:300]}"
+            category = classify_error(response.status_code)
+            error_msg = f"[{category.value}] HTTP {response.status_code} querying status — external_id={external_id}: {response.text[:300]}"
+            self._log_external_request(
+                order=order,
+                operation='query_status',
+                request_payload=payload,
+                response_payload=response.json() if response.text else None,
+                status_code=response.status_code,
+                duration_ms=duration_ms,
+                success=False,
+                error_message=error_msg,
             )
+            raise NubefactTemporaryError(error_msg)
 
         if not response.ok:
-            raise NubefactPermanentError(
-                f"HTTP {response.status_code} querying status — external_id={external_id}: {response.text[:300]}"
+            category = classify_error(response.status_code)
+            error_msg = f"[{category.value}] HTTP {response.status_code} querying status — external_id={external_id}: {response.text[:300]}"
+            self._log_external_request(
+                order=order,
+                operation='query_status',
+                request_payload=payload,
+                response_payload=response.json() if response.text else None,
+                status_code=response.status_code,
+                duration_ms=duration_ms,
+                success=False,
+                error_message=error_msg,
             )
+            raise NubefactPermanentError(error_msg)
 
         data = response.json()
 
@@ -142,6 +275,17 @@ class NubefactClient(InvoiceProvider):
 
         hash_value = data.get('hash') or data.get('hash_cpe') or data.get('hash_cdr')
         provider_ref = data.get('enlace_del_cdi') or data.get('cadena_para_codigo_qr')
+
+        self._log_external_request(
+            order=order,
+            operation='query_status',
+            request_payload=payload,
+            response_payload=data,
+            status_code=response.status_code,
+            duration_ms=duration_ms,
+            success=True,
+            error_message=None,
+        )
 
         return {
             'accepted':           accepted,
@@ -194,3 +338,28 @@ class NubefactClient(InvoiceProvider):
             'detalle': items,
             'externa_id': f'ORDER-{order.id}',  # idempotency key
         }
+
+    def _log_external_request(self, order, operation: str, request_payload: dict,
+                             response_payload, status_code, duration_ms: int,
+                             success: bool, error_message: str = None):
+        """
+        Registra cada llamada HTTP a Nubefact en ExternalRequestLog.
+
+        Respeta tipos nativos: order_id (FK), organization_id (FK),
+        duration_ms (int), error_message (text con prefijo de categoría).
+
+        Antiduplicación: este método es el ÚNICO lugar donde se crea el log.
+        """
+        ExternalRequestLog.objects.create(
+            organization=order.organization,
+            service=None,  # nullable, no hay contexto de ExternalServiceConfig
+            provider_name='nubefact',
+            operation=operation,
+            order=order,
+            request_payload=request_payload,
+            response_payload=response_payload,
+            status_code=status_code,
+            duration_ms=duration_ms,
+            success=success,
+            error_message=error_message,
+        )

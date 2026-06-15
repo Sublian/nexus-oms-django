@@ -27,7 +27,7 @@ class MockNubefactClient(InvoiceProvider):
             'order_id': order.id,
         }
 
-    def get_invoice_status(self, external_id: str) -> dict:
+    def get_invoice_status(self, order, external_id: str) -> dict:
         scenario = self.status_scenario
 
         if scenario == 'timeout':
