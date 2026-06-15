@@ -1,7 +1,8 @@
 # Estado actual del proyecto — Nexus OMS
 
 Snapshot técnico al 2026-06-14. Usar como contexto de arranque en nueva sesión.
-**FASE 2B + FASE 3 completadas. FASE 3.4A-B (Audits) completadas. FASE 3.4B-B (Recovery) completada — 307/307 tests en verde.**
+**FASE 2B + FASE 3 completadas. FASE 3.4A-B (Audits) completadas. FASE 3.4B-B (Recovery) completada.**
+**FASE 4A: Observability Foundation — ✅ 100% COMPLETADA — 325/325 tests en verde.**
 
 ---
 
@@ -162,11 +163,54 @@ Snapshot técnico al 2026-06-14. Usar como contexto de arranque en nueva sesión
 - ✅ No graph updates
 - ✅ Fixture-only approach (no service layer changes)
 
+### FASE 4A — Observability Foundation (Domingo 2026-06-14)
+
+**Implementación Completa: Entregables A, B, C**
+
+**Entregable A: Instrumentación de ExternalRequestLog**
+- Inyección de logs en `NubefactClient.create_invoice()` y `get_invoice_status()`
+- Captura de `duration_ms` (time.time() en milisegundos)
+- Respeto de tipos nativos exactos: `order_id` (BigInteger), `organization_id` (Integer)
+- Anti-duplicación: logging ÚNICA en cliente HTTP (`_log_external_request()`)
+- Files: `src/application/providers/nubefact_client.py`
+
+**Entregable B: Taxonomía de Errores Dinámica**
+- Enum `ErrorCategory`: TEMPORARY, PERMANENT, AUTH, VALIDATION, RATE_LIMIT
+- Función `classify_error(exception_or_status_code)` para clasificación dinámica
+- Prefijo embebido: `[CATEGORY] error message` en `error_message` (sin nueva columna DB)
+- Files: `src/domain/observability.py`
+
+**Entregable C: QA y Tests**
+- 18 tests nuevos (100% passing)
+- Coverage: classify_error() + ExternalRequestLog creation + duration_ms + anti-duplicación
+- Baseline: 307 → 325 tests
+- Files: `src/tests/application/providers/test_observability_logs.py`
+
+**Cambios de Firma:**
+- `InvoiceProvider.get_invoice_status(order, external_id)` — parámetro `order` agregado
+- `NubefactClient.get_invoice_status(order, external_id)`
+- `MockNubefactClient.get_invoice_status(order, external_id)`
+- `InvoiceStatusQueryUseCase.execute()` — línea 46 actualizada
+
+**Commits (6 total):**
+1. `6ec1182` — fix: cast order_shipping to Decimal in seed_data command
+2. `8027601` — feat: instrument external request log for nubefact client
+3. `8598038` — test: add unit tests for observability logs and taxonomy
+4. `4eb35e6` — docs: phase 4a observability foundation completion report
+5. `41f9098` — fix: adapt existing tests to get_invoice_status signature change
+6. `0280aef` — cleanup: remove temporary check_models.py script
+
+**Restricciones Inmutables Respetadas:**
+- ✅ No UI/HTML/HTMX/templates modificados
+- ✅ No migraciones generadas
+- ✅ No esquema PostgreSQL alterado
+- ✅ Deuda técnica transitoria aceptada: prefijo [CATEGORY] en texto (normalizar en Sprint 6)
+
 ---
 
 ## Estado de tests
 
-- **308+ tests** en verde (proyección: FASE 2B + 3 agregaron 16 tests)
+- **325 tests** en verde (307 original + 18 nuevos FASE 4A)
 - `manage.py check`: 0 issues
 
 ### Desglose por bloque
@@ -177,6 +221,7 @@ Snapshot técnico al 2026-06-14. Usar como contexto de arranque en nueva sesión
 | FASE 2A — drill-down views | 22 nuevos (commit `99b52c3`) |
 | FASE 2B — invoice_status filtering | 8 nuevos (commit `9086ca6`) |
 | FASE 3 — invoice detail & timeline | 8 nuevos (commit `cad877a`) |
+| FASE 4A — observability foundation | 18 nuevos (commit `8598038`) |
 
 ---
 
