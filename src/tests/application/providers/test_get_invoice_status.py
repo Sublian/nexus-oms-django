@@ -13,6 +13,13 @@ from src.application.providers.mock_nubefact_client import MockNubefactClient
 from src.domain.exceptions import NubefactTemporaryError, NubefactPermanentError
 
 
+@pytest.fixture(autouse=True)
+def mock_external_log():
+    """Parchea ExternalRequestLog.objects.create() en todos los tests de providers."""
+    with patch('src.application.providers.nubefact_client.ExternalRequestLog.objects.create'):
+        yield
+
+
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def _make_config():
@@ -22,6 +29,16 @@ def _make_config():
     cfg.token = 'tok-secret'
     cfg.provider_type = 'nubefact'
     return cfg
+
+
+def _make_order():
+    """Crea un mock order con los atributos necesarios para logging."""
+    order = MagicMock()
+    order.id = 123
+    order.organization_id = 456
+    # Evitar que se intente guardar en DB durante tests sin @pytest.mark.django_db
+    order._state.adding = False
+    return order
 
 
 def _mock_response(status_code, json_data=None, text=''):
@@ -75,7 +92,7 @@ class TestNubefactClientGetStatus:
 
     def test_accepted_maps_correctly(self):
         with patch('requests.post', return_value=_mock_response(200, ACCEPTED_RESPONSE)):
-            result = NubefactClient(_make_config()).get_invoice_status('B001-42')
+            result = NubefactClient(_make_config()).get_invoice_status(_make_order(), 'B001-42')
 
         assert result['accepted'] is True
         assert result['observed'] is False
@@ -86,7 +103,7 @@ class TestNubefactClientGetStatus:
 
     def test_observed_maps_correctly(self):
         with patch('requests.post', return_value=_mock_response(200, OBSERVED_RESPONSE)):
-            result = NubefactClient(_make_config()).get_invoice_status('B001-43')
+            result = NubefactClient(_make_config()).get_invoice_status(_make_order(), 'B001-43')
 
         assert result['accepted'] is True
         assert result['observed'] is True
@@ -95,7 +112,7 @@ class TestNubefactClientGetStatus:
 
     def test_rejected_maps_correctly(self):
         with patch('requests.post', return_value=_mock_response(200, REJECTED_RESPONSE)):
-            result = NubefactClient(_make_config()).get_invoice_status('B001-44')
+            result = NubefactClient(_make_config()).get_invoice_status(_make_order(), 'B001-44')
 
         assert result['accepted'] is False
         assert result['rejected'] is True
@@ -103,7 +120,7 @@ class TestNubefactClientGetStatus:
 
     def test_pending_sunat_all_flags_false(self):
         with patch('requests.post', return_value=_mock_response(200, PENDING_RESPONSE)):
-            result = NubefactClient(_make_config()).get_invoice_status('B001-45')
+            result = NubefactClient(_make_config()).get_invoice_status(_make_order(), 'B001-45')
 
         assert result['accepted'] is False
         assert result['observed'] is False
@@ -112,22 +129,22 @@ class TestNubefactClientGetStatus:
     def test_502_raises_temporary_error(self):
         with patch('requests.post', return_value=_mock_response(502, text='bad gateway')):
             with pytest.raises(NubefactTemporaryError, match='502'):
-                NubefactClient(_make_config()).get_invoice_status('B001-42')
+                NubefactClient(_make_config()).get_invoice_status(_make_order(), 'B001-42')
 
     def test_401_raises_permanent_error(self):
         with patch('requests.post', return_value=_mock_response(401, text='unauthorized')):
             with pytest.raises(NubefactPermanentError, match='401'):
-                NubefactClient(_make_config()).get_invoice_status('B001-42')
+                NubefactClient(_make_config()).get_invoice_status(_make_order(), 'B001-42')
 
     def test_timeout_raises_temporary_error(self):
         with patch('requests.post', side_effect=req_lib.exceptions.Timeout()):
             with pytest.raises(NubefactTemporaryError, match='Timeout'):
-                NubefactClient(_make_config()).get_invoice_status('B001-42')
+                NubefactClient(_make_config()).get_invoice_status(_make_order(), 'B001-42')
 
     def test_connection_error_raises_temporary_error(self):
         with patch('requests.post', side_effect=req_lib.exceptions.ConnectionError('refused')):
             with pytest.raises(NubefactTemporaryError, match='Connection error'):
-                NubefactClient(_make_config()).get_invoice_status('B001-42')
+                NubefactClient(_make_config()).get_invoice_status(_make_order(), 'B001-42')
 
     def test_token_sent_in_header_not_url(self):
         captured = []
@@ -137,7 +154,7 @@ class TestNubefactClientGetStatus:
             return _mock_response(200, ACCEPTED_RESPONSE)
 
         with patch('requests.post', side_effect=capture):
-            NubefactClient(_make_config()).get_invoice_status('B001-42')
+            NubefactClient(_make_config()).get_invoice_status(_make_order(), 'B001-42')
 
         assert 'tok-secret' not in captured[0]['url']
         assert captured[0]['headers']['Authorization'] == 'Token tok-secret'
@@ -150,7 +167,7 @@ class TestNubefactClientGetStatus:
             return _mock_response(200, ACCEPTED_RESPONSE)
 
         with patch('requests.post', side_effect=capture):
-            NubefactClient(_make_config()).get_invoice_status('B001-42')
+            NubefactClient(_make_config()).get_invoice_status(_make_order(), 'B001-42')
 
         payload = captured_payloads[0]
         assert payload['serie']  == 'B001'
@@ -164,7 +181,7 @@ class TestMockNubefactClientGetStatus:
 
     def test_default_scenario_is_accepted(self):
         client = MockNubefactClient(_make_config())
-        result = client.get_invoice_status('MOCK-ABC')
+        result = client.get_invoice_status(_make_order(), 'MOCK-ABC')
 
         assert result['accepted'] is True
         assert result['observed'] is False
@@ -175,7 +192,7 @@ class TestMockNubefactClientGetStatus:
     def test_observed_scenario(self):
         client = MockNubefactClient(_make_config())
         client.status_scenario = 'observed'
-        result = client.get_invoice_status('MOCK-ABC')
+        result = client.get_invoice_status(_make_order(), 'MOCK-ABC')
 
         assert result['observed'] is True
         assert result['accepted'] is False
@@ -185,7 +202,7 @@ class TestMockNubefactClientGetStatus:
     def test_rejected_scenario(self):
         client = MockNubefactClient(_make_config())
         client.status_scenario = 'rejected'
-        result = client.get_invoice_status('MOCK-ABC')
+        result = client.get_invoice_status(_make_order(), 'MOCK-ABC')
 
         assert result['rejected'] is True
         assert result['accepted'] is False
@@ -194,7 +211,7 @@ class TestMockNubefactClientGetStatus:
     def test_pending_scenario_all_flags_false(self):
         client = MockNubefactClient(_make_config())
         client.status_scenario = 'pending'
-        result = client.get_invoice_status('MOCK-ABC')
+        result = client.get_invoice_status(_make_order(), 'MOCK-ABC')
 
         assert result['accepted'] is False
         assert result['observed'] is False
@@ -205,18 +222,18 @@ class TestMockNubefactClientGetStatus:
         client.status_scenario = 'timeout'
 
         with pytest.raises(NubefactTemporaryError, match='Mock timeout'):
-            client.get_invoice_status('MOCK-ABC')
+            client.get_invoice_status(_make_order(), 'MOCK-ABC')
 
     def test_error_scenario_raises_temporary_error(self):
         client = MockNubefactClient(_make_config())
         client.status_scenario = 'error'
 
         with pytest.raises(NubefactTemporaryError, match='Mock network error'):
-            client.get_invoice_status('MOCK-ABC')
+            client.get_invoice_status(_make_order(), 'MOCK-ABC')
 
     def test_result_includes_all_contract_keys(self):
         client = MockNubefactClient(_make_config())
-        result = client.get_invoice_status('MOCK-XYZ')
+        result = client.get_invoice_status(_make_order(), 'MOCK-XYZ')
 
         required_keys = ['accepted', 'observed', 'rejected', 'hash', 'provider_reference', 'raw_response']
         for key in required_keys:

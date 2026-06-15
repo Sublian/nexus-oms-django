@@ -34,3 +34,43 @@ Muestra toda la evidencia recolectada en la consola. DETÉN toda intención de e
 - Si demuestra el ESCENARIO B (No hay objeto `order` ni contexto), la implementación se congela.
 
 Mústrame el código de execute() y los campos de InvoiceSyncQueue para tomar la decisión.
+
+### 🟢 MATRIZ EVALUADA — AUTORIZACIÓN TOTAL PARA PASO 1.2 (ESCENARIO A)
+
+Excelente reporte de evidencia. Arquitectura y Staff Engineering aprueban formalmente el Escenario A. Al estar el objeto `order` disponible en la línea 27 del Use Case, el impacto queda perfectamente acotado. 
+
+Tienes luz verde total para levantar el guardrail de detención y proceder con la codificación de todos los entregables.
+
+### 🚀 INSTRUCCIONES DE EJECUCIÓN (PASO 1.2):
+
+1. CAMBIO DE FIRMA PERIFÉRICO:
+   - Modifica la firma de `get_invoice_status` para recibir el objeto de la orden:
+     `def get_invoice_status(self, order, external_id: str) -> dict:`
+   - Aplica este cambio de firma estrictamente en los 4 puntos identificados: `InvoiceProvider`, `NubefactClient`, `MockNubefactClient` y el punto de llamada en `InvoiceStatusQueryUseCase` (línea 46).
+
+2. ENTREGABLE A: Instrumentación de `ExternalRequestLog`
+   - Modifica `src/application/providers/nubefact_client.py`. Encamina las llamadas de `requests.post()` tanto en `create_invoice` como en `get_invoice_status` para medir la latencia exacta en milisegundos (`duration_ms`).
+   - Justo después de recibir la respuesta (o capturar la excepción), persiste el log haciendo uso de:
+     `ExternalRequestLog.objects.create(...)`
+   - Asegúrate de mapear: `provider_name="nubefact"`, `operation`, `request_payload`, `response_payload`, `status_code`, `duration_ms`, `success`, `order_id=order.id` y `organization_id=order.organization_id`. Pasa `service_id=None` ya que es nullable.
+   - REGLA DE ANTIDUPLICACIÓN: El log se registra ÚNICAMENTE aquí adentro.
+
+3. ENTREGABLE B: Taxonomía de Errores Transitoria
+   - Implementa el Enum con las categorías (`TEMPORARY`, `PERMANENT`, `AUTH`, `VALIDATION`, `RATE_LIMIT`) y la función pura `classify_error()`.
+   - Estampa la categoría calculada como un prefijo explícito en la columna de texto existente: `error_message = f"[{category}] {str(exception)}"`.
+
+4. ENTREGABLE C: QA & Nuevas Pruebas en Docker
+   - Desarrolla las pruebas unitarias que verifiquen la persistencia de `ExternalRequestLog`, el cálculo de `duration_ms` y los prefijos de la taxonomía.
+
+### 💾 POLÍTICA DE COMMITS COHERENTES (Git):
+No acumules código. Ejecuta un commit en Git por cada hito funcional completo terminado:
+- Commit 2: `feat: instrument external request log for nubefact client`
+- Commit 3: `feat: implement dynamic error taxonomy parsing`
+- Commit 4: `test: add unit tests for observability logs and taxonomy`
+- Commit 5: `docs: update project state in resume.md and handoff`
+
+### 🐋 VALIDACIÓN FINAL DE LA SUITE:
+Corre el comando real del contenedor: `docker-compose exec web pytest -v`
+Muéstrame el nuevo conteo total de pruebas en verde (que debe superar las 307 iniciales).
+
+Procede con la implementación del Commit 2.

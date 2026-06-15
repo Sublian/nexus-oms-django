@@ -28,6 +28,11 @@ def _make_order():
     order.tax_amount = 18.00
     order.subtotal = 100.00
     order.items.all.return_value = []
+    order.organization_id = 999
+    # Mock organization para el logging
+    org = MagicMock()
+    org.id = 999
+    order.organization = org
     return order
 
 
@@ -41,6 +46,13 @@ def _mock_response(status_code, json_data=None, text=''):
 
 
 # ── NubefactClient HTTP behaviour ─────────────────────────────────────────────
+
+@pytest.fixture(autouse=True)
+def mock_external_log():
+    """Parchea ExternalRequestLog.objects.create() en tests de NubefactClient."""
+    with patch('src.application.providers.nubefact_client.ExternalRequestLog.objects.create'):
+        yield
+
 
 class TestNubefactClient:
 
