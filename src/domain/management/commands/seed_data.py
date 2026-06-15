@@ -217,7 +217,7 @@ class Command(BaseCommand):
     def _generate_orders(self, org, products, clients, count, tax_rate):
         """Create orders distributed over 90 days. Returns list of created orders."""
         orders, now = [], timezone.now()
-        shipping_fee = org.default_shipping_fee
+        shipping_fee = Decimal(str(org.default_shipping_fee))
 
         for i in range(count):
             # Weighted temporal distribution: 40% last 30d, 35% 30-60d, 25% 60-90d
@@ -266,11 +266,11 @@ class Command(BaseCommand):
                 items_total   = subtotal
                 order.subtotal    = (items_total / (1 + tax_rate / Decimal('100'))).quantize(Decimal('0.01'))
                 order.tax_amount  = (items_total - order.subtotal).quantize(Decimal('0.01'))
-                order.total_amount = items_total + order_shipping
+                order.total_amount = (items_total + order_shipping).quantize(Decimal('0.01'))
             else:
                 order.subtotal    = subtotal
                 order.tax_amount  = (subtotal * tax_rate / Decimal('100')).quantize(Decimal('0.01'))
-                order.total_amount = subtotal + order.tax_amount + order_shipping
+                order.total_amount = (subtotal + order.tax_amount + order_shipping).quantize(Decimal('0.01'))
             order.save()
 
             method = random.choice(['CASH', 'CASH', 'CARD', 'TRANSFER', 'WALLET'])
