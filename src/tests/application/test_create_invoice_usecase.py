@@ -5,6 +5,7 @@ from src.domain.exceptions import NubefactPermanentError
 from src.application.usecases.create_invoice import CreateInvoiceUseCase
 from src.application.providers.mock_nubefact_client import MockNubefactClient
 from src.domain.models.order_constants import OrderStatus
+from src.infrastructure.multitenancy.context import set_current_organization, clear_current_organization
 
 
 @pytest.mark.django_db
@@ -16,6 +17,7 @@ class TestCreateInvoiceUseCase(TestCase):
             slug="test-company",
             admin_email="admin@test.com"
         )
+        set_current_organization(self.org.id)
         self.order = Order.objects.create(
             organization=self.org,
             customer_name="Juan Perez",
@@ -23,6 +25,10 @@ class TestCreateInvoiceUseCase(TestCase):
             status=OrderStatus.PAID,
             total_amount=100.00
         )
+
+    def tearDown(self):
+        clear_current_organization()
+        super().tearDown()
 
     def test_create_invoice_with_config_found(self):
         config = CompanyInvoiceConfig.objects.create(

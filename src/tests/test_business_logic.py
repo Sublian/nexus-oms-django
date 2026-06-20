@@ -25,20 +25,21 @@ class TestBusinessEdgeCases:
 
     def test_return_logic_with_invalid_product(self, organization, org_factory):
         """Cubre el bloque 'except Product.DoesNotExist' en services.py"""
+        from django.http import Http404
         other_org = org_factory("Other Org")
         # El producto pertenece a 'Other Org', no a 'Main Tenant'
         product_ajeno = Product.objects.create(
-            name="Intruso", 
-            price=10, 
+            name="Intruso",
+            price=10,
             organization=other_org
         )
         order_propia = Order.objects.create(
-            organization=organization, 
+            organization=organization,
             customer_name="Luis"
         )
-        
-        # El servicio lanza ValueError cuando el producto no es de la misma Org
-        with pytest.raises(ValidationError):
+
+        # TenantManager no puede ver el producto de otra org -> Http404
+        with pytest.raises(Http404):
             OrderService.process_return(
                 organization=organization,
                 order_id=order_propia.id,

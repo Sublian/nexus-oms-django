@@ -6,6 +6,13 @@ def eager_celery(settings):
     settings.CELERY_TASK_ALWAYS_EAGER = True
     settings.CELERY_TASK_EAGER_PROPAGATES = True
 
+@pytest.fixture(autouse=True)
+def clear_tenant_context():
+    """Clear tenant context after each test to avoid cross-contamination."""
+    from src.infrastructure.multitenancy.context import clear_current_organization
+    yield
+    clear_current_organization()
+
 @pytest.fixture
 def api_client():
     from rest_framework.test import APIClient
@@ -26,9 +33,10 @@ def admin_user(db, organization):
     return user
 
 @pytest.fixture
-def auth_api_client(api_client, admin_user):
+def auth_api_client(api_client, admin_user, organization):
     """APIClient autenticado; tenant resuelto desde user.organization."""
     api_client.force_authenticate(user=admin_user)
+    # Context is set by organization fixture
     return api_client
 
 @pytest.fixture
@@ -49,7 +57,11 @@ def org_factory(db):
 
 @pytest.fixture
 def organization(org_factory):
-    return org_factory("Main Tenant")
+    """Create test organization and set as current tenant context."""
+    from src.infrastructure.multitenancy.context import set_current_organization
+    org = org_factory("Main Tenant")
+    set_current_organization(org.id)
+    return org
 
 @pytest.fixture
 def product(db, organization):
@@ -99,3 +111,27 @@ def exchange_rate_fixture(db):
             'origin': 'test'
         }
     )
+
+@pytest.fixture
+def tenant_a(db):
+    """Pytest fixture: Tenant A for security tests."""
+    from src.infrastructure.multitenancy.context import set_current_organization
+    tenant = Organization.objects.create(
+        name="Pytest Tenant A",
+        slug="pytest-tenant-a",
+        admin_email="admin@pytest-a.test"
+    )
+    set_current_organization(tenant.id)
+    return tenant
+
+@pytest.fixture
+def tenant_b(db):
+    """Pytest fixture: Tenant B for security tests."""
+    from src.infrastructure.multitenancy.context import set_current_organization
+    tenant = Organization.objects.create(
+        name="Pytest Tenant B",
+        slug="pytest-tenant-b",
+        admin_email="admin@pytest-b.test"
+    )
+    set_current_organization(tenant.id)
+    return tenant

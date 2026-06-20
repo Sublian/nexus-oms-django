@@ -193,6 +193,7 @@ class TestOrderWebViews:
         from src.domain.models.inventory import Stock, Warehouse
         from src.domain.models.sales import OrderItem
         from decimal import Decimal
+        from src.infrastructure.multitenancy.context import set_current_organization
 
         warehouse = Warehouse.objects.create(name="Principal", organization=organization)
         Stock.objects.create(product=product, warehouse=warehouse, quantity=100, organization=organization)
@@ -228,6 +229,8 @@ class TestOrderWebViews:
         item.refresh_from_db()
         assert item.quantity == 8
 
+        # Re-set context since middleware cleared it after the request
+        set_current_organization(organization.id)
         # Verify stock was decremented by additional 3: 95 - 3 = 92
         stock = Stock.objects.get(product=product, organization=organization)
         assert stock.quantity == 92
@@ -237,6 +240,7 @@ class TestOrderWebViews:
         from src.domain.models.inventory import Stock, Warehouse
         from src.domain.models.sales import OrderItem
         from decimal import Decimal
+        from src.infrastructure.multitenancy.context import set_current_organization
 
         warehouse = Warehouse.objects.create(name="Principal", organization=organization)
         Stock.objects.create(product=product, warehouse=warehouse, quantity=95, organization=organization)
@@ -272,6 +276,8 @@ class TestOrderWebViews:
         item.refresh_from_db()
         assert item.quantity == 2
 
+        # Re-set context since middleware cleared it after the request
+        set_current_organization(organization.id)
         # Verify stock was incremented by returned 3: 90 + 3 = 93
         stock = Stock.objects.get(product=product, organization=organization)
         assert stock.quantity == 93
@@ -320,6 +326,7 @@ class TestOrderWebViews:
         from src.domain.models.inventory import Stock, Warehouse
         from src.domain.models.sales import OrderItem
         from decimal import Decimal
+        from src.infrastructure.multitenancy.context import set_current_organization
 
         warehouse = Warehouse.objects.create(name="Principal", organization=organization)
         Stock.objects.create(product=product, warehouse=warehouse, quantity=95, organization=organization)
@@ -359,6 +366,8 @@ class TestOrderWebViews:
         response = logged_in_client.post(url)
         assert response.status_code == 200
 
+        # Re-set context since middleware cleared it after the request
+        set_current_organization(organization.id)
         # Verify item1 was deleted
         assert not OrderItem.objects.filter(id=item1.id).exists()
         # Verify item2 still exists
@@ -408,6 +417,7 @@ class TestOrderWebViews:
         from src.domain.models.inventory import Stock, Warehouse
         from src.domain.models.sales import OrderItem
         from decimal import Decimal
+        from src.infrastructure.multitenancy.context import set_current_organization
 
         warehouse = Warehouse.objects.create(name="Principal", organization=organization)
         Stock.objects.create(product=product, warehouse=warehouse, quantity=100, organization=organization)
@@ -440,6 +450,8 @@ class TestOrderWebViews:
         assert response.status_code == 200
         assert 'La nota es obligatoria' in response.content.decode()
 
+        # Re-set context since middleware cleared it after the request
+        set_current_organization(organization.id)
         # Item should still exist (not deleted yet)
         assert OrderItem.objects.filter(id=item.id).exists()
 
@@ -494,6 +506,7 @@ class TestOrderWebViews:
         from src.domain.models.inventory import Stock, Warehouse
         from src.domain.models.sales import OrderItem
         from decimal import Decimal
+        from src.infrastructure.multitenancy.context import set_current_organization
 
         warehouse = Warehouse.objects.create(name="Principal", organization=organization)
         Stock.objects.create(product=product, warehouse=warehouse, quantity=100, organization=organization)
@@ -533,6 +546,8 @@ class TestOrderWebViews:
         response = logged_in_client.post(url, {})
         assert response.status_code == 200
 
+        # Re-set context since middleware cleared it after the request
+        set_current_organization(organization.id)
         # First item deleted
         assert not OrderItem.objects.filter(id=item1.id).exists()
 

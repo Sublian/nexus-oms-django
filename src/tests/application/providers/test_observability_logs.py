@@ -23,7 +23,8 @@ from src.domain.models.config import CompanyInvoiceConfig
 @pytest.fixture
 def org(db):
     """Organización de test."""
-    return Organization.objects.create(
+    from src.infrastructure.multitenancy.context import set_current_organization
+    org_obj = Organization.objects.create(
         name='Test Org',
         slug='test-org',
         admin_email='test@org.com',
@@ -32,6 +33,8 @@ def org(db):
         ruc='20000000000',
         address='Test Address',
     )
+    set_current_organization(org_obj.id)
+    return org_obj
 
 
 @pytest.fixture

@@ -17,8 +17,7 @@ class OrganizationMiddleware:
 
         if org_id:
             try:
-                # Use unfiltered to bypass tenant context (not yet set)
-                org = Organization.objects.unfiltered.get(id=org_id)
+                org = Organization.objects.get(id=org_id)
             except (Organization.DoesNotExist, ValueError):
                 pass
 
@@ -28,8 +27,7 @@ class OrganizationMiddleware:
             if match:
                 slug = match.group(1)
                 try:
-                    # Use unfiltered to bypass tenant context (not yet set)
-                    org = Organization.objects.unfiltered.get(slug=slug)
+                    org = Organization.objects.get(slug=slug)
                 except Organization.DoesNotExist:
                     pass
         

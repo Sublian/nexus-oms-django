@@ -19,12 +19,12 @@ class TenantIsolationTestCase(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         # Create test tenants
-        cls.tenant_a = Organization.objects.unfiltered.create(
+        cls.tenant_a = Organization.objects.create(
             name="Test Tenant A",
             slug="test-tenant-a",
             admin_email="admin@a.test"
         )
-        cls.tenant_b = Organization.objects.unfiltered.create(
+        cls.tenant_b = Organization.objects.create(
             name="Test Tenant B",
             slug="test-tenant-b",
             admin_email="admin@b.test"
@@ -80,7 +80,7 @@ class TenantIsolationTestCase(TestCase):
 @pytest.fixture
 def tenant_a(db):
     """Pytest fixture: Tenant A."""
-    return Organization.objects.unfiltered.create(
+    return Organization.objects.create(
         name="Pytest Tenant A",
         slug="pytest-tenant-a",
         admin_email="admin@pytest-a.test"
@@ -90,7 +90,7 @@ def tenant_a(db):
 @pytest.fixture
 def tenant_b(db):
     """Pytest fixture: Tenant B."""
-    return Organization.objects.unfiltered.create(
+    return Organization.objects.create(
         name="Pytest Tenant B",
         slug="pytest-tenant-b",
         admin_email="admin@pytest-b.test"
