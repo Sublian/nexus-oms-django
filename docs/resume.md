@@ -82,9 +82,9 @@
 4. Celery context decorator
 5. Test validation suite
 
-### S1C Deliverables (Discovery Complete)
+### S1C Deliverables (Final Audit Complete)
 
-**Tenant Leak Verification** (Physical Evidence Audit):
+**Tenant Leak Verification & Mixin Centralization Audit**:
 
 4 Critical ViewSets Confirmed VULNERABLE:
 1. **ProductViewSet** — `Product.all_objects.all()` if org=None → leaks all product data
@@ -94,18 +94,32 @@
 
 Severity Matrix: **4/4 CRITICAL**
 
-Root Cause: ViewSets use `.all_objects` (intentional bypass for admin) without context guard
+**Mixin Centralization Analysis**:
+- TenantViewMixin location: CENTRALIZED (1 class, src/interfaces/api/views.py:34-44)
+- Inheritance status: ALL 4 ViewSets inherit TenantViewMixin (100%)
+- Orphaned ViewSets: NONE (0/4)
+- **Problem**: Leak NOT in Mixin, but DUPLICATED in each ViewSet's ternario pattern
 
-Defense Status:
+**Global Bypass Inventory**:
+- Total `.all_objects` + `.unfiltered` uses: 39
+- LEAKS (unguarded): 4
+- GUARDED (with filter): 29
+- INTENTIONAL (test): 6
+- Leak rate: 10.3% (focal problem)
+
+**Architectural Findings**:
 - ✅ TenantManager auto-filters if context set
 - ✅ TenantManager returns empty if context missing
 - ✅ @tenant_task decorator enforces org_id (raises ValueError)
-- ❌ API ViewSets bypass using .all_objects when org=None
+- ✅ TenantViewMixin centralized (no duplication)
+- ✅ Middleware context extraction works (X-Org-ID + slug)
+- ❌ 4 ViewSets duplicate unsafe ternario pattern
 
-**Next Phase (S1D Remediation)**:
-- Implement fixes for 4 critical ViewSets (require X-Org-ID or use .objects)
-- Validate with test suite
-- Deploy to close leaks
+**Next Phase (S1D Implementation — Opción C)**:
+- Add context in middleware before ViewSet dispatch
+- OR require X-Org-ID header enforcement in TenantViewMixin.get_organization()
+- Validate with comprehensive test suite
+- Close 4 critical leaks
 
 ---
 
