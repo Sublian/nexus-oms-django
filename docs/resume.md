@@ -34,9 +34,9 @@
 
 ## SECTOR S: Security & Tenant Foundation
 
-**Status:** ✅ S0 | ✅ S1A | ✅ S1B | ✅ S1C (Leak Discovery)  
-**Date Initiated:** 2026-06-19  
-**Timeline:** S0 ✅ → S1A ✅ → S1B ✅ → S1C (Discovery) ✅ → S1D (Remediation) → S2
+**Status:** ✅ S0 | ✅ S1A | ✅ S1B | ✅ S1C | ✅ S1D (PHASE S1 COMPLETE)  
+**Date Initiated:** 2026-06-19 | **Date Completed:** 2026-06-20  
+**Timeline:** S0 ✅ → S1A ✅ → S1B ✅ → S1C ✅ → S1D ✅ → S2 (RLS Foundation)
 
 ### S0 Deliverables (Complete)
 
@@ -115,11 +115,30 @@ Severity Matrix: **4/4 CRITICAL**
 - ✅ Middleware context extraction works (X-Org-ID + slug)
 - ❌ 4 ViewSets duplicate unsafe ternario pattern
 
-**Next Phase (S1D Implementation — Opción C)**:
-- Add context in middleware before ViewSet dispatch
-- OR require X-Org-ID header enforcement in TenantViewMixin.get_organization()
-- Validate with comprehensive test suite
-- Close 4 critical leaks
+### S1D Deliverables (Implementation Complete)
+
+**Tenant Leak Remediation (Opción C Applied)**:
+
+Code Changes:
+1. ✅ TenantViewMixin.get_organization() — Enforce X-Org-ID header for superuser (raise PermissionDenied)
+2. ✅ ProductViewSet.get_queryset() — Use .objects.filter(organization=org) directly
+3. ✅ OrderViewSet.get_queryset() — Use .objects.filter(organization=org) directly
+4. ✅ ReportViewSet.get_queryset() — Use .objects.filter(organization=org) directly
+5. ✅ OrderReturnViewSet.get_queryset() — Use .objects.filter(organization=org) directly
+6. ✅ Removed unreachable None-checks in create() methods
+
+**Result**: 4 critical leaks sealed. All API queries now:
+- Route through TenantManager (.objects)
+- Auto-filter by organization_id from context
+- Fail-safe: return empty if context missing
+- Superuser: REQUIRED X-Org-ID header (else 403 PermissionDenied)
+
+**PHASE S1 COMPLETE**: Tenant infrastructure unified, secured, and validated.
+
+**Next Phase (S2: RLS Foundation)**:
+- Implement PostgreSQL Row-Level Security policies
+- Add RLS-supporting indexes
+- Database-layer enforcement (cryptographic isolation)
 
 ---
 
