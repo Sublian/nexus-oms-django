@@ -14,7 +14,7 @@ from src.domain.models import Order, Product, Organization, SalesReport, OrderRe
 from src.domain.models.order_constants import OrderStatus
 from src.domain.services import OrderService
 from src.domain.tasks import generate_sales_report_task
-from src.infrastructure.multitenancy.thread_local import set_current_organization
+from src.infrastructure.multitenancy.context import set_current_organization
 
 from .serializers import (
     OrderCreateSerializer, ProductSerializer,

@@ -12,7 +12,7 @@ from src.domain.models import (
 )
 from src.domain.models.users import CustomUser, UserRole
 from src.domain.models.order_constants import OrderStatus
-from src.infrastructure.multitenancy.thread_local import (
+from src.infrastructure.multitenancy.context import (
     set_current_organization, clear_current_organization
 )
 

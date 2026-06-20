@@ -1,9 +1,9 @@
-# src\infrastructure\multitenancy\middleware.py
+# src/infrastructure/multitenancy/middleware.py
 
 import re
 from src.domain.models import Organization
 from django.shortcuts import get_object_or_404
-from .thread_local import set_current_organization, clear_current_organization
+from .context import set_current_organization, clear_current_organization
 
 class OrganizationMiddleware:
     def __init__(self, get_response):
@@ -11,26 +11,25 @@ class OrganizationMiddleware:
 
     def __call__(self, request):
         org = None
-        
-        # 1. Intentar por Header (API)
-        # Intentamos obtener la organización por un header o parámetro (ej: 'X-Org-ID')
+
+        # 1. Try X-Org-ID header (API)
         org_id = request.headers.get('X-Org-ID')
-        
+
         if org_id:
-            # Seteamos el contexto global para este hilo de ejecución
             try:
-                org = Organization.objects.get(id=org_id)
+                # Use unfiltered to bypass tenant context (not yet set)
+                org = Organization.objects.unfiltered.get(id=org_id)
             except (Organization.DoesNotExist, ValueError):
                 pass
-        
-        # 2. Intentar por URL (Web/Dashboard) si aún no tenemos org
+
+        # 2. Try URL slug (Web/Dashboard) if no org yet
         if not org:
-            # Buscamos el patrón /dashboard/EL-SLUG/
             match = re.search(r'^/dashboard/([^/]+)/', request.path)
             if match:
                 slug = match.group(1)
                 try:
-                    org = Organization.objects.get(slug=slug)
+                    # Use unfiltered to bypass tenant context (not yet set)
+                    org = Organization.objects.unfiltered.get(slug=slug)
                 except Organization.DoesNotExist:
                     pass
         

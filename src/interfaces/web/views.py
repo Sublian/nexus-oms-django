@@ -608,7 +608,7 @@ def settings_shipping_partial(request, org_slug):
 
 
 def client_list_view(request, org_slug):
-    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    from src.infrastructure.multitenancy.context import set_current_organization
     tenant = get_object_or_404(Organization, slug=org_slug)
     set_current_organization(tenant.id)
 
@@ -641,7 +641,7 @@ def client_list_view(request, org_slug):
 
 
 def client_detail_view(request, org_slug, client_id):
-    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    from src.infrastructure.multitenancy.context import set_current_organization
     tenant = get_object_or_404(Organization, slug=org_slug)
     set_current_organization(tenant.id)
     client = get_object_or_404(Client, id=client_id, organization=tenant)
@@ -700,7 +700,7 @@ def _client_form_context(tenant, error, post_data, client=None, is_edit=False, o
 
 
 def client_create_view(request, org_slug):
-    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    from src.infrastructure.multitenancy.context import set_current_organization
     tenant = get_object_or_404(Organization, slug=org_slug)
     set_current_organization(tenant.id)
 
@@ -734,7 +734,7 @@ def client_create_view(request, org_slug):
 
 
 def client_edit_view(request, org_slug, client_id):
-    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    from src.infrastructure.multitenancy.context import set_current_organization
     tenant = get_object_or_404(Organization, slug=org_slug)
     set_current_organization(tenant.id)
     client = get_object_or_404(Client, id=client_id, organization=tenant)
@@ -810,7 +810,7 @@ def _product_form_context(tenant, error, post_data, product=None, is_edit=False,
 
 
 def product_list_view(request, org_slug):
-    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    from src.infrastructure.multitenancy.context import set_current_organization
     tenant = get_object_or_404(Organization, slug=org_slug)
     set_current_organization(tenant.id)
 
@@ -855,7 +855,7 @@ def product_list_view(request, org_slug):
 
 
 def product_detail_view(request, org_slug, product_id):
-    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    from src.infrastructure.multitenancy.context import set_current_organization
     tenant = get_object_or_404(Organization, slug=org_slug)
     set_current_organization(tenant.id)
     product = get_object_or_404(Product, id=product_id, organization=tenant)
@@ -890,7 +890,7 @@ def product_detail_view(request, org_slug, product_id):
 
 
 def product_create_view(request, org_slug):
-    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    from src.infrastructure.multitenancy.context import set_current_organization
     tenant = get_object_or_404(Organization, slug=org_slug)
     set_current_organization(tenant.id)
 
@@ -957,7 +957,7 @@ def product_create_view(request, org_slug):
 
 
 def product_edit_view(request, org_slug, product_id):
-    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    from src.infrastructure.multitenancy.context import set_current_organization
     tenant = get_object_or_404(Organization, slug=org_slug)
     set_current_organization(tenant.id)
     product = get_object_or_404(Product, id=product_id, organization=tenant)
@@ -1008,7 +1008,7 @@ def product_edit_view(request, org_slug, product_id):
 
 @require_POST
 def product_toggle_active_view(request, org_slug, product_id):
-    from src.infrastructure.multitenancy.thread_local import set_current_organization
+    from src.infrastructure.multitenancy.context import set_current_organization
     tenant = get_object_or_404(Organization, slug=org_slug)
     set_current_organization(tenant.id)
     product = get_object_or_404(Product, id=product_id, organization=tenant)
