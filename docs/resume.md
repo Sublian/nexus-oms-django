@@ -34,9 +34,9 @@
 
 ## SECTOR S: Security & Tenant Foundation
 
-**Status:** ✅ S0 (Discovery) | ✅ S1A (Audit) | ✅ S1B (Implementation)  
+**Status:** ✅ S0 | ✅ S1A | ✅ S1B | ✅ S1C (Leak Discovery)  
 **Date Initiated:** 2026-06-19  
-**Timeline:** S0 ✅ → S1A ✅ → S1B ✅ → S1C (Verification) → S2 (Hardening)
+**Timeline:** S0 ✅ → S1A ✅ → S1B ✅ → S1C (Discovery) ✅ → S1D (Remediation) → S2
 
 ### S0 Deliverables (Complete)
 
@@ -82,11 +82,30 @@
 4. Celery context decorator
 5. Test validation suite
 
-**Next Phase (S1C Verification)**:
-- Run full test suite (325 tests) to verify no regressions
-- Validate all existing tests still pass with new TenantManager
-- Integration test: Celery tasks respect tenant context
-- Prepare for S2 (RLS hardening + superuser governance)
+### S1C Deliverables (Discovery Complete)
+
+**Tenant Leak Verification** (Physical Evidence Audit):
+
+4 Critical ViewSets Confirmed VULNERABLE:
+1. **ProductViewSet** — `Product.all_objects.all()` if org=None → leaks all product data
+2. **OrderViewSet** — `Order.all_objects.all()` if org=None → leaks all orders + customer data
+3. **ReportViewSet** — `SalesReport.all_objects.all()` if org=None → leaks financial summaries
+4. **OrderReturnViewSet** — `OrderReturn.all_objects.all()` if org=None → leaks returns + refunds
+
+Severity Matrix: **4/4 CRITICAL**
+
+Root Cause: ViewSets use `.all_objects` (intentional bypass for admin) without context guard
+
+Defense Status:
+- ✅ TenantManager auto-filters if context set
+- ✅ TenantManager returns empty if context missing
+- ✅ @tenant_task decorator enforces org_id (raises ValueError)
+- ❌ API ViewSets bypass using .all_objects when org=None
+
+**Next Phase (S1D Remediation)**:
+- Implement fixes for 4 critical ViewSets (require X-Org-ID or use .objects)
+- Validate with test suite
+- Deploy to close leaks
 
 ---
 
