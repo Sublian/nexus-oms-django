@@ -2,6 +2,7 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import viewsets, status, serializers as drf_serializers
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
 from rest_framework_simplejwt.views import TokenObtainPairView
 
@@ -34,13 +35,17 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 class TenantViewMixin:
     """
     Resuelve la organización activa desde el usuario autenticado.
-    Superusuarios pueden apuntar a cualquier org via X-Org-ID header.
+    Superusuarios REQUIEREN un header X-Org-ID explícito (Opción C: fail-secure).
     """
     def get_organization(self):
         user = self.request.user
         if user.is_superuser:
             org_id = self.request.META.get('HTTP_X_ORG_ID')
-            return get_object_or_404(Organization, id=org_id) if org_id else None
+            if not org_id:
+                raise PermissionDenied(
+                    "Administrative access requires an explicit X-Org-ID header context."
+                )
+            return get_object_or_404(Organization, id=org_id)
         return user.organization
 
 
@@ -75,12 +80,9 @@ class ProductViewSet(TenantViewMixin, viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         org = self.get_organization()
-        qs = (
-            Product.all_objects.all()
-            if org is None
-            else Product.objects.filter(organization=org)
+        return Product.objects.filter(organization=org).annotate(
+            stock_total=Coalesce(Sum('stocks__quantity'), 0)
         )
-        return qs.annotate(stock_total=Coalesce(Sum('stocks__quantity'), 0))
 
 
 class OrderViewSet(TenantViewMixin, viewsets.ModelViewSet):
@@ -88,19 +90,13 @@ class OrderViewSet(TenantViewMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         org = self.get_organization()
-        return Order.all_objects.all() if org is None else Order.objects.filter(organization=org)
+        return Order.objects.filter(organization=org)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         organization = self.get_organization()
-        if organization is None:
-            return Response(
-                {'error': 'Superusuario debe indicar X-Org-ID para crear pedidos.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         try:
             items_data = []
             for item in serializer.validated_data['items']:
@@ -135,7 +131,7 @@ class ReportViewSet(TenantViewMixin, viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         org = self.get_organization()
-        return SalesReport.all_objects.all() if org is None else SalesReport.objects.filter(organization=org)
+        return SalesReport.objects.filter(organization=org)
 
     @extend_schema(
         request=ReportTriggerSerializer,
@@ -165,7 +161,7 @@ class OrderReturnViewSet(TenantViewMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         org = self.get_organization()
-        return OrderReturn.all_objects.all() if org is None else OrderReturn.objects.filter(organization=org)
+        return OrderReturn.objects.filter(organization=org)
 
     @extend_schema(
         summary="Registrar devolución y recuperar stock",
@@ -173,12 +169,6 @@ class OrderReturnViewSet(TenantViewMixin, viewsets.ModelViewSet):
     )
     def create(self, request, *args, **kwargs):
         organization = self.get_organization()
-        if organization is None:
-            return Response(
-                {'error': 'Superusuario debe indicar X-Org-ID para registrar devoluciones.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         try:
             order_return = OrderService.process_return(
                 organization=organization,
