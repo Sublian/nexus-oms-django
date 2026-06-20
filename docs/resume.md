@@ -1,5 +1,5 @@
 # Nexus OMS — Resumen de Avances del Proyecto
-**Fecha de corte:** 14 de Junio, 2026 | **Versión:** 3.4.0-WIP | **Fase:** Invoice Observable — FASE 2B-3 completa
+**Fecha de corte:** 19 de Junio, 2026 | **Versión:** 3.4.0-WIP | **Fase Activa:** SECTOR S (Security & Tenant Foundation) — DISCOVERY ✅ COMPLETE
 
 ---
 
@@ -23,11 +23,54 @@
 | FASE 3.4A — Discovery & Audit (Observability) | ✅ COMPLETO | audit only | — |
 | FASE 3.4B-A — Root Cause Analysis (Test Failures) | ✅ COMPLETO | audit only | — |
 | FASE 3.4B-B — Test Recovery (Fix & Verify) | ✅ COMPLETO | `c1abd64` | — |
+| **SECTOR S — Security Discovery (S0)** | ✅ COMPLETO | 7 commits | audit only |
 | Sprint 5 — Reporting + analytics | 🔜 PENDIENTE | — | — |
 | Sprint 6 — Hardening SaaS | 🔜 PENDIENTE | — | — |
 
 **Tests totales:** 307/307 passing (0 failed) ✅  
 **Suite completa:** `docker compose exec web pytest -q`
+
+---
+
+## SECTOR S: Security & Tenant Foundation
+
+**Status:** ✅ Discovery Phase (S0) COMPLETE  
+**Date Initiated:** 2026-06-19  
+**Timeline:** S0 (Discovery) → S1 (Implementation) → S2 (Hardening)
+
+### S0 Deliverables (Complete)
+
+7 security audit documents + issue tracker infrastructure:
+
+| Issue | Title | Status | Path |
+|-------|-------|--------|------|
+| **S0.1** | Tenant Inventory Audit | ✅ | `docs/security/tenant_inventory.md` |
+| **S0.2** | Tenant Leak Audit | ✅ | `docs/security/tenant_leak_audit.md` |
+| **S0.3** | Superuser Governance Review | ✅ | `docs/security/superuser_governance.md` |
+| **S0.4** | RLS Readiness Assessment | ✅ | `docs/security/rls_readiness_report.md` |
+| **S0.5** | Data Classification Audit | ✅ | `docs/security/data_classification.md` |
+| **S0.6** | Security Debt Register | ✅ | `docs/security/security_debt_register.md` |
+| **S0.7** | Tenant Boundary Test Plan | ✅ | `docs/security/tenant_boundary_test_plan.md` |
+
+### S0 Key Findings
+
+**Critical Issues (S1 Target)**:
+- SD-002: Superuser escalation without X-Org-ID (4 API ViewSets leak data)
+- SD-005: No RBAC enforcement (VIEWER users can write)
+
+**Architecture Readiness**:
+- ✅ 23 tenant-scoped models correctly inherit TenantModel
+- ✅ TenantManager provides automatic filtering (0 raw SQL leaks found)
+- ✅ RLS-ready (9 tables optimized, 14 tables need indexes)
+
+**Phase 4B Freeze**: Effective immediately. Dashboard development paused until S1 security hardening (target unfreeze: 2026-07-15).
+
+**Next Phase (S1 Implementation)**:
+- Close SD-002: Require X-Org-ID for superuser API access
+- Close SD-005: Enforce role-based RBAC in ViewSets
+- Mitigate SD-003: Governance controls for nullable organization
+- Add missing RLS-supporting indexes
+- Implement comprehensive tenant boundary test suite (17 tests, 85% coverage target)
 
 ---
 
