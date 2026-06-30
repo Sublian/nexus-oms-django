@@ -64,3 +64,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['role'] = user.role
         token['organization_id'] = str(user.organization_id) if user.organization_id else None
         return token
+
+
+class PaymentProcessSerializer(serializers.Serializer):
+    """
+    Validación de entrada para el procesamiento de pagos desde la API REST.
+    Replica las opciones nativas del modelo de datos de pagos.
+    """
+    method = serializers.ChoiceField(choices=[('CASH', 'Efectivo'), ('CARD', 'Tarjeta')])
+    reference = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)

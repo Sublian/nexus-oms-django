@@ -10,17 +10,24 @@ from django.shortcuts import get_object_or_404, render
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
+from django.db import transaction
+from django.utils import timezone
+from decimal import Decimal
 
-from src.domain.models import Order, Product, Organization, SalesReport, OrderReturn
+from src.domain.models import Order, Product, Organization, SalesReport, OrderReturn, Payment
 from src.domain.models.order_constants import OrderStatus
 from src.domain.services import OrderService
+from src.domain.services.order_service import OrderWorkflowService
 from src.domain.tasks import generate_sales_report_task
 from src.infrastructure.multitenancy.context import set_current_organization
+import logging
+workflow_logger = logging.getLogger(__name__)
 
 from .serializers import (
     OrderCreateSerializer, ProductSerializer,
     ReportTriggerSerializer, SalesReportSerializer,
     OrderReturnSerializer, CustomTokenObtainPairSerializer,
+    PaymentProcessSerializer,
 )
 
 
@@ -124,6 +131,79 @@ class OrderViewSet(TenantViewMixin, viewsets.ModelViewSet):
             )
         except (ValueError, DjangoValidationError) as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'], url_path='pay')
+    def process_api_payment(self, request, pk=None):
+        """
+        Endpoint REST que estandariza la vista web tradicional 'order_pay_modal_view'.
+        Sostiene el aislamiento multi-tenant y la lógica transaccional de cobros.
+        """
+        order = self.get_object()
+        tenant = self.get_organization()
+
+        # 1. Validar FSM (Máquina de estados): Control de transiciones permitidas
+        if "PAID" not in order.VALID_TRANSITIONS.get(order.status, []):
+            return Response(
+                {"error": f"Transición de estado no permitida desde {order.status} hacia PAID."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = PaymentProcessSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        method = serializer.validated_data['method']
+        reference = serializer.validated_data.get('reference', '').strip() or None
+
+        # 2. Replicar la regla de negocio financiera de cálculo de comisiones (Fees)
+        if method == 'CARD':
+            fee = (order.total_amount * Decimal('0.035')).quantize(Decimal('0.01'))
+        else:
+            fee = Decimal('0.00')
+
+        # 3. Transacción atómica combinada con el workflow del dominio
+        try:
+            with transaction.atomic():
+                payment, created = Payment.objects.get_or_create(
+                    order=order,
+                    defaults={
+                        'organization': tenant,
+                        'method': method,
+                        'amount': order.total_amount,
+                        'transaction_reference': reference,
+                        'fee_amount': fee,
+                        'payment_date': timezone.now(),
+                    },
+                )
+
+                if not created:
+                    return Response(
+                        {"error": "Ya existe un registro de pago asociado a este pedido."},
+                        status=status.HTTP_409_CONFLICT
+                    )
+
+                # Mutación de estado de la orden dentro del límite transaccional
+                order.status = "PAID"
+
+                # Orquestación obligatoria post-pago usando el servicio del dominio
+                workflow = OrderWorkflowService(workflow_logger)
+                workflow.handle_order_paid(order)
+
+                order.save()
+
+            return Response(
+                {
+                    "message": "Pago procesado y asimilado en el flujo del MVP con éxito.",
+                    "order_id": order.id,
+                    "status": order.status,
+                    "fee_applied": float(fee)
+                },
+                status=status.HTTP_201_CREATED
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Error crítico de persistencia en base de datos: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class ReportViewSet(TenantViewMixin, viewsets.ReadOnlyModelViewSet):

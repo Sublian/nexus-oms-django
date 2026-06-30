@@ -92,11 +92,39 @@
 
 **Punto de entrada**: [Arquitectura - Interfaces](./architecture/root.md#interfaces)
 
+### 9. Architecture Pipelines (Consolidados S3)
+**Qué es**: Flujos operacionales end-to-end que orquestan múltiples dominios.
+
+- [sales_pipeline](./architecture/sales_pipeline.md) — Orden: creación, validación, persistencia de precios/montos
+- [pricing_pipeline](./architecture/pricing_pipeline.md) — Cálculo subtotal/impuesto/total (congelado)
+- [inventory_pipeline](./architecture/inventory_pipeline.md) — Signals reactivos, Kárdex, locks DB
+- [payment_pipeline](./architecture/payment_pipeline.md) — Registro método/monto, comisión, orquestación post-pago
+- [invoice_pipeline](./architecture/invoice_pipeline.md) — Submit + polling SUNAT + reconciliación
+- [reporting_pipeline](./architecture/reporting_pipeline.md) — Consolidación Celery Beat, SalesReport
+- [tenant_flow](./architecture/tenant_flow.md) — Propagación context thread-local, TenantManager
+
+**Punto de entrada**: [Arquitectura - Pipelines](./architecture/root.md)
+
+---
+
+### 10. Domain Entities (Consolidados S3)
+**Qué es**: Conceptos funcionales (no implementación).
+
+- [orders](./domain/orders.md) — Entidad venta, FSM DRAFT→PENDING→PAID→SHIPPED→DELIVERED, montos congelados
+- [inventory](./domain/inventory.md) — Stock + Kárdex auditoría, movimientos atomizados
+- [payments](./domain/payments.md) — Métodos, comisiones deducidas, cierre transacción
+- [invoicing](./domain/invoicing.md) — Submit + polling SUNAT, InvoiceSyncQueue FSM
+
+**Punto de entrada**: [Dominio - Entidades](./domain/root.md)
+
 ---
 
 ## Decisiones Arquitectónicas (ADRs)
 
-- [ADR-001: Why Application Guards BEFORE PostgreSQL RLS](./decisions/ADR-001.md)
+- [ADR-001: Application Guards BEFORE PostgreSQL RLS](./decisions/ADR-001.md)
+- [ADR-002: Persisted Pricing — Congelar precios en venta, nunca recalcular](./decisions/ADR-002.md)
+- [ADR-003: Stock Adjustment via Django Signals, No Synchronous Service](./decisions/ADR-003.md)
+- [ADR-004: Async Invoice Poll, No Webhooks](./decisions/ADR-004.md)
 
 ---
 
