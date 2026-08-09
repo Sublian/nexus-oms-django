@@ -1,0 +1,164 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Nexus OMS — Producción
+#
+# Uso:  docker compose -f docker-compose.prod.yml up -d --build
+#   Requiere un archivo .env.production (ver .env.production.example).
+#
+# Diferencias clave frente a docker-compose.yml:
+#   - Gunicorn en lugar de runserver
+#   - restart: unless-stopped (recuperación automática)
+#   - Límites de CPU/memoria y stop_grace_period
+#   - Sin bind mount del código fuente: la imagen viaja completa
+#   - Volumen para media/ (uploads persistentes)
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-nexus_db}
+      - POSTGRES_USER=${POSTGRES_USER:-nexus_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-nexus_pass}
+      - TZ=America/Lima
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nexus_user} -d ${POSTGRES_DB:-nexus_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis_data:/data
+    environment:
+      - TZ=America/Lima
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+        reservations:
+          memory: 128M
+
+  web:
+    build: .
+    image: nexus-oms:${TAG:-latest}
+    restart: unless-stopped
+    command: ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "${WEB_CONCURRENCY:-4}", "--timeout", "60", "--access-logfile", "-"]
+    env_file: .env.production
+    environment:
+      - TZ=America/Lima
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+      - RUN_MIGRATIONS=true
+    volumes:
+      - media_data:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready/', timeout=3)"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 512M
+
+  worker:
+    build: .
+    image: nexus-oms:${TAG:-latest}
+    restart: unless-stopped
+    command: ["celery", "-A", "config", "worker", "--loglevel=info", "--concurrency=${CELERY_CONCURRENCY:-4}"]
+    env_file: .env.production
+    environment:
+      - TZ=America/Lima
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Margen para que Celery termine las tareas en curso antes del SIGKILL
+    stop_grace_period: 90s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 512M
+
+  beat:
+    build: .
+    image: nexus-oms:${TAG:-latest}
+    restart: unless-stopped
+    command: ["celery", "-A", "config", "beat", "--loglevel=info", "-s", "/app/celerybeat-schedule/celerybeat-schedule"]
+    env_file: .env.production
+    environment:
+      - TZ=America/Lima
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+    volumes:
+      - beat_data:/app/celerybeat-schedule
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  # Herramienta de monitoreo. No arranca sin FLOWER_BASIC_AUTH (user:pass).
+  # Si no la necesitas en producción, comenta este servicio.
+  flower:
+    build: .
+    image: nexus-oms:${TAG:-latest}
+    restart: unless-stopped
+    command: ["celery", "-A", "config", "flower", "--port=5555", "--basic-auth=${FLOWER_BASIC_AUTH:?define FLOWER_BASIC_AUTH como user:pass}"]
+    env_file: .env.production
+    environment:
+      - TZ=America/Lima
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    ports:
+      - "5555:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+  beat_data:
+  media_data:

@@ -4,7 +4,6 @@ services:
     container_name: nexus_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - /etc/localtime:/etc/localtime:ro
     environment:
       - POSTGRES_DB=nexus_db
       - POSTGRES_USER=nexus_user
@@ -28,31 +27,36 @@ services:
       retries: 5
 
   web:
-      build: .
-      container_name: nexus_web
-      command: python manage.py runserver 0.0.0.0:8000
-      volumes:
-        - .:/app
-        - /etc/localtime:/etc/localtime:ro
-      ports:
-        - "8000:8000"
-      env_file: .env
-      environment:
-        - TZ=America/Lima
-        - DJANGO_SETTINGS_MODULE=config.settings.local
-      depends_on:
-        db:
-          condition: service_healthy
-        redis:
-          condition: service_healthy
+    build: .
+    container_name: nexus_web
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      - TZ=America/Lima
+      - DJANGO_SETTINGS_MODULE=config.settings.local
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live/', timeout=3)"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    stop_grace_period: 15s
 
   worker:
     build: .
     container_name: nexus_worker
-    command: celery -A config worker --loglevel=info
+    command: ["celery", "-A", "config", "worker", "--loglevel=info"]
     volumes:
       - .:/app
-      - /etc/localtime:/etc/localtime:ro
     env_file: .env
     environment:
       - TZ=America/Lima
@@ -62,15 +66,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    stop_grace_period: 30s
 
   beat:
     build: .
     container_name: nexus_beat
-    command: celery -A config beat --loglevel=info -s /app/celerybeat-schedule/celerybeat-schedule
+    command: ["celery", "-A", "config", "beat", "--loglevel=info", "-s", "/app/celerybeat-schedule/celerybeat-schedule"]
     volumes:
       - .:/app
       - beat_data:/app/celerybeat-schedule
-      - /etc/localtime:/etc/localtime:ro
     env_file: .env
     environment:
       - TZ=America/Lima
@@ -80,16 +84,16 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    stop_grace_period: 30s
 
   flower:
     build: .
     container_name: nexus_flower
-    command: celery -A config flower --port=5555
+    command: ["celery", "-A", "config", "flower", "--port=5555"]
     ports:
       - "5555:5555"
     volumes:
       - .:/app
-      - /etc/localtime:/etc/localtime:ro
     env_file:
       - .env
     environment:
