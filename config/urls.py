@@ -13,6 +13,7 @@ from src.interfaces.api.views import (
     ProductViewSet, OrderViewSet, ReportViewSet, OrderReturnViewSet,
     organization_settings_view, CustomTokenObtainPairView,
 )
+from src.interfaces.api.health import liveness, readiness
 from src.interfaces.web.auth_views import LoginView, LogoutView
 
 router = DefaultRouter()
@@ -29,6 +30,10 @@ auth_urlpatterns = [
 urlpatterns = [
     path('', RedirectView.as_view(url='/auth/login/', permanent=False)),
     path('admin/', admin.site.urls),
+
+    # ── Health checks (sin auth: los usa Docker/Kubernetes) ───────────────────
+    path('health/live/', liveness, name='health-live'),
+    path('health/ready/', readiness, name='health-ready'),
 
     # ── Autenticación web (sesiones) ──────────────────────────────────────────
     path('auth/', include((auth_urlpatterns, 'auth'))),

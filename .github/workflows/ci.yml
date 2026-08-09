@@ -46,3 +46,24 @@ jobs:
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
+
+  docker-build:
+    name: Validate Docker image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t nexus-oms:ci .
+
+      # Informa vulnerabilidades HIGH/CRITICAL sin romper el pipeline.
+      # Cuando el equipo las haya triageado, cambiar a --exit-code 1.
+      - name: Scan for vulnerabilities (Trivy)
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.73.0 image \
+            --no-progress --exit-code 0 --severity HIGH,CRITICAL \
+            nexus-oms:ci
