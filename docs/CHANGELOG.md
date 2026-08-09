@@ -1,3 +1,28 @@
+## [Unreleased] - Docker & Producción
+
+**🎯 Stack Docker Hardening + SLO para producción**
+
+### Added
+- `Dockerfile` multi-stage: etapa `builder` (deps de compilación + virtualenv aislado) y etapa `runtime` (solo libs de WeasyPrint/Pango/Cairo + fuentes, usuario sin privilegios `app` uid=1001)
+- `entrypoint.sh` — migraciones opcionales vía `RUN_MIGRATIONS=true`, exec para señales limpias
+- `docker-compose.prod.yml` — Gunicorn, `restart: unless-stopped`, límites de CPU/memoria, volúmenes `media_data`/`redis_data`, healthchecks y `stop_grace_period` por servicio
+- `.env.production.example` — plantilla con fail-fast para variables de producción (secretos excluidos de la imagen vía `.dockerignore`)
+- `.dockerignore` — secretos, VCS, venv y datos de runtime fuera de la imagen
+- Health checks: `GET /health/live/` (proceso vivo) y `GET /health/ready/` (DB + Redis) sin auth para Docker/Kubernetes
+- CI: job `docker-build` que valida la imagen y la escanea con Trivy (HIGH/CRITICAL, sin romper pipeline aún)
+
+### Changed
+- `docker-compose.yml` (dev): healthchecks de servicios, `stop_grace_period`, comandos en formato lista, sin bind de `/etc/localtime`
+- `.gitignore`: `.env.production` y `.env.local` excluidos
+
+### Fixed
+- Import roto de `OrderWorkflowService` en `src/interfaces/api/views.py` (apuntaba a `src.domain.services.order_service` en vez de `src.application.services.order_workflow_service`) — rompía la carga del URLconf y por tanto el boot de Gunicorn y los health checks
+
+### Tests
+- `src/tests/test_health_endpoints.py` — cobertura de liveness y readiness
+
+---
+
 ## [2.0.0] - 2026-04-26
 
 **🎯 Block 1 COMPLETE: Core Order Lifecycle + Inventory Management + Edge Cases**
