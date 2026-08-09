@@ -17,7 +17,7 @@ from decimal import Decimal
 from src.domain.models import Order, Product, Organization, SalesReport, OrderReturn, Payment
 from src.domain.models.order_constants import OrderStatus
 from src.domain.services import OrderService
-from src.domain.services.order_service import OrderWorkflowService
+from src.application.services.order_workflow_service import OrderWorkflowService
 from src.domain.tasks import generate_sales_report_task
 from src.infrastructure.multitenancy.context import set_current_organization
 import logging
