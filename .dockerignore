@@ -1,0 +1,41 @@
+# ── Secretos: NUNCA dentro de la imagen ───────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── VCS ───────────────────────────────────────────────────────────────────────
+.git
+.gitignore
+.github
+
+# ── Entornos virtuales y cachés de Python ─────────────────────────────────────
+venv
+.venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.coverage
+htmlcov
+
+# ── Datos de runtime (viven en volúmenes, no en la imagen) ───────────────────
+media
+media_root
+static_root
+celerybeat-schedule
+*.sqlite3
+
+# ── Entorno local y editor ────────────────────────────────────────────────────
+.vscode
+.idea
+.pytest_cache
+*.log
+.DS_Store
+
+# ── Documentación y notas del proyecto (no necesarias en runtime) ────────────
+docs
+postman
+CLAUDE.md
+*.md
+discover_persistence.py
+saver_tokens.md
