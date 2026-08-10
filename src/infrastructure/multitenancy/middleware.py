@@ -30,6 +30,12 @@ class OrganizationMiddleware:
                     org = Organization.objects.get(slug=slug)
                 except Organization.DoesNotExist:
                     pass
+
+        # 3. Try the authenticated user's organization (API/JWT) if no org yet
+        if not org:
+            user = getattr(request, 'user', None)
+            if user and getattr(user, 'is_authenticated', False):
+                org = getattr(user, 'organization', None)
         
         # 3. Seteamos la organización en el request para el Context Processor
         # Y en el thread_local para la base de datos

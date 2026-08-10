@@ -48,6 +48,11 @@
             {% else %}bg-yellow-100 text-yellow-700{% endif %}">
             {{ order.get_status_display }}
         </span>
+        {% if order.payment and order.payment.status == 'pending' %}
+        <div class="text-[9px] font-black uppercase text-amber-600 mt-0.5">Pago: pendiente confirmación</div>
+        {% elif order.payment and order.payment.status == 'declined' %}
+        <div class="text-[9px] font-black uppercase text-red-500 mt-0.5">Pago rechazado — reintentar</div>
+        {% endif %}
     </td>
 
     <td class="px-6 py-4">
@@ -92,11 +97,20 @@
                 </button>
 
             {% elif order.status == 'PENDING' %}
+                {% if order.payment and order.payment.status == 'pending' %}
+                <button hx-post="{% url 'web:order_confirm_payment' tenant.slug order.id %}"
+                        hx-target="#modals-here"
+                        hx-swap="outerHTML"
+                        class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 transition-all">
+                    Confirmar Pago
+                </button>
+                {% else %}
                 <button hx-get="{% url 'web:order_pay' tenant.slug order.id %}"
                         hx-target="#modals-here"
                         class="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all">
                     Pagar
                 </button>
+                {% endif %}
 
             {% elif order.status == 'COURTESY' %}
                 <button hx-get="{% url 'web:order_confirm_status' tenant.slug order.id %}?to=SHIPPED"

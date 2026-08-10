@@ -10,14 +10,11 @@ from django.shortcuts import get_object_or_404, render
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
-from django.db import transaction
-from django.utils import timezone
-from decimal import Decimal
 
 from src.domain.models import Order, Product, Organization, SalesReport, OrderReturn, Payment
 from src.domain.models.order_constants import OrderStatus
 from src.domain.services import OrderService
-from src.application.services.order_workflow_service import OrderWorkflowService
+from src.application.services.payment_service import PaymentService, PaymentServiceError
 from src.domain.tasks import generate_sales_report_task
 from src.infrastructure.multitenancy.context import set_current_organization
 import logging
@@ -54,6 +51,16 @@ class TenantViewMixin:
                 )
             return get_object_or_404(Organization, id=org_id)
         return user.organization
+
+    def initial(self, request, *args, **kwargs):
+        """Fija el contexto multi-tenant tras la autenticación DRF.
+
+        El middleware solo resuelve X-Org-ID y slugs; la resolución vía
+        `request.user.organization` (JWT/force_authenticate) ocurre aquí,
+        donde el usuario ya está autenticado por DRF.
+        """
+        set_current_organization(self.get_organization().id)
+        super().initial(request, *args, **kwargs)
 
 
 # ── Vista Web (HTMX) — sin JWT, usa slug de URL ──────────────────────────────
@@ -132,78 +139,164 @@ class OrderViewSet(TenantViewMixin, viewsets.ModelViewSet):
         except (ValueError, DjangoValidationError) as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'], url_path='pay')
+    @action(detail=True, methods=['post'], url_path='pay', url_name='pay')
     def process_api_payment(self, request, pk=None):
         """
         Endpoint REST que estandariza la vista web tradicional 'order_pay_modal_view'.
         Sostiene el aislamiento multi-tenant y la lógica transaccional de cobros.
+
+        Acepta los 4 métodos (CASH|CARD|TRANSFER|WALLET). El pago pasa por la
+        pasarela (mock en Fase A):
+          - approved  → la orden pasa a PAID   (201)
+          - pending   → transferencia/Yape, la orden sigue PENDING (202)
+          - declined  → rechazado, la orden sigue PENDING (400)
         """
         order = self.get_object()
-        tenant = self.get_organization()
-
-        # 1. Validar FSM (Máquina de estados): Control de transiciones permitidas
-        if "PAID" not in order.VALID_TRANSITIONS.get(order.status, []):
-            return Response(
-                {"error": f"Transición de estado no permitida desde {order.status} hacia PAID."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
 
         serializer = PaymentProcessSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         method = serializer.validated_data['method']
-        reference = serializer.validated_data.get('reference', '').strip() or None
+        reference = serializer.validated_data.get('reference', '')
 
-        # 2. Replicar la regla de negocio financiera de cálculo de comisiones (Fees)
-        if method == 'CARD':
-            fee = (order.total_amount * Decimal('0.035')).quantize(Decimal('0.01'))
-        else:
-            fee = Decimal('0.00')
-
-        # 3. Transacción atómica combinada con el workflow del dominio
         try:
-            with transaction.atomic():
-                payment, created = Payment.objects.get_or_create(
-                    order=order,
-                    defaults={
-                        'organization': tenant,
-                        'method': method,
-                        'amount': order.total_amount,
-                        'transaction_reference': reference,
-                        'fee_amount': fee,
-                        'payment_date': timezone.now(),
-                    },
-                )
-
-                if not created:
-                    return Response(
-                        {"error": "Ya existe un registro de pago asociado a este pedido."},
-                        status=status.HTTP_409_CONFLICT
-                    )
-
-                # Mutación de estado de la orden dentro del límite transaccional
-                order.status = "PAID"
-
-                # Orquestación obligatoria post-pago usando el servicio del dominio
-                workflow = OrderWorkflowService(workflow_logger)
-                workflow.handle_order_paid(order)
-
-                order.save()
-
-            return Response(
-                {
-                    "message": "Pago procesado y asimilado en el flujo del MVP con éxito.",
-                    "order_id": order.id,
-                    "status": order.status,
-                    "fee_applied": float(fee)
-                },
-                status=status.HTTP_201_CREATED
+            payment, result = PaymentService().process_payment(
+                order=order,
+                method=method,
+                reference=reference,
             )
+        except PaymentServiceError as e:
+            return Response({"error": e.message}, status=e.http_status)
         except Exception as e:
+            workflow_logger.exception(
+                f"[PaymentAPI][order_id={order.id}][action=ERROR][error={e}]"
+            )
             return Response(
                 {"error": f"Error crítico de persistencia en base de datos: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+        if payment.status == Payment.Status.APPROVED:
+            return Response(
+                {
+                    "message": "Pago aprobado y asimilado en el flujo del MVP con éxito.",
+                    "order_id": order.id,
+                    "payment_status": payment.status,
+                    "status": order.status,
+                    "method": payment.method,
+                    "fee_applied": float(payment.fee_amount),
+                    "external_reference": payment.external_reference,
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
+        if payment.status == Payment.Status.DECLINED:
+            return Response(
+                {
+                    "error": payment.error_message or "El pago fue rechazado por la pasarela.",
+                    "order_id": order.id,
+                    "payment_status": payment.status,
+                    "status": order.status,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "message": "Pago registrado, pendiente de confirmación de la pasarela.",
+                "order_id": order.id,
+                "payment_status": payment.status,
+                "status": order.status,
+                "method": payment.method,
+                "fee_applied": float(payment.fee_amount),
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    @action(detail=True, methods=['get'], url_path='payment', url_name='payment')
+    def payment_status(self, request, pk=None):
+        """Consulta la situación de pago de una orden (estado, comisión, referencia)."""
+        order = self.get_object()
+        payment = getattr(order, 'payment', None)
+
+        if not payment:
+            return Response(
+                {"error": "Este pedido no tiene un pago registrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response({
+            "order_id": order.id,
+            "method": payment.method,
+            "payment_status": payment.status,
+            "amount": float(payment.amount),
+            "fee_amount": float(payment.fee_amount),
+            "fee_rate": float(payment.fee_rate),
+            "net_amount": float(payment.net_amount),
+            "transaction_reference": payment.transaction_reference,
+            "external_reference": payment.external_reference,
+            "payment_date": payment.payment_date,
+            "approved_at": payment.approved_at,
+            "error_message": payment.error_message,
+        })
+
+    @action(detail=True, methods=['post'], url_path='confirm-payment', url_name='confirm-payment')
+    def confirm_api_payment(self, request, pk=None):
+        """Confirma manualmente un pago pendiente (transferencia/Yape) contra la pasarela."""
+        order = self.get_object()
+        payment = getattr(order, 'payment', None)
+
+        if not payment:
+            return Response(
+                {"error": "Este pedido no tiene un pago registrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if payment.status != Payment.Status.PENDING:
+            return Response(
+                {"error": f"El pago no está pendiente de confirmación (status={payment.status})."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            payment, result = PaymentService().confirm_payment(payment, order=order)
+        except Exception as e:
+            workflow_logger.exception(
+                f"[PaymentAPI][order_id={order.id}][action=CONFIRM_ERROR][error={e}]"
+            )
+            return Response(
+                {"error": f"Error al confirmar el pago: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        if payment.status == Payment.Status.APPROVED:
+            order.refresh_from_db()
+            if order.status == OrderStatus.PAID:
+                message = "Pago confirmado. La orden pasó a PAID."
+            else:
+                message = (
+                    "Pago confirmado, pero la orden no cambió de estado "
+                    f"(estado actual: {order.status}). Revisa el caso."
+                )
+            return Response(
+                {
+                    "message": message,
+                    "order_id": order.id,
+                    "payment_status": payment.status,
+                    "status": order.status,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(
+            {
+                "message": "El pago sigue pendiente de confirmación de la pasarela.",
+                "order_id": order.id,
+                "payment_status": payment.status,
+                "status": order.status,
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
 
 
 class ReportViewSet(TenantViewMixin, viewsets.ReadOnlyModelViewSet):

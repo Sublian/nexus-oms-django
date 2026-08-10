@@ -3,10 +3,12 @@
         method: 'CASH',
         fee: 0,
         total: {{ order.total_amount }},
+        fees: {{ fees_json|safe }},
         get net() { return (this.total - this.fee).toFixed(2) },
+        get rate() { return this.fees[this.method] || 0 },
         setMethod(m) {
             this.method = m;
-            this.fee = (m === 'CARD') ? parseFloat((this.total * 0.035).toFixed(2)) : 0;
+            this.fee = parseFloat(((this.total * (this.fees[m] || 0)) / 100).toFixed(2));
             this.$refs.refError.classList.add('hidden');
             if (m === 'CASH') this.$refs.reference.value = '';
         },
@@ -88,18 +90,31 @@
                     </p>
                 </div>
 
-                <!-- Aviso comisión tarjeta -->
-                <div x-show="method === 'CARD'" x-transition
+                <!-- Aviso comisión (asumida por la empresa) -->
+                <div x-show="rate > 0" x-transition
                      class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
                     <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
                     </svg>
                     <p class="text-xs text-amber-700 font-medium">
                         El cliente paga <strong>S/ {{ order.total_amount }}</strong>.
-                        Comisión Niubiz/Izipay (3.5%) asumida por la empresa:
+                        Comisión (<strong><span x-text="rate.toFixed(2)"></span>%</strong>) asumida por la empresa:
                         <strong>S/ <span x-text="fee.toFixed(2)"></span></strong>
                         — ingreso neto:
                         <strong>S/ <span x-text="net"></span></strong>
+                    </p>
+                </div>
+
+                <!-- Aviso confirmación diferida (transferencia / Yape-Plin) -->
+                <div x-show="method === 'TRANSFER' || method === 'WALLET'" x-transition
+                     class="flex items-start gap-3 bg-sky-50 border border-sky-200 rounded-xl p-3">
+                    <svg class="w-4 h-4 text-sky-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <p class="text-xs text-sky-700 font-medium">
+                        Este método se confirma contra la pasarela: el pedido quedará
+                        <strong>pendiente de confirmación</strong> hasta que el pago se apruebe
+                        (botón "Confirmar pago" o sincronización automática).
                     </p>
                 </div>
 

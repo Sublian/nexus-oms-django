@@ -8,7 +8,7 @@ from django.db import transaction
 from src.domain.models import (
     Organization, Product, Category, Warehouse,
     Stock, TaxConfiguration, Order, OrderItem,
-    Payment, Client
+    Payment, PaymentFeeConfig, Client
 )
 from src.domain.models.users import CustomUser, UserRole
 from src.domain.models.order_constants import OrderStatus
@@ -59,6 +59,18 @@ class Command(BaseCommand):
                     TaxConfiguration.objects.update_or_create(
                         organization=org, is_default=True,
                         defaults={'name': f'IGV/IVA {org.name}', 'rate': tax_rate_dec},
+                    )
+
+                    # Comisiones de pago por método (asumidas por la empresa)
+                    PaymentFeeConfig.objects.update_or_create(
+                        organization=org,
+                        defaults={
+                            'cash_rate':     0,
+                            'card_rate':     3.50,
+                            'transfer_rate': 0,
+                            'wallet_rate':   1.00,
+                            'provider_type': 'mock',
+                        },
                     )
 
                     warehouse, _ = Warehouse.objects.get_or_create(
@@ -274,10 +286,12 @@ class Command(BaseCommand):
             order.save()
 
             method = random.choice(['CASH', 'CASH', 'CARD', 'TRANSFER', 'WALLET'])
-            fee    = (order.total_amount * Decimal('0.035')).quantize(Decimal('0.01')) if method == 'CARD' else Decimal('0.00')
+            fee_rate = PaymentFeeConfig.get_rate(org, method)
+            fee    = (order.total_amount * fee_rate / Decimal('100')).quantize(Decimal('0.01'))
             Payment.objects.create(
                 organization=org, order=order, method=method,
-                fee_amount=fee, amount=order.total_amount,
+                fee_rate=fee_rate, fee_amount=fee, amount=order.total_amount,
+                status=Payment.Status.APPROVED,
                 transaction_reference=self._generate_reference(method),
                 payment_date=order_date,
             )

@@ -11,6 +11,7 @@ from .notification_tasks import (
 from .finance_tasks import sync_daily_exchange_rate
 from .invoice_tasks import create_invoice_task
 from .sync_invoice_tasks import sync_pending_invoices_task, sync_single_invoice_task
+from .payment_tasks import sync_pending_payments_task, sync_single_payment_task
 
 __all__ = [
     'generate_sales_report_task',
@@ -23,4 +24,6 @@ __all__ = [
     'create_invoice_task',
     'sync_pending_invoices_task',
     'sync_single_invoice_task',
+    'sync_pending_payments_task',
+    'sync_single_payment_task',
 ]

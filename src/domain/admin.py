@@ -3,7 +3,8 @@ from django.utils.html import format_html
 
 from .models import Organization, Category, Product, Order, OrderItem
 from .models.invoicing import InvoiceSyncQueue
-from .models.config import CompanyInvoiceConfig
+from .models.config import CompanyInvoiceConfig, PaymentFeeConfig
+from .models.sales import Payment
 from .invoice_status_ui import get_invoice_status_ui
 
 
@@ -104,4 +105,19 @@ class CompanyInvoiceConfigAdmin(admin.ModelAdmin):
     list_display  = ('organization', 'provider_type', 'api_base_url', 'enabled')
     list_filter   = ('provider_type', 'organization', 'enabled')
     search_fields = ('organization__name',)
+    readonly_fields = ('organization',)
+
+
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = ('id', 'order', 'organization', 'method', 'amount', 'status', 'fee_amount', 'payment_date')
+    list_filter = ('organization', 'method', 'status')
+    search_fields = ('order__id', 'transaction_reference', 'external_reference')
+    readonly_fields = ('organization', 'order', 'payment_date', 'approved_at', 'external_reference')
+
+
+@admin.register(PaymentFeeConfig)
+class PaymentFeeConfigAdmin(admin.ModelAdmin):
+    list_display = ('organization', 'cash_rate', 'card_rate', 'transfer_rate', 'wallet_rate', 'provider_type', 'enabled')
+    list_filter = ('provider_type', 'enabled')
     readonly_fields = ('organization',)

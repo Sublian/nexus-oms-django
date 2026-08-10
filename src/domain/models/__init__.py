@@ -2,7 +2,7 @@ from .base import Organization, Client
 from .users import CustomUser, UserRole
 from .sales import Order, OrderItem, OrderReturn, Payment
 from .inventory import Product, Warehouse, Stock, Supplier, PurchaseOrder, PurchaseOrderItem, Category, StockMovement
-from .config import TaxConfiguration, SalesReport, CashReconciliation, CompanyInvoiceConfig
+from .config import TaxConfiguration, SalesReport, CashReconciliation, CompanyInvoiceConfig, PaymentFeeConfig
 from .finance import ExchangeRate
 from .workflow_audit import OrderWorkflowLog
 from .invoicing import InvoiceSyncQueue
@@ -16,6 +16,7 @@ __all__ = [
     'Order', 'OrderItem', 'OrderReturn', 'Payment',
     'TaxConfiguration', 'SalesReport', 'CashReconciliation', 'ExchangeRate',
     'OrderWorkflowLog', 'CompanyInvoiceConfig',
+    'PaymentFeeConfig',
     'InvoiceSyncQueue',
     'AccountingEntry', 'AccountingEntryLine',
     'ExternalServiceConfig', 'ExternalRequestLog',

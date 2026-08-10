@@ -1,6 +1,7 @@
 # src\interfaces\web\views.py
 
 from datetime import date, timedelta
+import json
 
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
@@ -17,16 +18,18 @@ from django.db.models import Q, Sum
 from decimal import Decimal
 
 from src.domain.models import Order, OrderItem, Organization, Payment, Product, Client, Stock, StockMovement, Category, Warehouse
+from src.domain.models.config import PaymentFeeConfig
 from src.domain.models.finance import ExchangeRate
 from src.domain.models.order_constants import OrderStatus
 from src.domain.services.finance_service import ExchangeService
 from src.domain.tasks.reporting_tasks import generate_order_pdf_task
 from src.infrastructure.services.apimigo import APIMigoClient
 from src.application.services.order_workflow_service import OrderWorkflowService
+from src.application.services.payment_service import PaymentService, PaymentServiceError
 from src.infrastructure.logger import logger as workflow_logger
 
 
-def _modal_success(request, order, tenant):
+def _modal_success(request, order, tenant, message_html=''):
     """
     Closes the modal (main swap on #modals-here) and updates the order row in-place (OOB).
 
@@ -47,7 +50,7 @@ def _modal_success(request, order, tenant):
         1,
     )
     return HttpResponse(
-        f'<div id="modals-here"></div>'
+        f'<div id="modals-here">{message_html}</div>'
         f'<table><tbody>{row_oob}</tbody></table>'
     )
 
@@ -520,9 +523,6 @@ def order_pay_modal_view(request, org_slug, order_id):
     tenant = get_object_or_404(Organization, slug=org_slug)
     order = get_object_or_404(Order, id=order_id, organization=tenant)
 
-    if OrderStatus.PAID not in Order.VALID_TRANSITIONS.get(order.status, []):
-        return HttpResponse('Transición no permitida', status=400)
-
     if request.method == 'POST':
         # Sanity check: verify stock hasn't gone negative
         for item in order.items.select_related('product'):
@@ -535,35 +535,68 @@ def order_pay_modal_view(request, org_slug, order_id):
 
         method = request.POST.get('method', '').strip()
         reference = request.POST.get('reference', '').strip() or None
-        fee = (order.total_amount * Decimal('0.035')).quantize(Decimal('0.01')) if method == 'CARD' else Decimal('0.00')
 
-        Payment.objects.get_or_create(
-            order=order,
-            defaults={
-                'organization': tenant,
-                'method': method,
-                'amount': order.total_amount,
-                'transaction_reference': reference,
-                'fee_amount': fee,
-                'payment_date': timezone.now(),
-            },
+        try:
+            payment, result = PaymentService(workflow_logger).process_payment(
+                order=order, method=method, reference=reference,
+            )
+        except PaymentServiceError as e:
+            return HttpResponse(e.message, status=e.http_status)
+        except Exception as e:
+            workflow_logger.exception(
+                f"[PaymentWeb][order_id={order.id}][action=ERROR][error={e}]"
+            )
+            return HttpResponse(f'Error crítico al procesar el pago: {e}', status=500)
+
+        if payment.status == Payment.Status.APPROVED:
+            return _modal_success(request, order, tenant)
+
+        if payment.status == Payment.Status.DECLINED:
+            return HttpResponse(payment.error_message or 'Pago rechazado.', status=400)
+
+        # pending (transferencia/Yape) → la orden sigue PENDING hasta confirmar
+        return _modal_success(
+            request, order, tenant,
+            message_html=render_to_string(
+                'orders/partials/pay_pending.html',
+                {'order': order, 'payment': payment, 'tenant': tenant},
+                request=request,
+            ),
         )
-        order.status = OrderStatus.PAID
-
-        # Orquestar flujo post-pago ANTES de persistir.
-        # Regla: workflow siempre después del cambio de estado, antes del save().
-        # No mover este bloque — el orden es intencional.
-        workflow = OrderWorkflowService(workflow_logger)
-        workflow.handle_order_paid(order)
-
-        order.save()
-        return _modal_success(request, order, tenant)
 
     return render(request, 'orders/partials/pay_modal.html', {
         'order': order,
         'tenant': tenant,
         'payment_methods': Payment.PaymentMethod.choices,
+        'fees': PaymentFeeConfig.get_config(tenant),
+        'fees_json': json.dumps({
+            m: float(PaymentFeeConfig.get_rate(tenant, m))
+            for m in PaymentFeeConfig.METHOD_CODES
+        }),
     })
+
+
+def order_confirm_payment_view(request, org_slug, order_id):
+    """Confirma manualmente un pago pendiente (transferencia/Yape) en el dashboard."""
+    tenant = get_object_or_404(Organization, slug=org_slug)
+    order = get_object_or_404(Order, id=order_id, organization=tenant)
+    payment = getattr(order, 'payment', None)
+
+    if not payment or payment.status != Payment.Status.PENDING:
+        return HttpResponse('No hay un pago pendiente por confirmar.', status=400)
+
+    try:
+        payment, result = PaymentService(workflow_logger).confirm_payment(payment, order=order)
+    except Exception as e:
+        workflow_logger.exception(
+            f"[PaymentWeb][order_id={order.id}][action=CONFIRM_ERROR][error={e}]"
+        )
+        return HttpResponse(f'Error al confirmar el pago: {e}', status=500)
+
+    if payment.status == Payment.Status.APPROVED:
+        return _modal_success(request, order, tenant)
+
+    return HttpResponse('El pago sigue pendiente de confirmación.', status=202)
 
 
 def order_status_modal_view(request, org_slug, order_id):

@@ -118,6 +118,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'tasks.sync_pending_invoices',
         'schedule': 60,  # cada 60 segundos — fan-out sobre facturas pendientes de SUNAT
     },
+    'sync-pending-payments': {
+        'task': 'tasks.sync_pending_payments',
+        'schedule': 60,  # cada 60 segundos — confirma transferencias/Yape pendientes
+    },
 }
 
 CACHES = {

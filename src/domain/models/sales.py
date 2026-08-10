@@ -80,6 +80,12 @@ class Order(TenantModel):
 
     def __str__(self):
         return f"Pedido {self.id} - {self.customer_name} ({self.organization.name})"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['organization', 'invoice_status'], name='order_org_invoice_status_idx'),
+            models.Index(fields=['organization', 'created_at'], name='order_org_created_at_idx'),
+        ]
     
     # PROPIEDADES DE APOYO (Sin colisión de nombres)
     @property
@@ -148,17 +154,42 @@ class Payment(TenantModel):
         TRANSFER = 'TRANSFER', 'Transferencia Bancaria'
         DIGITAL_WALLET = 'WALLET', 'Billetera Digital (Yape/Plin)'
 
+    class Status(models.TextChoices):
+        # Estado de la transacción en la pasarela (no confundir con Order.status).
+        # La orden pasa a PAID SOLO cuando el pago está APPROVED.
+        PENDING  = 'pending',  'Pendiente de Confirmación'
+        APPROVED = 'approved', 'Aprobado'
+        DECLINED = 'declined', 'Rechazado'
+        REFUNDED = 'refunded', 'Reembolsado'
+        FAILED   = 'failed',   'Fallido'
+
     order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='payment')
     method = models.CharField(max_length=10, choices=PaymentMethod.choices)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     transaction_reference = models.CharField(max_length=100, blank=True, null=True)
     payment_date = models.DateTimeField(auto_now_add=True)
-    
-    # Para realismo: ¿Hubo comisión? (Ej: 3.5% de Niubiz/Izipay)
+
+    # Comisión asumida por la empresa (no se le cobra al cliente)
+    fee_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)  # % snapshot al momento del pago
     fee_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
+    # Pasarela / proveedor
+    provider = models.CharField(
+        max_length=20,
+        default='mock',
+        choices=[('mock', 'Mock (desarrollo)'), ('izipay', 'Izipay (producción)')],
+    )
+    external_reference = models.CharField(max_length=255, blank=True, null=True)
+    error_message = models.TextField(blank=True, null=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Pago"
+        verbose_name_plural = "Pagos"
+
     def __str__(self):
-        return f"Pago {self.method} - {self.amount} (Pedido {self.order.id})"
+        return f"Pago {self.method} - {self.amount} [{self.status}] (Pedido {self.order.id})"
 
     @property
     def net_amount(self):

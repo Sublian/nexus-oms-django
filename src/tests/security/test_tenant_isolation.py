@@ -211,3 +211,33 @@ class TestCrossTenantBoundaryPytest:
         clear_current_organization()
         assert Order.unfiltered.count() == 2
         assert Order.all_objects.count() == 2
+
+
+@pytest.mark.django_db
+class TestMiddlewareUserOrganizationFallback:
+    """El middleware resuelve el tenant desde request.user.organization cuando
+    no hay X-Org-ID ni slug (peticiones API autenticadas por sesión/JWT)."""
+
+    def test_authenticated_user_sets_context_without_header_or_slug(
+        self, organization, admin_user,
+    ):
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+
+        from src.infrastructure.multitenancy.context import get_current_organization
+        from src.infrastructure.multitenancy.middleware import OrganizationMiddleware
+
+        factory = RequestFactory()
+        request = factory.get('/api/v1/orders/00000000-0000-0000-0000-000000000000/pay/')
+        request.user = admin_user
+
+        seen = {}
+
+        def get_response(req):
+            seen['org_id'] = get_current_organization()
+            return HttpResponse()
+
+        OrganizationMiddleware(get_response)(request)
+
+        assert seen['org_id'] == organization.id
+        assert request.organization.id == organization.id

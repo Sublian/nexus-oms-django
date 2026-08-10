@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from src.domain.models import OrderReturn, Product, Category, SalesReport
+from src.domain.models import OrderReturn, Product, Category, SalesReport, Payment
 from django.db.models import Sum
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -71,5 +71,5 @@ class PaymentProcessSerializer(serializers.Serializer):
     Validación de entrada para el procesamiento de pagos desde la API REST.
     Replica las opciones nativas del modelo de datos de pagos.
     """
-    method = serializers.ChoiceField(choices=[('CASH', 'Efectivo'), ('CARD', 'Tarjeta')])
+    method = serializers.ChoiceField(choices=Payment.PaymentMethod.choices)
     reference = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)

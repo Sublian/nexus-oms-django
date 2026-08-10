@@ -73,6 +73,10 @@ def test_order_pay_resolves():
     assert _r("order_pay", order_id=ORDER_ID)
 
 
+def test_order_confirm_payment_resolves():
+    assert _r("order_confirm_payment", order_id=ORDER_ID)
+
+
 def test_order_confirm_status_resolves():
     assert _r("order_confirm_status", order_id=ORDER_ID)
 

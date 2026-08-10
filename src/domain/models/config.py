@@ -1,5 +1,7 @@
 # src\domain\models.py
 
+from decimal import Decimal
+
 from django.db import models
 
 from src.infrastructure.models import TenantModel
@@ -43,6 +45,62 @@ class CashReconciliation(TenantModel):
 
     def __str__(self):
         return f"Arqueo {self.organization.name} - {self.closed_at.date()}"
+
+
+class PaymentFeeConfig(TenantModel):
+    """
+    Tasas de comisión por método de pago (asumidas por la empresa, no por el cliente).
+
+    Se aplican sobre el total de la orden y se descuentan del ingreso neto
+    (Payment.net_amount). Snapshot de fee_rate se guarda en cada Payment al
+    momento de procesarlo — cambiar la tasa no altera pagos históricos.
+    """
+    METHOD_CODES = ('CASH', 'CARD', 'TRANSFER', 'WALLET')
+
+    cash_rate     = models.DecimalField(max_digits=5, decimal_places=2, default=0,    help_text="% comisión efectivo")
+    card_rate     = models.DecimalField(max_digits=5, decimal_places=2, default=3.50, help_text="% comisión tarjeta (ej: Niubiz/Izipay)")
+    transfer_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0,    help_text="% comisión transferencia bancaria")
+    wallet_rate   = models.DecimalField(max_digits=5, decimal_places=2, default=1.00, help_text="% comisión billetera digital (Yape/Plin)")
+    provider_type = models.CharField(
+        max_length=20,
+        choices=[('mock', 'Mock (desarrollo)'), ('izipay', 'Izipay (producción)')],
+        default='mock',
+        help_text="Proveedor activo de pasarela de pagos",
+    )
+    enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuración de Comisiones de Pago"
+        verbose_name_plural = "Configuraciones de Comisiones de Pago"
+
+    def __str__(self):
+        return f"Fees {self.organization.name} — CARD {self.card_rate}%"
+
+    def rate_for(self, method: str):
+        """Tasa (%) para un código de método de pago (CASH|CARD|TRANSFER|WALLET)."""
+        rate = {
+            'CASH': self.cash_rate,
+            'CARD': self.card_rate,
+            'TRANSFER': self.transfer_rate,
+            'WALLET': self.wallet_rate,
+        }[method]
+        return Decimal(str(rate))
+
+    @classmethod
+    def get_rate(cls, organization, method: str):
+        """Tasa (%) para el método, con defaults si no hay config registrada."""
+        config = cls.objects.filter(organization=organization).first()
+        if not config:
+            config = cls(organization=organization)
+        return config.rate_for(method)
+
+    @classmethod
+    def get_config(cls, organization):
+        """Retorna la config del tenant, creándola con defaults si no existe."""
+        config, _ = cls.objects.get_or_create(organization=organization)
+        return config
 
 
 class CompanyInvoiceConfig(TenantModel):
