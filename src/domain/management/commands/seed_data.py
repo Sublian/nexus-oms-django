@@ -28,9 +28,11 @@ class Command(BaseCommand):
 
         self._create_superuser()
         org_configs = [
-            {'name': 'Tienda Principal', 'slug': 'tienda-principal', 'tax': 18.00, 'email': 'admin@main.com',         'p_color': '#4F46E5', 's_color': '#F8FAFC', 'ruc': '20123456789', 'addr': 'Av. Larco 123, Miraflores'},
-            {'name': 'Nike',             'slug': 'nike',             'tax': 15.00, 'email': 'vende@nike.com',         'p_color': '#000000', 's_color': '#FFFFFF', 'ruc': '20555666777', 'addr': 'Jockey Plaza, Surco'},
-            {'name': 'Adidas',           'slug': 'adidas',           'tax': 15.00, 'email': 'ventas@adidas.com',      'p_color': '#0070AC', 's_color': '#FFFFFF', 'ruc': '20666777888', 'addr': 'Kennedy, Miraflores'},
+            {'name': 'Tienda Principal', 'slug': 'tienda-principal', 'tax': 18.00, 'email': 'admin@main.com',          'p_color': '#4F46E5', 's_color': '#F8FAFC', 'ruc': '20123456789', 'addr': 'Av. Larco 123, Miraflores'},
+            {'name': 'Nike',             'slug': 'nike',             'tax': 15.00, 'email': 'vende@nike.com',          'p_color': '#000000', 's_color': '#FFFFFF', 'ruc': '20555666777', 'addr': 'Jockey Plaza, Surco'},
+            {'name': 'Adidas',           'slug': 'adidas',           'tax': 15.00, 'email': 'ventas@adidas.com',       'p_color': '#0070AC', 's_color': '#FFFFFF', 'ruc': '20666777888', 'addr': 'Kennedy, Miraflores'},
+            {'name': 'Minorista',        'slug': 'minorista',        'tax': 18.00, 'email': 'admin@minorista.com',     'p_color': '#16A34A', 's_color': '#FFFFFF', 'ruc': '20999000111', 'addr': 'Jr. Amazonas 456, Cercado de Lima'},
+            {'name': 'Mykonos Shop',     'slug': 'mykonos-shop',     'tax': 18.00, 'email': 'admin@mykonos-shop.com',  'p_color': '#0EA5E9', 's_color': '#F8FAFC', 'ruc': '20999222333', 'addr': 'C.C. Larcomar, Miraflores'},
         ]
 
         orgs = {}
@@ -84,7 +86,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('✅ Master Seed completado.'))
 
     def _create_superuser(self):
-        admin, _ = CustomUser.objects.get_or_create(email='admin@nexus.local', defaults={
+        admin, _ = CustomUser.objects.get_or_create(email='superadmin@nexus.com', defaults={
             'first_name': 'Super',
             'last_name': 'Admin',
             'role': UserRole.ADMIN,
@@ -102,6 +104,8 @@ class Command(BaseCommand):
             'tienda-principal': {'cash_rate': 0.00, 'card_rate': 3.50, 'transfer_rate': 0.00, 'wallet_rate': 1.00},
             'nike':             {'cash_rate': 0.00, 'card_rate': 4.00, 'transfer_rate': 0.50, 'wallet_rate': 0.50},
             'adidas':           {'cash_rate': 0.00, 'card_rate': 3.50, 'transfer_rate': 0.00, 'wallet_rate': 1.00},
+            'minorista':        {'cash_rate': 0.00, 'card_rate': 4.50, 'transfer_rate': 0.50, 'wallet_rate': 1.50},
+            'mykonos-shop':     {'cash_rate': 0.00, 'card_rate': 3.00, 'transfer_rate': 0.00, 'wallet_rate': 1.00},
         }
         for slug, org in orgs.items():
             plan = fee_plans[slug]
