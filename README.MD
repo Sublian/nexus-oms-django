@@ -25,7 +25,7 @@ src/
 │   ├── api/            # DRF REST endpoints
 │   └── web/            # Django + HTMX reactive views
 │
-├── tests/              # 220+ automated tests
+├── tests/              # 390+ automated tests
 ├── templates/          # Shared templates
 ├── .github/workflows/  # CI pipeline
 ├── docker-compose.yml  # Full dev stack
@@ -71,6 +71,16 @@ pending → paid → shipped → delivered → completed → returned
 
 Supports delivery flows, store pickup, reverse logistics, payment reconciliation, and operational state transitions.
 
+### Payments & Gateway Sync
+
+Full payment lifecycle with a deterministic mock gateway (Phase A):
+
+- Methods: **CASH / CARD / TRANSFER / WALLET** with per-tenant fee configuration (`PaymentFeeConfig`); fee is snapshotted at charge time (`fee_amount`/`fee_rate`)
+- **Async confirmation** for bank transfers & Yape/Plin (`pending → approved`) via Celery beat sweep + manual confirm on dashboard/API
+- **Tenant-safe by design**: `PaymentService` manages its own tenant context, so confirmation works from Celery workers without HTTP middleware
+- **State-machine guarded**: an order is promoted to `PAID` only if the transition is valid — an approved payment can never revive a cancelled order
+- REST endpoints: `POST /orders/{id}/pay/`, `GET /orders/{id}/payment/`, `POST /orders/{id}/confirm-payment/`
+
 ### Electronic Invoicing Pipeline (SUNAT-Ready)
 
 Decoupled invoicing architecture with full auditability:
@@ -112,6 +122,7 @@ Prepared adapters: **Nubefact**, **Shopify**, **WooCommerce**, **Migo** — exte
 | Service | Responsibility |
 | :--- | :--- |
 | `OrderService` | Order workflow transitions and business rules |
+| `PaymentService` | Payment processing, fee calculation, gateway confirmation |
 | `FinanceService` | Margin, commission, and profitability calculations |
 | `DashboardKPIService` | Operational KPI aggregation per tenant |
 | `DailyInvoiceSeriesService` | Invoice analytics and chart data |
@@ -150,7 +161,7 @@ Server-side rendering with selective reactivity — no SPA overhead.
 
 ## Testing
 
-**220+ automated tests** covering:
+**390+ automated tests** covering:
 
 - Domain services and business rules
 - OMS workflow transitions
@@ -189,6 +200,7 @@ Full installation guide: [`docs/installation.md`](docs/installation.md)
 | :--- | :--- |
 | Multi-tenant architecture | ✅ Complete |
 | OMS workflows | ✅ Complete |
+| Payment registration & gateway sync | ✅ Complete |
 | Financial calculations | ✅ Complete |
 | Operational dashboard | ✅ Complete |
 | Analytics services | ✅ Complete |

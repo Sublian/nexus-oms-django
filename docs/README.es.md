@@ -69,6 +69,7 @@ Cada transición tiene validaciones de negocio, registro de eventos y potencial 
 | Servicio | Responsabilidad | Contexto de uso |
 | :--- | :--- | :--- |
 | `OrderService` | Transiciones y reglas del ciclo de vida | Toda operación sobre órdenes pasa por aquí |
+| `PaymentService` | Procesamiento de pagos, comisiones y confirmación con la pasarela | Registro de cobros y confirmación asíncrona |
 | `FinanceService` | Margen real, comisiones, rentabilidad | Desacoplado del flujo de órdenes |
 | `DashboardKPIService` | Agregación de métricas por tenant | Alimenta el dashboard operacional |
 | `DailyInvoiceSeriesService` | Series temporales de facturación | Gráficas y analytics |
@@ -81,6 +82,18 @@ Cada transición tiene validaciones de negocio, registro de eventos y potencial 
 **Adapter Pattern en integraciones:** Nubefact, Shopify, WooCommerce son adaptadores intercambiables. El dominio solo conoce la interfaz, nunca el proveedor concreto.
 
 **Mocker Pattern en tests:** los tests unitarios de servicios asíncronos no dependen de Redis ni Celery reales — se mockean completamente para garantizar determinismo.
+
+---
+
+## Registro y Sincronización de Pagos
+
+Ciclo de vida completo de cobros con una pasarela mock determinista (Fase A):
+
+- Métodos: **CASH / CARD / TRANSFER / WALLET** con configuración de comisión por tenant (`PaymentFeeConfig`); la comisión se snapshotea al cobrar (`fee_amount`/`fee_rate`)
+- **Confirmación asíncrona** para transferencias y Yape/Plin (`pending → approved`): barrido del Celery beat cada 60s + confirmación manual desde dashboard/API
+- **Seguro por tenant por diseño**: `PaymentService` gestiona su propio contexto de tenant, de modo que la confirmación funciona desde los workers de Celery sin middleware HTTP
+- **Transiciones validadas**: una orden solo pasa a `PAID` si la transición es válida — un pago aprobado jamás revive una orden cancelada
+- Endpoints REST: `POST /orders/{id}/pay/`, `GET /orders/{id}/payment/`, `POST /orders/{id}/confirm-payment/`
 
 ---
 
@@ -113,7 +126,7 @@ Este es uno de los sistemas más complejos del proyecto, diseñado para cumplir 
 | **Base de datos** | PostgreSQL | ACID, JSON fields, escalabilidad |
 | **Cola de tareas** | Celery + Redis | Probado en producción, flexible |
 | **Infraestructura** | Docker + AWS EC2 | Reproducibilidad local y cloud |
-| **Tests** | Pytest | 220+ tests, cobertura continua |
+| **Tests** | Pytest | 390+ tests, cobertura continua |
 | **CI/CD** | GitHub Actions + Codecov | Feedback inmediato en cada PR |
 
 ---
@@ -170,6 +183,7 @@ Para una guía detallada con configuración de VS Code y variables de entorno, v
 - ✅ Dashboard operacional con KPIs en tiempo real
 - ✅ Servicios de analytics y series temporales
 - ✅ Pipeline de facturación electrónica (mock SUNAT)
+- ✅ Registro de pagos y sincronización con pasarela
 - ✅ Observabilidad de colas y dead letters
 - ✅ Logging estructurado de integraciones
 - ✅ Flujos asíncronos con Celery

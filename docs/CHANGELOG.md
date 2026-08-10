@@ -1,3 +1,38 @@
+## [Unreleased] - Registro y Sincronización de Pagos (Fase A)
+
+**🎯 Cierre del ciclo de cobro: payment lifecycle + pasarela mock + confirmación asíncrona + revisión adversaria**
+
+### Added
+- `PaymentService` (`src/application/services/payment_service.py`) — procesamiento de pagos, cálculo de comisión por tenant, confirmación contra la pasarela y transición de la orden a PAID
+- `PaymentFeeConfig` por tenant — CARD 3.5% / WALLET 1% / CASH y TRANSFER 0%; snapshot de `fee_rate`/`fee_amount` al cobrar
+- Modelo `Payment` enriquecido: `approved_at`, `external_reference`, `error_message` y `status` (pending/approved/declined)
+- Interfaz `PaymentProvider` + `MockPaymentProvider` determinístico + factory `get_payment_provider(config)` (Izipay previsto para producción)
+- Tasks de sync: `sync_pending_payments_task` (beat 60s) + `sync_single_payment_task` (lock DB + idempotencia)
+- API REST: `POST /orders/{id}/pay/`, `GET /orders/{id}/payment/`, `POST /orders/{id}/confirm-payment/`
+- Web: modal de pago con tasas dinámicas + estado "pendiente de confirmación" (`pay_pending.html`)
+- Migraciones `0017` (modelo Payment) y `0018` (backfill status/approved_at/fee_rate)
+- Migración `0019_backfill_fee_amount` — corrige comisión histórica `fee_amount=0` (usa `_base_manager`, no managers custom que no sobreviven en modelos históricos)
+
+### Fixed (revisión adversaria — ADR-005)
+- **F1 (CRÍTICO)**: confirmación asíncrona fallaba en el worker de Celery sin contexto de tenant (`Order.objects.none().get()` → `DoesNotExist`, pago reintentado para siempre). `PaymentService` ahora autogestiona su contexto de tenant vía `TenantContextManager`
+- **F2 (ALTO)**: un pago aprobado de una orden cancelada la "revivía" a PAID. `_mark_order_paid` ahora exige `PAID ∈ VALID_TRANSITIONS[order.status]`; si no, loguea anomalía
+- **F3 (MEDIO-ALTO)**: dos POST concurrentes a `/pay/` producían `IntegrityError` (OneToOne) → 500. Ahora `Order.objects.select_for_update()` serializa el pago por orden
+- **F5 (BAJO)**: redondeo de comisiones con `ROUND_HALF_UP` en lugar de `ROUND_HALF_EVEN`
+
+### Tests
+- `src/tests/application/providers/test_payment_provider.py` — reglas determinísticas del mock
+- `src/tests/application/services/test_payment_service.py` — service, fees, idempotencia, transiciones
+- `src/tests/domain/tasks/test_sync_payment_tasks.py` — fan-out, idempotencia, contexto de tenant en worker
+- `src/tests/domain/migrations/test_migration_0019_backfill.py` — backfill de fee_amount
+- `src/tests/test_api_payments.py`, `src/tests/interfaces/web/test_payment_views.py` — endpoints API + web
+- Suite completa: **393 tests en verde**
+
+### Docs
+- `docs/knowledge_graph/decisions/ADR-005.md` — Payment Service as Tenant-Self-Contained, Transition-Guarded
+- `docs/knowledge_graph/domain/payments.md` — actualizado al flujo actual (confirmación asíncrona, fees por config)
+
+---
+
 ## [Unreleased] - Docker & Producción
 
 **🎯 Stack Docker Hardening + SLO para producción**

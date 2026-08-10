@@ -1,8 +1,9 @@
 # Estado actual del proyecto — Nexus OMS
 
-Snapshot técnico al 2026-06-14. Usar como contexto de arranque en nueva sesión.
+Snapshot técnico al 2026-08-09. Usar como contexto de arranque en nueva sesión.
 **FASE 2B + FASE 3 completadas. FASE 3.4A-B (Audits) completadas. FASE 3.4B-B (Recovery) completada.**
 **FASE 4A: Observability Foundation — ✅ 100% COMPLETADA — 325/325 tests en verde.**
+**FASE A: Registro y Sincronización de Pagos — ✅ COMPLETADA — 393/393 tests en verde (incluye revisión adversaria y fixes F1–F5).**
 
 ---
 
@@ -208,9 +209,51 @@ Snapshot técnico al 2026-06-14. Usar como contexto de arranque en nueva sesión
 
 ---
 
+### FASE A — Registro y Sincronización de Pagos (Semana 2026-08-09)
+
+**Implementación Completa: PaymentService + pasarela mock + sync asíncrono**
+
+**Entregable 1: Servicio centralizado de pagos**
+- `PaymentService` (`src/application/services/payment_service.py`): procesamiento, cálculo de comisión, confirmación y transición de la orden a PAID
+- `PaymentFeeConfig` por tenant (CARD 3.5%, WALLET 1%, CASH/TRANSFER 0%) — snapshot de `fee_rate`/`fee_amount` al cobrar
+- Modelo `Payment` enriquecido: `approved_at`, `external_reference`, `error_message`, `status` (pending/approved/declined)
+
+**Entregable 2: Pasarela intercambiable**
+- `PaymentProvider` (interfaz) + `MockPaymentProvider` (determinístico: CASH/CARD approved, TRANSFER/WALLET pending→approved)
+- `get_payment_provider(config)` — factory; Izipay previsto para producción
+
+**Entregable 3: Sync asíncrono**
+- `sync_pending_payments_task` (beat 60s) + `sync_single_payment_task` (lock DB + idempotencia)
+- Confirmación manual: web (dashboard) y API (`POST /orders/{id}/confirm-payment/`)
+
+**Entregable 4: Endpoints y UI**
+- API: `POST /orders/{id}/pay/`, `GET /orders/{id}/payment/`, `POST /orders/{id}/confirm-payment/`
+- Web: modal de pago con tasas dinámicas + estado "pendiente de confirmación" (`pay_pending.html`)
+- Migraciones 0017/0018 (modelo) + `seed_data` con comisiones
+
+### Revisión Adversaria (2026-08-09) — Fixes F1–F5 (ADR-005)
+
+**F1 (CRÍTICO) — Contexto de tenant en workers:** el worker de Celery corría sin contexto; `_claim_workflow_lock` hacía `Order.objects.none().get()` → `DoesNotExist` y el pago quedaba `pending` reintentándose cada 60s para siempre. El test previo pasaba solo porque el eager task corría en el mismo hilo de la fixture.
+- **Fix:** `PaymentService` envuelve `process_payment`/`confirm_payment` en `TenantContextManager(order.organization_id)` — el servicio es auto-contenido.
+
+**F2 (ALTO) — Orden cancelada "revivida":** una transferencia pendiente que aprobaba tras cancelar la orden la promovía a PAID (stock ya restaurado).
+- **Fix:** `_mark_order_paid` solo promueve a PAID si `PAID ∈ VALID_TRANSITIONS[order.status]`; si no, loguea anomalía. El payment queda `approved` (la pasarela cobró) y la orden no se modifica. Efecto extra: doble confirmación no duplica el workflow.
+
+**F3 (MEDIO-ALTO) — Race concurrente en `/pay/`:** dos POST simultáneos pasaban el chequeo de duplicados → `IntegrityError` (OneToOne) → 500.
+- **Fix:** `Order.objects.select_for_update()` dentro de la transacción + resync del objeto del caller.
+
+**F4 (MEDIO) — `fee_amount=0` histórico:** la migración 0018 no backfilleó `fee_amount` → reportes con `net_amount=amount`.
+- **Fix:** migración `0019_backfill_fee_amount` (`_base_manager`, no `all_objects` — los modelos históricos no preservan managers custom). Aplicada en dev: 13 pagos corregidos.
+
+**F5 (BAJO) — Redondeo:** `quantize` usaba `ROUND_HALF_EVEN` (banker's) → ahora `ROUND_HALF_UP`.
+
+**Tests:** +6 de regresión (contexto en task, contexto en process, no-revivir-cancelada, 3 de migración). Suite: **393/393 en verde**.
+
+**Decisión registrada:** `docs/knowledge_graph/decisions/ADR-005.md`
+
 ## Estado de tests
 
-- **325 tests** en verde (307 original + 18 nuevos FASE 4A)
+- **393 tests** en verde (387 previos + 6 nuevos de la revisión adversaria)
 - `manage.py check`: 0 issues
 
 ### Desglose por bloque
@@ -222,13 +265,19 @@ Snapshot técnico al 2026-06-14. Usar como contexto de arranque en nueva sesión
 | FASE 2B — invoice_status filtering | 8 nuevos (commit `9086ca6`) |
 | FASE 3 — invoice detail & timeline | 8 nuevos (commit `cad877a`) |
 | FASE 4A — observability foundation | 18 nuevos (commit `8598038`) |
+| FASE A — pagos (provider, service, sync, views, API) | 52 nuevos |
+| Revisión adversaria — regresión F1/F2/F4 | 6 nuevos |
 
 ---
 
 ## Archivos sin commit
 
 ```
-(ninguno — árbol limpio)
+(feature + fixes + docs pendientes de commit al cierre de sesión)
+- FASE A: src/application/providers/, src/application/services/payment_service.py,
+  src/domain/tasks/payment_tasks.py, migraciones 0017/0018/0019, templates pay_pending,
+  API/web views, tests de pagos
+- Docs: ADR-005, payments.md, README/README.es/ROADMAP/resume/CHANGELOG/SESSION_NEXT
 ```
 
 ---
@@ -261,10 +310,10 @@ Snapshot técnico al 2026-06-14. Usar como contexto de arranque en nueva sesión
 
 ## Próximos pasos recomendados
 
-1. **Validación visual**: navegar al dashboard seed y verificar links de drill-down
-2. **FASE 2B** (siguiente): Drill-down de Facturación — desde invoice_status en dashboard
-   navegar a órdenes filtradas por status (`/orders/?invoice_status=rejected`)
-3. **FASE 3**: Logs de integraciones con payload viewer (sin secretos)
+1. **Commits de cierre**: 1) `feat(payments)` con toda la Fase A + fixes, 2) `docs` (ADR-005, README, ROADMAP, CHANGELOG, resume).
+2. **Izipay (producción)**: implementar `IzipayProvider`, mapear `NotImplementedError` → 501 (`PaymentServiceError`), y añadir cola de anomalías `PaymentAnomaly` para los casos F2 (pago aprobado de orden no pagable).
+3. **Test de race determinista**: 2 POST concurrentes contra Postgres para probar el lock F3.
+4. **Normalizar deuda Fase A**: `ExternalRequestLog` (huérfano) y prefijo `[CATEGORY]` en errores.
 
 ---
 

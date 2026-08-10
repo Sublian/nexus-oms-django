@@ -91,9 +91,28 @@ Una consola de administración fluida donde el usuario gestiona el ciclo de vida
 
 ---
 
+## Hito 7: Registro y Sincronización de Pagos 💳 (COMPLETADO ✅)
+
+**Objetivo**: Cerrar el ciclo de cobro de una orden: registrar el pago, aplicar comisiones por método, confirmar transferencias/billeteras de forma asíncrona y reconciliar el estado de la orden.
+
+- [x] `PaymentService` centralizado: cálculo de comisión por tenant (`PaymentFeeConfig`), snapshot `fee_rate`/`fee_amount` y transición de la orden.
+- [x] Pasarela **mock determinista** (CASH/CARD → approved, TRANSFER/WALLET → pending→approved) con proveedor intercambiable (`factory` → Izipay en producción).
+- [x] Confirmación asíncrona: `sync_pending_payments_task` (beat 60s) + `sync_single_payment_task` con lock DB e idempotencia.
+- [x] API REST: `POST /orders/{id}/pay/`, `GET /orders/{id}/payment/`, `POST /orders/{id}/confirm-payment/`.
+- [x] UI web: modal de pago con tasas dinámicas y estado "pendiente de confirmación" (`pay_pending.html`).
+- [x] Blindaje de revisión adversaria: contexto de tenant auto-gestionado en el servicio (worker sin middleware), guardia de transición (no revive órdenes canceladas), lock `select_for_update` anti-race y backfill de comisiones históricas (migración 0019).
+- [x] 6 tests de regresión nuevos + suite completa en verde (393 tests).
+
+---
+
 ## Notas de Versión
 
-### v0.40 - "The ERP Experience" (Actual)
+### v0.50 - "Payments & Gateway Sync" (Actual)
+- **PaymentService**: registro de cobros con comisiones por método/tenant y confirmación contra la pasarela.
+- **Sync Asíncrono**: transferencias y Yape/Plin se confirman vía Celery beat + dashboard.
+- **Revisión Adversaria**: fixes de contexto de tenant en workers, guardia de transición a PAID y serialización de pagos concurrentes (ADR-005).
+
+### v0.40 - "The ERP Experience"
 - **UI Architecture**: Transición a un layout profesional de tres capas (Navbar, Sidebar, Content).
 - **HTMX Integration**: Implementación de carga parcial de componentes y gestión de modales para el flujo de órdenes.
 - **Data Integrity**: Refuerzo del borrado lógico en la capa visual para cumplir con estándares de auditoría.

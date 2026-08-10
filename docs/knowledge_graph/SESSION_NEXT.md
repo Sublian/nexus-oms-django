@@ -1,56 +1,51 @@
 # 🕒 Hilo Operativo de Continuidad - Próxima Sesión
 
-## 📍 Estado de Salida (Cierre de S2.1 Conceptual)
+## 📍 Estado de Salida (Cierre 2026-08-09 — Fase A Pagos)
 
-- **Último Commit:** `8ace9f0` (S2.1 Security Glossary - Lenguaje ubicuo aprobado).
-- **Nodo Agregado:** `architecture/security_glossary.md` (7 términos, 3 invariantes).
-- **Estructura del Grafo:** 23 nodos activos, 0 links rotos. Gobernanza robusta y congelada.
-- **Fecha de Cierre:** 2026-06-28
+- **Último Commit:** (por definir — Fase A + revisión adversaria sin commit aún)
+- **Fase A Pagos:** ✅ COMPLETADA — PaymentService + pasarela mock + sync asíncrono + API/web + 393/393 tests.
+- **Revisión Adversaria:** ✅ 5 fixes (F1–F5) registrados en `decisions/ADR-005.md`.
+- **Migración aplicada en dev:** `0019_backfill_fee_amount` (13 pagos corregidos).
+- **Estado del grafo:** nodos activos de dominio actualizados (`domain/payments.md`), ADR-005 agregado.
 
-## 🚀 Próximo Paso Técnico Inmediato: Implementación en Capa de Aplicación
-
-El foco sale del Grafo y entra 100% al código del backend en Django/DRF siguiendo el roadmap de seguridad.
+## 🚀 Próximo Paso Técnico Inmediato: Izipay (Producción)
 
 ### 🛠️ Tareas en la Terminal:
 
-1. **Crear el manejador de contexto seguro:** 
-   Implementar `ContextVar` en `apps/core/security/context.py`.
+1. **Implementar `IzipayProvider`** (`src/application/providers/izipay_provider.py`):
+   - Implementar `process_payment` / `get_payment_status` contra la pasarela real.
+   - Mapear `NotImplementedError` actual → `PaymentServiceError` con `http_status=501`.
 
-2. **Construir el Middleware Multi-Tenant:** 
-   Crear `TenantSecurityMiddleware` en `apps/core/security/middleware.py` para leer `request.user.organization_id` de `custom_users`.
+2. **Cola de anomalías de pago:**
+   - Crear modelo `PaymentAnomaly` para los casos F2 (pago aprobado de orden no pagable) — hoy es log-only.
+   - Widget en dashboard operacional para revisión manual.
 
-3. **Desarrollar el Base Manager:** 
-   Implementar `BaseTenantManager(models.Manager)` para inyectar automáticamente el filtro `organization_id` en las consultas de Django ORM.
+3. **Test de race determinista (F3):**
+   - Dos POST concurrentes a `/pay/` contra Postgres para probar `select_for_update`.
 
-4. **Validación de Calidad:** 
-   Escribir fixtures en Pytest para simular el contexto de organización y asegurar que la cobertura no baje del **84%**.
+4. **Validación de Calidad:**
+   - Mantener suite en verde y cobertura ≥ 83%.
 
 ## ⚠️ Restricciones del Arquitecto a Recordar:
 
-- **NO reabrir decisiones:** El stack (Django, DRF, PostgreSQL) y las invariantes (1 Usuario : 1 Organización, 3 Roles: SuperAdmin, Administrador, Operador) son contratos cerrados.
-- **NO RLS todavía:** El diseño de Row Level Security en PostgreSQL permanece fuera de este ciclo hasta que la capa de aplicación esté probada.
-- **Crecimiento Horizontal:** Mantener la regla del 80/20 (Foco en el comportamiento del negocio).
+- **NO reabrir decisiones:** Stack (Django, DRF, PostgreSQL) e invariantes (TenantManager fail-safe, OneToOne Payment↔Order, transiciones de estado) son contratos cerrados.
+- **Contexto de tenant:** todo servicio que muta datos tenant debe autogestionar contexto (`TenantContextManager`) — nunca depender del middleware (lección F1).
+- **Transiciones:** ningún código puede setear `PAID` sin pasar por `VALID_TRANSITIONS` (lección F2).
+- **Backfills en migraciones:** usar `_base_manager`, nunca managers custom (`all_objects`) que no sobreviven en modelos históricos (lección F4).
 
 ## 📋 Checkpoint Grafo:
 
-Git trajectory (post-session):
+Git trajectory (post-session, pendiente de commit):
 ```
-8ace9f0 — S2.1 Security Glossary
-b5ebb2e — S2.0C Tenant Classification
-4d887f4 — Pilot node domain-usuarios
-bafa945 — S2.0B Governance
-ca069de — S2.0 Foundation
-fc8c9ae — S1 patch tests
+feat(payments): Fase A — registro y sincronización de pagos
+docs: ADR-005, README, ROADMAP, CHANGELOG, resume
 ```
 
 Grafo operacional:
-- 23 nodos activos
-- 11 directorios dominio
-- ~1730 líneas
-- 0 links rotos
-- Gobernanza S2.0B: ACTIVE
-- Workflow: ESTABLISHED
+- `decisions/ADR-005.md` — ACTIVE (dueño: Operator; revisión: al implementar Izipay)
+- `domain/payments.md` — ACTIVE (actualizado al flujo actual)
+- Hilo: S2.1 → Fase A Pagos → siguiente: Izipay
 
 ## 📌 Recordatorio Final:
 
-Sesión operativa (ESTA sesión) termina aquí. Próxima sesión = código backend (apps/core/security/).
+Sesión operativa (ESTA sesión) termina aquí. Próxima sesión = implementación del proveedor Izipay de producción.
