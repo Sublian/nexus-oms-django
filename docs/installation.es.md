@@ -63,7 +63,7 @@ El comando `seed_data` genera automáticamente un entorno operacional completo. 
 | Campo | Valor |
 | :--- | :--- |
 | Email | `superadmin@nexus.com` |
-| Password | `admin123` |
+| Password | `nexus_super1234` |
 
 ### Organizaciones Demo (Tenants)
 

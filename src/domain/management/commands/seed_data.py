@@ -28,9 +28,9 @@ class Command(BaseCommand):
 
         self._create_superuser()
         org_configs = [
-            {'name': 'Tienda Principal', 'slug': 'tienda-principal', 'tax': 18.00, 'email': 'admin@main.com',          'p_color': '#4F46E5', 's_color': '#F8FAFC', 'ruc': '20123456789', 'addr': 'Av. Larco 123, Miraflores'},
-            {'name': 'Nike',             'slug': 'nike',             'tax': 15.00, 'email': 'vende@nike.com',          'p_color': '#000000', 's_color': '#FFFFFF', 'ruc': '20555666777', 'addr': 'Jockey Plaza, Surco'},
-            {'name': 'Adidas',           'slug': 'adidas',           'tax': 15.00, 'email': 'ventas@adidas.com',       'p_color': '#0070AC', 's_color': '#FFFFFF', 'ruc': '20666777888', 'addr': 'Kennedy, Miraflores'},
+            {'name': 'Tienda Principal', 'slug': 'tienda-principal', 'tax': 18.00, 'email': 'admin@tienda-principal.com', 'p_color': '#4F46E5', 's_color': '#F8FAFC', 'ruc': '20123456789', 'addr': 'Av. Larco 123, Miraflores'},
+            {'name': 'Nike',             'slug': 'nike',             'tax': 15.00, 'email': 'admin@nike.com',            'p_color': '#000000', 's_color': '#FFFFFF', 'ruc': '20555666777', 'addr': 'Jockey Plaza, Surco'},
+            {'name': 'Adidas',           'slug': 'adidas',           'tax': 15.00, 'email': 'admin@adidas.com',          'p_color': '#0070AC', 's_color': '#FFFFFF', 'ruc': '20666777888', 'addr': 'Kennedy, Miraflores'},
             {'name': 'Minorista',        'slug': 'minorista',        'tax': 18.00, 'email': 'admin@minorista.com',     'p_color': '#16A34A', 's_color': '#FFFFFF', 'ruc': '20999000111', 'addr': 'Jr. Amazonas 456, Cercado de Lima'},
             {'name': 'Mykonos Shop',     'slug': 'mykonos-shop',     'tax': 18.00, 'email': 'admin@mykonos-shop.com',  'p_color': '#0EA5E9', 's_color': '#F8FAFC', 'ruc': '20999222333', 'addr': 'C.C. Larcomar, Miraflores'},
         ]
@@ -68,7 +68,7 @@ class Command(BaseCommand):
             user.role = UserRole.ADMIN
             user.is_staff = True
             user.is_superuser = True
-            user.set_password('admin123')
+            user.set_password('nexus1234')
             user.save()
 
         # ─── PASO 1: Configuración de tarifas de pago por tenant ───
@@ -96,7 +96,7 @@ class Command(BaseCommand):
         admin.role = UserRole.ADMIN
         admin.is_staff = True
         admin.is_superuser = True
-        admin.set_password('admin123')
+        admin.set_password('nexus_super1234')
         admin.save()
 
     def _seed_payment_fee_configs(self, orgs):
