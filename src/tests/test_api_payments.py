@@ -73,7 +73,7 @@ class TestOrderPayAPI:
         url = reverse('order-pay', kwargs={'pk': pending_order.pk})
         auth_api_client.post(url, {'method': 'CASH'}, format='json')
 
-        response = auth_api_client.post(url, {'method': 'CARD'}, format='json')
+        response = auth_api_client.post(url, {'method': 'CARD', 'reference': 'TXN-DUP'}, format='json')
         assert response.status_code == status.HTTP_409_CONFLICT
 
     def test_pay_not_allowed_from_paid(self, auth_api_client, pending_order):

@@ -46,7 +46,7 @@
         <form hx-post="{% url 'web:order_pay' tenant.slug order.id %}"
               hx-target="#modals-here"
               hx-swap="outerHTML"
-              @submit="validateAndSubmit($event)">
+              @htmx:confirm="validateAndSubmit($event)">
             {% csrf_token %}
             <input type="hidden" name="method" :value="method">
             <input type="hidden" name="fee_amount" :value="fee">

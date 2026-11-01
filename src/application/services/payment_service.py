@@ -67,6 +67,13 @@ class PaymentService:
                 code='invalid_method',
             )
 
+        reference = (reference or '').strip()
+        if method != Payment.PaymentMethod.CASH and not reference:
+            raise PaymentServiceError(
+                'La referencia es obligatoria para este método de pago.',
+                code='missing_reference',
+            )
+
         # F1: tareas/scripts no pasan por el middleware → el contexto de tenant
         # se autogestiona desde la orden. Sin esto, Payment/Order.objects
         # devuelven .none() (fail-safe) y el flujo rompe silenciosamente.
@@ -98,7 +105,7 @@ class PaymentService:
                 amount=locked.total_amount,
                 fee_rate=fee_rate,
                 fee_amount=fee,
-                transaction_reference=(reference or '').strip() or None,
+                transaction_reference=reference or None,
                 status=Payment.Status.PENDING,
             )
 

@@ -50,7 +50,7 @@ class TestPaymentService:
         config.card_rate = 5.00
         config.save()
 
-        payment, _ = PaymentService().process_payment(pending_order, 'CARD')
+        payment, _ = PaymentService().process_payment(pending_order, 'CARD', 'TXN-CUSTOM-FEE')
         assert payment.fee_amount == Decimal('5.90')       # 118 * 5%
 
     def test_wallet_fee_applied(self, pending_order, organization):
@@ -100,7 +100,7 @@ class TestPaymentService:
         PaymentService().process_payment(pending_order, 'CASH')
 
         with pytest.raises(PaymentAlreadyExistsError):
-            PaymentService().process_payment(pending_order, 'CARD')
+            PaymentService().process_payment(pending_order, 'CARD', 'TXN-DUP')
 
     def test_transition_not_allowed_from_draft(self, pending_order, organization):
         pending_order.status = OrderStatus.DRAFT
@@ -112,6 +112,15 @@ class TestPaymentService:
     def test_invalid_method_rejected(self, pending_order, organization):
         with pytest.raises(PaymentServiceError):
             PaymentService().process_payment(pending_order, 'BITCOIN')
+
+    def test_missing_reference_rejected_for_non_cash(self, pending_order, organization):
+        with pytest.raises(PaymentServiceError) as exc:
+            PaymentService().process_payment(pending_order, 'CARD')
+
+        assert exc.value.code == 'missing_reference'
+        pending_order.refresh_from_db()
+        assert pending_order.status == OrderStatus.PENDING
+        assert not hasattr(pending_order, 'payment')
 
     def test_process_payment_works_without_tenant_context(self, pending_order, organization):
         """REGRESIÓN F1: process_payment debe autogestionar el contexto de tenant.

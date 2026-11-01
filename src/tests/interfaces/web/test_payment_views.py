@@ -65,6 +65,16 @@ class TestPayModalWeb:
         assert payment.status == Payment.Status.APPROVED
         assert payment.fee_amount == Decimal('0.00')
 
+    def test_pay_card_without_reference_is_rejected(self, logged_in_client, organization, pending_order):
+        url = _pay_url(organization, pending_order)
+        response = logged_in_client.post(url, {'method': 'CARD'})
+
+        assert response.status_code == 400
+        assert 'referencia' in response.content.decode().lower()
+        pending_order.refresh_from_db()
+        assert pending_order.status == OrderStatus.PENDING
+        assert not hasattr(pending_order, 'payment')
+
     def test_pay_card_approved_with_fee(self, logged_in_client, organization, pending_order):
         url = _pay_url(organization, pending_order)
         response = logged_in_client.post(url, {'method': 'CARD', 'reference': 'TXN-001'})
