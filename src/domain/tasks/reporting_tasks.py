@@ -17,6 +17,7 @@ from django.template.loader import render_to_string
 from django.core.files.base import ContentFile
 
 from src.domain.notifications.service import NotificationService
+from src.infrastructure.multitenancy.context import TenantContextManager
 
 from ..models import Order, SalesReport, Organization
 
@@ -184,39 +185,48 @@ def monto_a_letras(monto):
 @shared_task(bind=True, max_retries=3)
 def generate_order_pdf_task(self, order_id):
     try:
-        # CORRECCIÓN: Eliminamos 'customer' del select_related ya que no es un modelo aparte
-        order = Order.objects.select_related('organization').prefetch_related('items__product').get(id=order_id)
-        
-        # 1. Preparar cadena para QR usando los campos reales del modelo Order
-        # Estructura: RUC | Tipo | Serie | Numero | IGV | Total | Fecha | TipoDocCli | NumDocCli
-        # Nota: Si no tienes series/number aún, usamos el ID como fallback
-        serie = getattr(order, 'series', 'B001')
-        numero = getattr(order, 'number', order.id)
-        ruc_cliente = "00000000" # O crear el campo customer_document en el modelo más adelante
-        
-        qr_string = (
-            f"{order.organization.ruc}|03|{serie}|{numero}|"
-            f"{order.tax_amount:.2f}|{order.total_amount:.2f}|"
-            f"{order.created_at.date()}|1|{ruc_cliente}"
-        )
-        
-        # 2. Renderizar con el QR en base64 y datos reales
-        html_string = render_to_string('reports/order_pdf.html', {
-            'order': order,
-            'qr_code': get_qr_base64(qr_string),
-            'total_in_words': monto_a_letras(order.total_amount), # La función que definimos antes
-            'current_time': timezone.now(),
-        })
+        # El worker corre sin middleware: obtenemos el tenant con all_objects y
+        # abrimos el contexto explícitamente (misma lección F1 de pagos).
+        org_id = Order.all_objects.values_list('organization_id', flat=True).get(id=order_id)
 
-        # 3. Generar el PDF en memoria
-        pdf_file = HTML(string=html_string).write_pdf()
+        with TenantContextManager(org_id):
+            order = (
+                Order.objects
+                .select_related('organization')
+                .prefetch_related('items__product')
+                .get(id=order_id)
+            )
 
-        # 4. Guardar el archivo físicamente
-        filename = f"order_{order.id}_{order.organization.slug}.pdf"
-        order.pdf_report.save(filename, ContentFile(pdf_file), save=True)
+            # 1. Preparar cadena para QR usando los campos reales del modelo Order
+            # Estructura: RUC | Tipo | Serie | Numero | IGV | Total | Fecha | TipoDocCli | NumDocCli
+            # Nota: Si no tienes series/number aún, usamos el ID como fallback
+            serie = getattr(order, 'series', 'B001')
+            numero = getattr(order, 'number', order.id)
+            ruc_cliente = "00000000"  # O crear el campo customer_document en el modelo más adelante
+
+            qr_string = (
+                f"{order.organization.ruc}|03|{serie}|{numero}|"
+                f"{order.tax_amount:.2f}|{order.total_amount:.2f}|"
+                f"{order.created_at.date()}|1|{ruc_cliente}"
+            )
+
+            # 2. Renderizar con el QR en base64 y datos reales
+            html_string = render_to_string('reports/order_pdf.html', {
+                'order': order,
+                'qr_code': get_qr_base64(qr_string),
+                'total_in_words': monto_a_letras(order.total_amount),
+                'current_time': timezone.now(),
+            })
+
+            # 3. Generar el PDF en memoria
+            pdf_file = HTML(string=html_string).write_pdf()
+
+            # 4. Guardar el archivo físicamente
+            filename = f"order_{order.id}_{order.organization.slug}.pdf"
+            order.pdf_report.save(filename, ContentFile(pdf_file), save=True)
 
         return f"PDF para Orden {order_id} generado correctamente."
-        
+
     except Order.DoesNotExist:
         return f"Error: Orden {order_id} no encontrada."
     except Exception as exc:

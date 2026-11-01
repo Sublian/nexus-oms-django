@@ -40,6 +40,23 @@ def test_order_pdf_generation_full_flow(organization, product):
 
 
 @pytest.mark.django_db
+def test_order_pdf_generation_without_tenant_context(organization, product):
+    """El worker de Celery no tiene middleware: la tarea debe abrir su propio contexto."""
+    from src.infrastructure.multitenancy.context import clear_current_organization
+
+    order = Order.objects.create(organization=organization, customer_name="Worker PDF", total_amount=Decimal('99.90'))
+    OrderItem.objects.create(order=order, product=product, quantity=1, price_at_order=Decimal('99.90'), organization=organization)
+
+    clear_current_organization()
+
+    result = generate_order_pdf_task(order.id)
+
+    order.refresh_from_db()
+    assert order.pdf_report.name
+    assert "PDF para Orden" in result
+
+
+@pytest.mark.django_db
 def test_trigger_periodic_reports(organization):
     # Esto ejecutará el .iterator() sobre todas las Orgs
     # No necesitamos verificar el envío de mail, solo que el loop corra
