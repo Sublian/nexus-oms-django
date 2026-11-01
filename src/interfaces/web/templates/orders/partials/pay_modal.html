@@ -3,7 +3,7 @@
         method: 'CASH',
         fee: 0,
         total: {{ order.total_amount }},
-        fees: {{ fees_json|safe }},
+        fees: {{ fees_json }},
         get net() { return (this.total - this.fee).toFixed(2) },
         get rate() { return this.fees[this.method] || 0 },
         setMethod(m) {

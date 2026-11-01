@@ -534,6 +534,8 @@ def order_pay_modal_view(request, org_slug, order_id):
                 )
 
         method = request.POST.get('method', '').strip()
+        if not method:
+            return HttpResponse('Selecciona un método de pago.', status=400)
         reference = request.POST.get('reference', '').strip() or None
 
         try:

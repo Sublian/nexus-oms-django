@@ -6,7 +6,7 @@
     <title>{% block title %}Nexus OMS{% endblock %} - {{ tenant.name }}</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="https://unpkg.com/htmx.org@2"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     
     <script>
@@ -66,6 +66,13 @@
         document.body.addEventListener('htmx:afterSwap', (e) => {
             if (e.detail.target.id === "modals-here" && e.detail.xhr.status === 204) {
                 document.getElementById("modals-here").innerHTML = "";
+            }
+        });
+
+        // Puente Alpine↔HTMX: inicializar el DOM inyectado por HTMX (modals con x-data)
+        document.body.addEventListener('htmx:afterSwap', (e) => {
+            if (window.Alpine && e.detail?.target) {
+                Alpine.initTree(e.detail.target);
             }
         });
     </script>

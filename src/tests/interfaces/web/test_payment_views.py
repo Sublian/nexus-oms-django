@@ -36,6 +36,24 @@ class TestPayModalWeb:
         assert 'fees' in content
         assert '3.5' in content          # tasa CARD del config por defecto
 
+    def test_pay_modal_escapes_fees_json_for_alpine(self, logged_in_client, organization, pending_order):
+        response = logged_in_client.get(_pay_url(organization, pending_order))
+        content = response.content.decode()
+
+        # El JSON vive dentro de un atributo x-data="..." — debe ir escapado o
+        # las comillas dobles cortan el atributo y Alpine no evalúa el componente.
+        assert 'fees: {&quot;' in content
+        assert 'fees: {"' not in content
+
+    def test_pay_without_method_returns_clear_message(self, logged_in_client, organization, pending_order):
+        url = _pay_url(organization, pending_order)
+        response = logged_in_client.post(url, {'method': ''})
+
+        assert response.status_code == 400
+        assert 'Selecciona un método de pago.' in response.content.decode()
+        pending_order.refresh_from_db()
+        assert pending_order.status == OrderStatus.PENDING
+
     def test_pay_cash_marks_order_paid(self, logged_in_client, organization, pending_order):
         url = _pay_url(organization, pending_order)
         response = logged_in_client.post(url, {'method': 'CASH'})
