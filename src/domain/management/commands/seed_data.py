@@ -220,6 +220,7 @@ class Command(BaseCommand):
             with TenantContextManager(org.id):
                 order = Order.objects.create(
                     organization=org,
+                    client=client,
                     customer_name=client.name,
                     customer_email=client.email,
                     status=status,
