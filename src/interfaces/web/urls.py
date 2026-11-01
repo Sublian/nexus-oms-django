@@ -12,6 +12,7 @@ from .views import (
     exchange_history_view,
     order_detail_partial,
     trigger_pdf_generation,
+    order_pdf_status,
     organization_settings,
     settings_notifications_partial,
     settings_company_partial,
@@ -49,6 +50,7 @@ urlpatterns = [
     path('', _ta(dashboard_home), name='dashboard_home'),
     path('orders/<int:order_id>/', _ta(order_detail_partial), name='order_detail'),
     path('orders/<int:order_id>/generate-pdf/', _ta(trigger_pdf_generation), name='generate_order_pdf'),
+    path('orders/<int:order_id>/pdf-status/', _ta(order_pdf_status), name='order_pdf_status'),
 
     # --- Configuración ---
     path('settings/', _ta(organization_settings), name='org_settings'),

@@ -560,3 +560,96 @@ class TestOrderWebViews:
         assert order.nota == ''  # No nota needed
         # Recalculated: 1 item (qty=5, price=10) = 50 total_with_tax
         assert order.total_amount == Decimal('50.00')
+
+
+@pytest.mark.django_db
+class TestOrderPdfFlow:
+    def test_generate_pdf_dispatches_task_and_polls(self, logged_in_client, organization, monkeypatch):
+        from src.interfaces.web import views
+
+        order = Order.objects.create(organization=organization, customer_name="PDF Flow")
+        calls = []
+        monkeypatch.setattr(views.generate_order_pdf_task, 'delay', lambda order_id: calls.append(order_id))
+
+        url = reverse('web:generate_order_pdf', kwargs={
+            'org_slug': organization.slug,
+            'order_id': order.id,
+        })
+        response = logged_in_client.post(url)
+
+        assert response.status_code == 200
+        assert calls == [order.id]
+
+        body = response.content.decode()
+        status_url = reverse('web:order_pdf_status', kwargs={
+            'org_slug': organization.slug,
+            'order_id': order.id,
+        })
+        assert 'Sincronizando Archivo' in body
+        assert status_url in body
+        assert 'attempt=1' in body
+
+    def test_generate_pdf_reuses_existing_file(self, logged_in_client, organization, monkeypatch):
+        from src.interfaces.web import views
+
+        order = Order.objects.create(organization=organization, customer_name="PDF Ready")
+        order.pdf_report.name = 'orders/pdfs/order_ready.pdf'
+        order.save(update_fields=['pdf_report'])
+
+        calls = []
+        monkeypatch.setattr(views.generate_order_pdf_task, 'delay', lambda order_id: calls.append(order_id))
+
+        url = reverse('web:generate_order_pdf', kwargs={
+            'org_slug': organization.slug,
+            'order_id': order.id,
+        })
+        response = logged_in_client.post(url)
+
+        assert response.status_code == 200
+        assert calls == []
+        assert 'Descargar Comprobante PDF' in response.content.decode()
+
+    def test_pdf_status_pending_keeps_polling(self, logged_in_client, organization):
+        order = Order.objects.create(organization=organization, customer_name="PDF Pending")
+
+        url = reverse('web:order_pdf_status', kwargs={
+            'org_slug': organization.slug,
+            'order_id': order.id,
+        }) + '?attempt=3'
+        response = logged_in_client.get(url)
+
+        assert response.status_code == 200
+        body = response.content.decode()
+        assert 'Sincronizando Archivo' in body
+        assert 'attempt=4' in body
+
+    def test_pdf_status_ready_returns_download_link(self, logged_in_client, organization):
+        order = Order.objects.create(organization=organization, customer_name="PDF Done")
+        order.pdf_report.name = 'orders/pdfs/order_done.pdf'
+        order.save(update_fields=['pdf_report'])
+
+        url = reverse('web:order_pdf_status', kwargs={
+            'org_slug': organization.slug,
+            'order_id': order.id,
+        })
+        response = logged_in_client.get(url)
+
+        assert response.status_code == 200
+        body = response.content.decode()
+        assert 'Descargar Comprobante PDF' in body
+        assert order.pdf_report.url in body
+        assert 'Sincronizando Archivo' not in body
+
+    def test_pdf_status_stops_polling_after_max_attempts(self, logged_in_client, organization):
+        order = Order.objects.create(organization=organization, customer_name="PDF Timeout")
+
+        url = reverse('web:order_pdf_status', kwargs={
+            'org_slug': organization.slug,
+            'order_id': order.id,
+        }) + '?attempt=15'
+        response = logged_in_client.get(url)
+
+        assert response.status_code == 200
+        body = response.content.decode()
+        assert 'Generar PDF Oficial' in body
+        assert 'Sincronizando Archivo' not in body

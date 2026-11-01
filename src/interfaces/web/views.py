@@ -179,28 +179,40 @@ def order_detail_partial(request, org_slug, order_id):
     })
 
 def trigger_pdf_generation(request, org_slug, order_id):
-    order = get_object_or_404(Order, id=order_id, organization__slug=org_slug)
+    order = get_object_or_404(Order, id=order_id, organization=request.organization)
+
+    if order.pdf_report:
+        return render(request, 'partials/pdf_action.html', {
+            'order': order,
+            'pending': False,
+            'next_attempt': 0,
+        })
+
     generate_order_pdf_task.delay(order.id)
-    
-    # Respuesta con estética de "botón en proceso"
-    return HttpResponse(f'''
-        <div hx-get="/dashboard/{org_slug}/orders/{order_id}/" 
-             hx-trigger="load delay:3s" 
-             hx-target="#order-modal" 
-             hx-select="#order-modal"
-             class="w-full py-4 bg-gray-900 text-tenant-secondary rounded-xl font-black flex items-center justify-center gap-3 uppercase text-xs tracking-[0.1em] animate-pulse">
-            
-            <svg class="animate-spin h-4 w-4 text-tenant-secondary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            
-            <span>Sincronizando Archivo...</span>
-        </div>
-        <p class="text-[9px] text-center text-gray-400 mt-2 font-bold tracking-tighter uppercase opacity-60">
-            La tarea se ha delegado al worker de reporting
-        </p>
-    ''')
+
+    return render(request, 'partials/pdf_action.html', {
+        'order': order,
+        'pending': True,
+        'next_attempt': 1,
+    })
+
+
+def order_pdf_status(request, org_slug, order_id):
+    order = get_object_or_404(Order, id=order_id, organization=request.organization)
+
+    try:
+        attempt = int(request.GET.get('attempt', 0))
+    except (TypeError, ValueError):
+        attempt = 0
+
+    max_attempts = 15
+    pending = not order.pdf_report and attempt < max_attempts
+
+    return render(request, 'partials/pdf_action.html', {
+        'order': order,
+        'pending': pending,
+        'next_attempt': attempt + 1,
+    })
 
 
 def validate_identity_partial(request, org_slug):

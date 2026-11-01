@@ -50,8 +50,53 @@ sí solo no resolvía este caso.
 - [x] Defensa backend + test
 - [x] Fix de escapado del JSON + test de regresión
 - [x] Suite completa y E2E en verde
-- [ ] Commit de cierre (cambios aún sin commitear)
+- [x] Commit de cierre (`df0daad`)
 
 ### Notas
 - `.vscode/settings.json` está modificado pero es ajeno a este fix (tema/entorno).
 - `docs/opencode_alcances.md` quedó como documento nuevo sin relación con el fix.
+
+---
+
+# Fix PDF de orden — creación y visualización
+
+Fecha: 2026-11-01
+
+## Contexto
+El botón "Generar PDF Oficial" mostraba el spinner y nunca devolvía el enlace de
+descarga. El worker registraba `'Error: Orden <id> no encontrada.'`.
+
+## Causa raíz
+1. **Contexto de tenant en el worker**: `generate_order_pdf_task` usaba
+   `Order.objects` (filtrado por `TenantManager`) sin contexto de organización.
+   El worker de Celery no pasa por el middleware, por lo que el manager devolvía
+   vacío y la tarea terminaba en `Order.DoesNotExist`.
+2. **Worker con código viejo**: aunque el fix ya estaba en el código, el proceso
+   Celery seguía ejecutando el módulo importado antes del cambio. En desarrollo
+   hace falta `docker compose restart worker` (o `--build`) tras tocar tareas.
+3. **Polling frágil**: el spinner recargaba todo el modal una sola vez a los 3 s.
+   Si el PDF aún no estaba listo, volvía al botón inicial y parecía un fallo.
+
+## Cambios aplicados
+- `domain/tasks/reporting_tasks.py`: obtiene `organization_id` con
+  `Order.all_objects` y envuelve la generación en `TenantContextManager`.
+- `interfaces/web/views.py`:
+  - `trigger_pdf_generation` reutiliza el PDF existente o encola la tarea.
+  - Nuevo `order_pdf_status` para polling ligero (hasta 15 intentos cada 2 s).
+- `interfaces/web/urls.py`: ruta `orders/<id>/pdf-status/`.
+- `templates/partials/pdf_action.html`: estado único (descargar / spinner /
+  generar) reutilizado por el modal y por el polling.
+- Tests: `TestOrderPdfFlow` (dispatch, reutilización, polling, timeout) y
+  `test_order_pdf_generation_without_tenant_context`.
+
+## Verificación (2026-11-01)
+- Worker reiniciado; tarea real para orden 301 (adidas) → PDF generado.
+- `GET /media/orders/pdfs/...pdf` → `200 application/pdf` (15 KB).
+- E2E Chrome headless con orden 271: clic en "Generar PDF Oficial" →
+  "Descargar Comprobante PDF" → descarga `200 application/pdf`.
+- Suite completa → **398 passed**; `manage.py check` → 0 issues.
+
+## Pendiente detectado (fuera de este fix)
+- `create_invoice_task` (`domain/tasks/invoice_tasks.py`) también usa
+  `Order.objects` sin contexto de tenant y registra `ORDER_NOT_FOUND` en el
+  worker. Requiere el mismo tratamiento con `TenantContextManager`.
